@@ -7,6 +7,9 @@ project(LibNat20 VERSION 0.0.1)
 # The test can be run with `make test` or `ctest`.
 option(NAT20_WITH_TESTS "Build the test suite." OFF)
 
+# The C standard shall be C11.
+set(CMAKE_C_STANDARD 11)
+
 # CMake shall generate a compile_commands.json file for
 # the benfit of clangd based IDE support.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -15,9 +18,44 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # The following section defines all the groups of source files.
 # All files must be specified explicitely; no globbing or other generation is allowed.
 
+set(LIBNAT20_SOURCES
+    # Add the core library source files here.
+    src/asn1.c
+)
+
+set(LIBNAT20_PUB_HEADERS
+    # Add the public headers here.
+    # These files will be included in the generation of the API documentation.
+    include/nat20/asn1.h
+)
+
 set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
     test/test.cpp
+    test/asn1.cpp
+)
+
+###################################################################################################
+
+###################################################################################################
+# The nat20 libarary is the core product of this project.
+# It will always be compiled.
+add_library(nat20 STATIC)
+
+target_sources(nat20
+    PRIVATE ${LIBNAT20_SOURCES}
+    INTERFACE ${LIBNAT20_PUB_HEADERS}
+)
+
+target_compile_options(nat20
+    PRIVATE -pedantic
+    PRIVATE -Wall
+    PRIVATE -Wextra
+    PRIVATE -Werror
+)
+
+target_include_directories(nat20
+    PUBLIC include
 )
 
 ###################################################################################################
@@ -50,7 +88,7 @@ if (NAT20_WITH_TESTS)
     target_sources(nat20test
         PRIVATE ${LIBNAT20_TEST_SOURCES}
     )
-    target_link_libraries(nat20test gtest_main crypto)
+    target_link_libraries(nat20test gtest_main nat20 crypto)
     add_test(NAME nat20_test COMMAND nat20test)
 
 endif() # NAT20_WITH_TESTS
