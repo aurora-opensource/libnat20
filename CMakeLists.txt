@@ -26,12 +26,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(LIBNAT20_SOURCES
     # Add the core library source files here.
     src/asn1.c
+    src/x509.c
 )
 
 set(LIBNAT20_PUB_HEADERS
     # Add the public headers here.
     # These files will be included in the generation of the API documentation.
     include/nat20/asn1.h
+    include/nat20/x509.h
 )
 
 set(LIBNAT20_TEST_SOURCES
