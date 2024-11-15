@@ -79,6 +79,7 @@ The following rules take precedence of the Google C++ Style Guide.
 7. All macro names that are part of the public API have the prefix `N20_`.
 8. All type definitions follow the symbol rules and have the suffix `_t`.
 9. All enum variants follow the symbol rules and have the suffix `_e`.
+10. All struct and enum names follow the symbol rules and have the suffix `_s`.
 
 #### The test suite
 
