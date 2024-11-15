@@ -7,6 +7,11 @@ project(LibNat20 VERSION 0.0.1)
 # The test can be run with `make test` or `ctest`.
 option(NAT20_WITH_TESTS "Build the test suite." OFF)
 
+# Enable the libnat20 test suite by specifying
+# -DNAT20_WITH_TESTS=ON on the `cmake --build` command line.
+# Build the docs by building the target `make nat20_docs`.
+option(NAT20_WITH_DOCS "Create the documentation target." OFF)
+
 # The C standard shall be C11.
 set(CMAKE_C_STANDARD 11)
 
@@ -94,3 +99,17 @@ if (NAT20_WITH_TESTS)
 endif() # NAT20_WITH_TESTS
 
 ###################################################################################################
+
+
+###################################################################################################
+# The doxygen docs generation target is only created if enabled by setting `-DNAT20_WITH_DOCS=ON`
+# on the `cmake --build` command line.
+if (NAT20_WITH_DOCS)
+
+    find_package(Doxygen REQUIRED dot)
+
+    doxygen_add_docs(nat20_docs
+        ${LIBNAT20_PUB_HEADERS}
+    )
+
+endif() # NAT20_WITH_DOCS
