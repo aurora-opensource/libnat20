@@ -1,0 +1,16 @@
+*.a
+.cache
+CMakeCache.txt
+CMakeDoxyfile.in
+CMakeDoxygenDefaults.cmake
+CMakeFiles/
+CTestTestfile.cmake
+Doxyfile.nat20_docs
+Makefile
+Testing/
+_deps/
+build/
+cmake_install.cmake
+compile_commands.json
+html/
+nat20test
