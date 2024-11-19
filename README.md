@@ -25,11 +25,35 @@ the CLA and code style.
 
 ## Getting started
 
-This library uses cmake as primary build system.
+#### TLDR
+
+```sh
+cmake -B . -DNAT20_WITH_TESTS=ON -DNAT20_WITH_DOCS=ON
+make -j
+make nat20_docs
+make test
+```
+
+This library uses cmake as primary build system. And it is set up to
+generate a `compile_commands.json` for the benefit of `clangd` based IDE
+extensions.
+
+The preferred development platform is a linux distribution such as Ubuntu
+or similar. The core library can be build with minimal dependencies:
+
+```sh
+sudo apt install build-essential cmake
+```
+
+For generating the documentation doxygen needs to be installed.
+
+```sh
+sudo apt install doxygen
+```
 
 ### Building
 
-To build the core library run:
+By default only the core library is build.
 
 ```sh
 cmake --build .
