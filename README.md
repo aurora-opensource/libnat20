@@ -53,7 +53,7 @@ sudo apt install doxygen
 
 ### Building
 
-By default only the core library is build.
+By default only the core library is built.
 
 ```sh
 cmake --build .
