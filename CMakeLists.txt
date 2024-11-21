@@ -54,6 +54,7 @@ set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
     test/test.cpp
     test/asn1.cpp
+    test/x509.cpp
 )
 
 ###################################################################################################
