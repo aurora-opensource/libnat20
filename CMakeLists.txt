@@ -86,6 +86,9 @@ target_include_directories(nat20
 # when selected by setting `-DNAT20_WITH_TESTS=ON` on the `cmake --build` command line.
 if (NAT20_WITH_TESTS)
 
+    # Print test details if tests fail.
+    set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
+
     include(FetchContent)
 
     FetchContent_Declare(
