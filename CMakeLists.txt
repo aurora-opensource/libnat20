@@ -56,6 +56,7 @@ set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
     test/test.cpp
     test/asn1.cpp
+    test/x509.cpp
 )
 
 set(LIBNAT20_DOC_PAGES
@@ -120,7 +121,7 @@ if (NAT20_WITH_TESTS)
     target_sources(nat20test
         PRIVATE ${LIBNAT20_TEST_SOURCES}
     )
-    target_link_libraries(nat20test gtest_main nat20 crypto)
+    target_link_libraries(nat20test gtest_main nat20 crypto pki)
     add_test(NAME nat20_test COMMAND nat20test)
 
 endif() # NAT20_WITH_TESTS
