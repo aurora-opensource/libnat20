@@ -15,5 +15,14 @@
       "**/*.cpp"
     ],
     "license": "./.github/license-check/header-apache2-double-slash.txt"
+  },
+  {
+    "include": [
+      "**/*.md",
+      "**/*.txt"
+    ],
+    "exclude": [
+      "**/CMakeLists.txt"
+    ]
   }
 ]
