@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Aurora Operations, Inc.
+ * Copyright %year% Aurora Operations, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include <iostream>
-#include <gtest/gtest.h>
-
-int main(int argc, char *argv[]) {
-    ::testing::InitGoogleTest(&argc, argv);
-    std::cout << "Testing libnat20..." << std::endl;
-    int ret{RUN_ALL_TESTS()};
-    if (!ret) {
-        std::cout << "SUCCESS" << std::endl;
-        return 0;
-    } else {
-        std::cout << "FAILURE" << std::endl;
-        return -1;
-    }
-}

@@ -14,7 +14,7 @@
       "**/*.h",
       "**/*.cpp"
     ],
-    "license": "./.github/license-check/header-apache2-double-slash.txt"
+    "license": "./.github/license-check/header-apache2-slash-star.txt"
   },
   {
     "include": [
