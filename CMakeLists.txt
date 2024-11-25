@@ -33,6 +33,8 @@ set(CMAKE_C_STANDARD 11)
 # the benfit of clangd based IDE support.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_CXX_FLAGS "-O0 -g")
+
 ###################################################################################################
 # The following section defines all the groups of source files.
 # All files must be specified explicitely; no globbing or other generation is allowed.
@@ -113,7 +115,7 @@ if (NAT20_WITH_TESTS)
     target_sources(nat20test
         PRIVATE ${LIBNAT20_TEST_SOURCES}
     )
-    target_link_libraries(nat20test gtest_main nat20 crypto)
+    target_link_libraries(nat20test gtest_main nat20 crypto pki)
     add_test(NAME nat20_test COMMAND nat20test)
 
 endif() # NAT20_WITH_TESTS
