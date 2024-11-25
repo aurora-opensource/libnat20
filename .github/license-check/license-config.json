@@ -1,0 +1,19 @@
+[
+  {
+    "include": [
+      "**/*.yml",
+      "**/CMakeLists.txt",
+      ".clang-format",
+      ".gitignore"
+    ],
+    "license": "./.github/license-check/header-apache2-hashtag.txt"
+  },
+  {
+    "include": [
+      "**/*.c",
+      "**/*.h",
+      "**/*.cpp"
+    ],
+    "license": "./.github/license-check/header-apache2-slash-star.txt"
+  }
+]
