@@ -22,17 +22,20 @@ on:
 
 jobs:
   cmake-build-and-test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        options: [
+          { extra_cmake_args: ' -DNAT20_WITH_TESTS=ON', extra_targets: 'test' }
+        ]
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b #v4.1.5
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@802fa1a2c4e212495c05bf94dba2704a92a472be #v2.0.2
         with:
-          cmake-version: '3.29.x'
+          cmake-version: '3.22.x'
       - name: Generate
-        run: cmake -B . -DNAT20_WITH_TESTS=ON -DNAT20_WITH_DOCS=OFF
-      - name: Build
-        run: make
-      - name: Test
-        run: make test
+        run: cmake -S . -B cmake/build ${{ matrix.options.extra_cmake_args }}
+      - name: Build and test
+        run: cmake --build cmake/build --target all ${{ matrix.options.extra_targets }}
