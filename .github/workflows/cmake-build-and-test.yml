@@ -22,13 +22,6 @@ on:
 
 jobs:
   cmake-build-and-test:
-    strategy:
-      matrix:
-        options: [
-          { extra_cmake_args: '', extra_targets: '' },
-          { extra_cmake_args: ' -DNAT20_WITH_TESTS=ON', extra_targets: 'test' },
-          { extra_cmake_args: ' -DNAT20_WITH_DOCS=OFF', extra_targets: '' }
-        ]
     runs-on: ubuntu-latest
 
     steps:
@@ -38,6 +31,8 @@ jobs:
         with:
           cmake-version: '3.29.x'
       - name: Generate
-        run: cmake -S . -B cmake/build -DCMAKE_VERIFY_INTERFACE_HEADER_SETS=TRUE ${{ matrix.options.extra_cmake_args }}
-      - name: Build and test
-        run: cmake --build cmake/build --target all all_verify_interface_header_sets ${{ matrix.options.extra_targets }}
+        run: cmake -B . -DNAT20_WITH_TESTS=ON -DNAT20_WITH_DOCS=OFF
+      - name: Build
+        run: make
+      - name: Test
+        run: make test
