@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <endian.h>
 #include <nat20/asn1.h>
 #include <string.h>
