@@ -39,4 +39,4 @@ jobs:
       - name: Generate
         run: cmake -S . -B cmake/build ${{ matrix.options.extra_cmake_args }}
       - name: Build and test
-        run: cmake --build cmake/build --target all ${{ matrix.options.extra_targets }}
+        run: cmake --build cmake/build -j $(( $(nproc) + 1 )) --target all ${{ matrix.options.extra_targets }}
