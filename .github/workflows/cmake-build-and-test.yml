@@ -25,7 +25,7 @@ jobs:
     strategy:
       matrix:
         options: [
-          { extra_cmake_args: ' -DNAT20_WITH_TESTS=OFF', extra_targets: '' }
+          { extra_cmake_args: ' -DNAT20_WITH_TESTS=OFF', extra_targets: '' },
           { extra_cmake_args: ' -DNAT20_WITH_TESTS=ON', extra_targets: 'test' }
         ]
     runs-on: ubuntu-22.04
