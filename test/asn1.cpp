@@ -42,7 +42,7 @@ TEST_P(IntegerTest, IntegerEncoding) {
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
     n20_asn1_int64(&s, i);
-    ASSERT_TRUE(n20_asn1_stream_is_good(&s));
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
         n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
@@ -74,7 +74,7 @@ TEST_P(BitStringTest, BitStringEncoding) {
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
     n20_asn1_bitstring(&s, PROTO_BITS.data(), i);
-    ASSERT_TRUE(n20_asn1_stream_is_good(&s));
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
         n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));

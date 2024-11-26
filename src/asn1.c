@@ -18,16 +18,26 @@
 #include <nat20/asn1.h>
 #include <string.h>
 
-void n20_asn1_stream_init(struct n20_asn1_stream *s,
-                          uint8_t *const buffer,
-                          size_t const buffer_size) {
+void n20_asn1_stream_init(n20_asn1_stream_t *s, uint8_t *const buffer, size_t buffer_size) {
+    if (s == NULL) return;
+    // If the buffer is NULL, the stream is marked bad.
+    // This will essentially ignore the buffer size, because
+    // begin or any pointer derived from it will never be
+    // dereferenced. See n20_asn1_stream_prepend.
+    s->bad = buffer == NULL;
     s->begin = buffer;
-    s->end = buffer + buffer_size;
-    s->pos = s->end;
-    s->bad = 0;
+    s->size = buffer_size;
+    s->pos = 0;
+    s->overflow = false;
 }
 
-n20_asn1_bool_t n20_asn1_stream_is_good(struct n20_asn1_stream const *const s) { return !s->bad; }
+bool n20_asn1_stream_is_data_good(n20_asn1_stream_t const *const s) {
+    return (s != NULL) && !s->bad;
+}
+
+bool n20_asn1_stream_is_data_written_good(n20_asn1_stream_t const *const s) {
+    return (s != NULL) && !s->overflow;
+}
 
 // This function always returns the correct amount of data
 // that was written to the stream even if the stream is bad.
@@ -35,8 +45,8 @@ n20_asn1_bool_t n20_asn1_stream_is_good(struct n20_asn1_stream const *const s) {
 // of buffer. In this case the return value of this function
 // can be used to allocate a new buffer and initialize a new
 // stream that will fit the data.
-size_t n20_asn1_stream_data_written(struct n20_asn1_stream const *const s) {
-    return s->end - s->pos;
+size_t n20_asn1_stream_data_written(n20_asn1_stream_t const *const s) {
+    return s != NULL ? s->pos : 0;
 }
 
 // Returns a pointer to the begging of the written region of the buffer.
@@ -44,7 +54,9 @@ size_t n20_asn1_stream_data_written(struct n20_asn1_stream const *const s) {
 // n20_asn1_stream_is_good returns a non zero value. Also the access must be
 // within the range [p, p + n20_asn1_stream_data_written) where p is the
 // return value of this function.
-uint8_t const *n20_asn1_stream_data(struct n20_asn1_stream const *const s) { return s->pos; }
+uint8_t const *n20_asn1_stream_data(n20_asn1_stream_t const *const s) {
+    return (s != NULL) ? (s->begin + (s->size - s->pos)) : NULL;
+}
 
 // This function never fails. It might not write to the stream
 // because it ran out of buffer, however, the stream position will
@@ -53,15 +65,18 @@ uint8_t const *n20_asn1_stream_data(struct n20_asn1_stream const *const s) { ret
 void n20_asn1_stream_prepend(n20_asn1_stream_t *const s,
                              uint8_t const *const src,
                              size_t const src_len) {
-    // Mark the stream as bad if it was bad or if the next write.
-    // will overflow the buffer.
-    s->bad = s->bad || ((size_t)(s->pos - s->begin) < src_len);
+    if (s == NULL) return;
     // The write position shall be moved unconditionally,
     // because we use this to calculate the required size later.
-    s->pos -= src_len;
+    size_t old_pos = s->pos;
+    s->pos += src_len;
+    s->overflow = s->overflow || s->pos < old_pos;
+    // Mark the stream as bad if it was bad or if the next write.
+    // will overflow the buffer.
+    s->bad = s->bad || s->pos > s->size;
     // If the stream is good we can write at the new position.
     if (!s->bad) {
-        memcpy(s->pos, src, src_len);
+        memcpy(s->begin + (s->size - s->pos), src, src_len);
     }
 }
 
@@ -85,7 +100,7 @@ void n20_asn1_base128_int(n20_asn1_stream_t *const s, uint64_t n) {
 
 void n20_asn1_header(n20_asn1_stream_t *const s,
                      n20_asn1_class_t const class_,
-                     n20_asn1_bool_t const constructed,
+                     bool const constructed,
                      uint32_t const tag,
                      size_t len) {
     uint8_t header = 0;
@@ -166,6 +181,13 @@ void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
                                 struct n20_asn1_object_identifier const *const oid) {
     size_t e = oid->elem_count;
     size_t content_size = n20_asn1_stream_data_written(s);
+
+    // If oid is a null pointer, write a ASN1 NULL instead of the OID and return.
+    if (oid == NULL) {
+        n20_asn1_null(s);
+        return;
+    }
+
     while (e > 2) {
         --e;
         n20_asn1_base128_int(s, oid->elements[e]);
@@ -186,11 +208,13 @@ void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
         s, N20_ASN1_CLASS_UNIVERSAL, 0, N20_ASN1_TAG_N20_ASN1_OBJECT_IDENTIFIER, content_size);
 }
 
-void n20_asn1_integer_internal(n20_asn1_stream_t *const s,
-                               uint8_t const *const n,
-                               size_t const len,
-                               n20_asn1_bool_t const little_endian,
-                               n20_asn1_bool_t const unsigned_) {
+static void n20_asn1_integer_internal(n20_asn1_stream_t *const s,
+                                      uint8_t const *const n,
+                                      size_t const len,
+                                      bool const little_endian,
+                                      bool const unsigned_) {
+    // n is never NULL because the all call sites are in this
+    // compilation unit and assure that it is never NULL.
     uint8_t const *msb = n;
     uint8_t const *end = n + len;
     ssize_t inc = 1;
@@ -241,8 +265,13 @@ void n20_asn1_integer_internal(n20_asn1_stream_t *const s,
 void n20_asn1_integer(n20_asn1_stream_t *const s,
                       uint8_t const *const n,
                       size_t const len,
-                      n20_asn1_bool_t const little_endian,
-                      n20_asn1_bool_t const unsigned_) {
+                      bool const little_endian,
+                      bool const unsigned_) {
+    // If the integer n is NULL, write an ASN1 NULL and return.
+    if (n == NULL) {
+        n20_asn1_null(s);
+        return;
+    }
     size_t content_size = n20_asn1_stream_data_written(s);
     n20_asn1_integer_internal(s, n, len, little_endian, unsigned_);
     content_size = n20_asn1_stream_data_written(s) - content_size;
@@ -258,6 +287,13 @@ void n20_asn1_int64(n20_asn1_stream_t *const s, int64_t const n) {
 }
 
 void n20_asn1_bitstring(n20_asn1_stream_t *const s, uint8_t const *const b, size_t const bits) {
+
+    // If the bitstring is NULL, write an ASN1 NULL and return;
+    if (b == NULL) {
+        n20_asn1_null(s);
+        return;
+    }
+
     size_t bytes = (bits + 7) >> 3;
     uint8_t unused = (8 - (8 + (bits & 7))) & 7;
 
@@ -284,6 +320,11 @@ void n20_asn1_stringish(n20_asn1_stream_t *const s,
                         uint32_t tag,
                         uint8_t const *const str,
                         size_t const len) {
+    // If str is null, write an ASN1 NULL and return.
+    if (str == NULL) {
+        n20_asn1_null(s);
+        return;
+    }
     size_t content_size = n20_asn1_stream_data_written(s);
     n20_asn1_stream_prepend(s, str, len);
     content_size = n20_asn1_stream_data_written(s) - content_size;
@@ -307,7 +348,7 @@ typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *const, void *);
 
 void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
                                   n20_asn1_class_t const class_,
-                                  n20_asn1_bool_t const constructed,
+                                  bool const constructed,
                                   uint32_t const tag,
                                   n20_asn1_content_cb_t content_cb,
                                   void *cb_context) {
@@ -324,7 +365,7 @@ void n20_asn1_sequence(n20_asn1_stream_t *const s,
         s, N20_ASN1_CLASS_UNIVERSAL, 1, N20_ASN1_TAG_SEQUENCE, content_cb, cb_context);
 }
 
-void n20_asn1_boolean(n20_asn1_stream_t *const s, n20_asn1_bool_t const v) {
+void n20_asn1_boolean(n20_asn1_stream_t *const s, bool const v) {
     uint8_t buffer[3] = {0x01, 0x01, 0};
     buffer[2] = v ? 0xff : 0x00;
     n20_asn1_stream_prepend(s, &buffer[0], 3);

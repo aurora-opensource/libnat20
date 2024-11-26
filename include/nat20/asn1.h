@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -194,43 +195,62 @@ extern "C" {
 #endif
 
 typedef uint8_t n20_asn1_class_t;
-typedef int n20_asn1_bool_t;
 
 typedef struct n20_asn1_stream {
     uint8_t *begin;
-    uint8_t *end;
-    uint8_t *pos;
-    int bad;
+    size_t size;
+    size_t pos;
+    bool bad;
+    bool overflow;
 } n20_asn1_stream_t;
 
-extern void n20_asn1_stream_init(struct n20_asn1_stream *s, uint8_t *buffer, size_t buffer_size);
+extern void n20_asn1_stream_init(n20_asn1_stream_t *s, uint8_t *buffer, size_t buffer_size);
 
 /**
  * @brief Check if the stream is good.
  *
  * The stream is considered good if all bytes
  * written to it where stored in the underlying stream
- * buffer.
+ * buffer. If `true` is returned it implies that
+ * @ref n20_asn1_stream_data returns a pointer that can
+ * be safely dereferenced.
+ * If `true` is returned it implies @ref n20_asn1_stream_is_data_written_good
+ * must return `true`.
  *
  * @param s the pointer to the stream that is to be queried.
- * @return n20_asn1_bool_t non zero if the stream is good.
+ * @return true if the stream is good.
  */
-extern n20_asn1_bool_t n20_asn1_stream_is_good(struct n20_asn1_stream const *s);
+extern bool n20_asn1_stream_is_data_good(n20_asn1_stream_t const *s);
+
+/**
+ * @brief Check if the stream write counter did not overflow.
+ *
+ * The stream successfully counted all the bytes written to it
+ * even if not all bytes where stored in the underlying buffer.
+ * If `true` is returned @ref n20_asn1_stream_data_written returns
+ * a reliable result. No inference can be made about the stream
+ * data. If `false` is returned it implies that @ref n20_stream_is_data_good
+ * must also return `false`.
+ *
+ * @param s the pointer to the stream that is to be queried.
+ * @return bool true if the stream write counter did not overflow.
+ */
+extern bool n20_asn1_stream_is_data_written_good(n20_asn1_stream_t const *s);
 
 /**
  * @brief Query the number of bytes written to the stream.
  *
  * This function always returns the correct amount of data
- * that was written to the stream even if the stream is bad.
- * If the stream was bad it means that the stream ran out
- * of buffer. In this case the return value of this function
- * can be used as a hint to allocate a new buffer and
- * initialize a new stream that will fit the data.
+ * if @ref n20_asn1_stream_is_data_written_good is true
+ * even if @ref n20_asn1_stream_is_data_good is not.
+ * The latter indicates that the stream ran out of buffer,
+ * however, this function can still be used to gauge the
+ * buffer size required for the asn1 formatting operation.
  *
  * @param s the pointer to the stream that is to be queried.
  * @return size_t number of bytes written to the stream.
  */
-extern size_t n20_asn1_stream_data_written(struct n20_asn1_stream const *s);
+extern size_t n20_asn1_stream_data_written(n20_asn1_stream_t const *s);
 
 /**
  * @brief Points to the current stream position.
@@ -246,7 +266,7 @@ extern size_t n20_asn1_stream_data_written(struct n20_asn1_stream const *s);
  * @param s the pointer to the stream that is to be queried.
  * @return pointer to the beginning of the written buffer.
  */
-extern uint8_t const *n20_asn1_stream_data(struct n20_asn1_stream const *s);
+extern uint8_t const *n20_asn1_stream_data(n20_asn1_stream_t const *s);
 
 /**
  * @brief Write a buffer to the front of the stream buffer.
@@ -359,11 +379,8 @@ extern void n20_asn1_base128_int(n20_asn1_stream_t *s, uint64_t n);
  * @param len The length of the content of the structure started by this
  *            header.
  */
-extern void n20_asn1_header(n20_asn1_stream_t *s,
-                            n20_asn1_class_t class_,
-                            n20_asn1_bool_t constructed,
-                            uint32_t tag,
-                            size_t len);
+extern void n20_asn1_header(
+    n20_asn1_stream_t *s, n20_asn1_class_t class_, bool constructed, uint32_t tag, size_t len);
 
 #define N20_ASN1_MAX_OID_ELEMENTS 7
 
@@ -400,17 +417,9 @@ extern void n20_asn1_null(n20_asn1_stream_t *const s);
 
 extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
                                        struct n20_asn1_object_identifier const *oid);
-extern void n20_asn1_integer_internal(n20_asn1_stream_t *s,
-                                      uint8_t const *n,
-                                      size_t len,
-                                      n20_asn1_bool_t little_endian,
-                                      n20_asn1_bool_t unsigned_);
 
-extern void n20_asn1_integer(n20_asn1_stream_t *s,
-                             uint8_t const *n,
-                             size_t len,
-                             n20_asn1_bool_t little_endian,
-                             n20_asn1_bool_t unsigned_);
+extern void n20_asn1_integer(
+    n20_asn1_stream_t *s, uint8_t const *n, size_t len, bool little_endian, bool unsigned_);
 
 extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n);
 
@@ -428,7 +437,7 @@ typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *, void *);
 
 extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
                                          n20_asn1_class_t class_,
-                                         n20_asn1_bool_t constructed,
+                                         bool constructed,
                                          uint32_t tag,
                                          n20_asn1_content_cb_t content_cb,
                                          void *cb_context);
@@ -437,7 +446,7 @@ extern void n20_asn1_sequence(n20_asn1_stream_t *s,
                               n20_asn1_content_cb_t content_cb,
                               void *cb_context);
 
-extern void n20_asn1_boolean(n20_asn1_stream_t *s, n20_asn1_bool_t v);
+extern void n20_asn1_boolean(n20_asn1_stream_t *s, bool v);
 
 #ifdef __cplusplus
 }
