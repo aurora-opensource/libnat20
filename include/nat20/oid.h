@@ -69,7 +69,7 @@ typedef struct n20_asn1_object_identifier {
  * @brief Defines an object identifier.
  *
  * Defines an object identifier with the given name. This is typically
- * used in the implementation part of a compilation unit must
+ * used in the implementation part of a compilation unit, and it should
  * be complemented with corresponding invocation of @ref N20_ASN1_DECLARE_OID
  * in the header part to publish the symbol.
  *

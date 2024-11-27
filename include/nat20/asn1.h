@@ -427,9 +427,9 @@ extern void n20_asn1_stream_put(n20_asn1_stream_t *s, uint8_t c);
  * follow. The final byte has the msb cleared; it holds
  * the 7 least significant bits of the integer.
  * This function follows distinguished encoding rules (DER)
- * If the length of the structure is less than or equal to 127, the length
+ * in that it uses the least number of bytes to encode
  * the given integer.
- * `0`. If the length is grater than 127, the first byte of the length
+ *
  * This integer encoding is used for encoding long form
  * tags in the ASN1.1 header and also in the encoding of
  * object identifiers.
@@ -574,7 +574,7 @@ extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n);
  * significant used bit in the byte at offset `bits/8`. The remaining
  * bits are to be set to zero as for DER.
  *
- * If `b` is NULL this function behaves like @ref n20_asn1_null.
+ * If `b` is NULL an empty bitstring is written.
  *
  * @param s The stream that is to be updated.
  * @param b Buffer holding the bitstring.
@@ -587,7 +587,7 @@ extern void n20_asn1_bitstring(n20_asn1_stream_t *s, uint8_t const *b, size_t bi
  *
  * Writes the `len` octets from `str` to the stream.
  *
- * If `b` is NULL this function behaves like @ref n20_asn1_null.
+ * If @ref b is NULL an empty octetstring is written.
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the octet string.
@@ -606,8 +606,7 @@ extern void n20_asn1_octetstring(n20_asn1_stream_t *s, uint8_t const *str, size_
  * It is up to the caller to uphold this invariant. This function does
  * not perform any compliance checks.
  *
- * If `b` is NULL this function behaves like @ref n20_asn1_null.
- *
+ * If @ref str is NULL, an empty pritable string is written.
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the string.
@@ -625,10 +624,11 @@ extern void n20_asn1_printablestring(n20_asn1_stream_t *s, char const *str);
  * It is up to the caller to format the time string, and no checks are
  * performed on the string.
  *
- * @see N20_ASN1_TAG_GENERALIZED_TIME
+ * If @ref time_str is `NULL`, this function behaves like @ref n20_asn_null.
  *
  * @param s The stream that is to be updated.
  * @param time_str Buffer holding the string.
+ * @sa N20_ASN1_TAG_GENERALIZED_TIME
  */
 extern void n20_asn1_generalized_time(n20_asn1_stream_t *s, char const *time_str);
 
@@ -648,7 +648,7 @@ typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *, void *);
  * @brief Format an ASN.1 header while inferring the length field from the content.
  *
  * This function provided full control over the ASN.1 header fields
- * while inferring the length field form the content of the ASN.1 structure.
+ * while inferring the length field from the content of the ASN.1 structure.
  * The function stores the current write position on the stack,
  * runs the content call back function to render the content,
  * computes the written content length, and renders the header.

@@ -201,7 +201,7 @@ static void n20_asn1_integer_internal(n20_asn1_stream_t *const s,
                                       size_t const len,
                                       bool const little_endian,
                                       bool const two_complement) {
-    // n is never NULL because all of the all call sites are in this
+    // n is never NULL because all of the call sites are in this
     // compilation unit and assure that it is never NULL.
     uint8_t const *msb = n;
     uint8_t const *end = n + len;
@@ -277,15 +277,14 @@ void n20_asn1_int64(n20_asn1_stream_t *const s, int64_t const n) {
         s, (uint8_t *)&n, sizeof(n), LITTLE_ENDIAN == BYTE_ORDER, true /* two_complement */);
 }
 
-void n20_asn1_bitstring(n20_asn1_stream_t *const s, uint8_t const *const b, size_t const bits) {
-    // If the bitstring is NULL, write an ASN1 NULL and return;
+void n20_asn1_bitstring(n20_asn1_stream_t *const s, uint8_t const *const b, size_t bits) {
+    // If the bitstring is NULL, write empty bitstring;
     if (b == NULL) {
-        n20_asn1_null(s);
-        return;
+        bits = 0;
     }
 
     size_t bytes = (bits + 7) >> 3;
-    uint8_t unused = (8 - (8 + (bits & 7))) & 7;
+    uint8_t unused = (8 - (bits & 7)) & 7;
 
     size_t content_size = n20_asn1_stream_data_written(s);
 
@@ -310,11 +309,10 @@ void n20_asn1_bitstring(n20_asn1_stream_t *const s, uint8_t const *const b, size
 static void n20_asn1_stringish(n20_asn1_stream_t *const s,
                                uint32_t tag,
                                uint8_t const *const str,
-                               size_t const len) {
-    // If str is null, write an ASN1 NULL and return.
+                               size_t len) {
+    // If str is null force len to be zero. And write an empty string.
     if (str == NULL) {
-        n20_asn1_null(s);
-        return;
+        len = 0;
     }
     size_t content_size = n20_asn1_stream_data_written(s);
     n20_asn1_stream_prepend(s, str, len);
@@ -331,6 +329,10 @@ void n20_asn1_printablestring(n20_asn1_stream_t *const s, char const *const str)
 }
 
 void n20_asn1_generalized_time(n20_asn1_stream_t *const s, char const *const time_str) {
+    if (time_str == NULL) {
+        n20_asn1_null(s);
+        return;
+    }
     n20_asn1_stringish(
         s, N20_ASN1_TAG_GENERALIZED_TIME, (uint8_t const *)time_str, strlen(time_str));
 }
