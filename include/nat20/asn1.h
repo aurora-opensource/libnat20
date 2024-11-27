@@ -67,7 +67,7 @@
  * bytes is used to express all significant bits.
  * Care must be taken that the most significant bit correctly
  * expresses the sign. E.g. `128` must be expressed as `0x00 0x80`
- * because `0x80` would be interpreted as `-128`.
+ * because the leading zeroes `0x80` would be interpreted as `-128`.
  */
 #define N20_ASN1_TAG_INTEGER 0x2
 /**
@@ -109,7 +109,7 @@
  * is encoded using base 128 encoding.
  * @sa @ref n20_asn1_base128_int
  */
-#define N20_ASN1_TAG_N20_ASN1_OBJECT_IDENTIFIER 0x6
+#define N20_ASN1_TAG_OBJECT_IDENTIFIER 0x6
 /**
  * @brief The sequence type.
  *
@@ -396,9 +396,9 @@ typedef struct n20_asn1_object_identifier {
     }
 
 #define N20_ASN1_DEFINE_OID(name, ...) \
-    struct n20_asn1_object_identifier name = N20_ASN1_OBJECT_ID(__VA_ARGS__)
+    n20_asn1_object_identifier_t name = N20_ASN1_OBJECT_ID(__VA_ARGS__)
 
-#define N20_ASN1_DECLARE_OID(name) extern struct n20_asn1_object_identifier name
+#define N20_ASN1_DECLARE_OID(name) extern n20_asn1_object_identifier_t name
 
 N20_ASN1_DECLARE_OID(OID_RSA_ENCRYPTION);
 N20_ASN1_DECLARE_OID(OID_SHA256_WITH_RSA_ENC);
@@ -413,24 +413,146 @@ N20_ASN1_DECLARE_OID(OID_COMMON_NAME);
 N20_ASN1_DECLARE_OID(OID_BASIC_CONSTRAINTS);
 N20_ASN1_DECLARE_OID(OID_KEY_USAGE);
 
+/**
+ * @brief Write an ASN1 NULL to the given stream.
+ *
+ * @see N20_ASN1_TAG_NULL
+ * @param s The stream that is to be updated.
+ */
 extern void n20_asn1_null(n20_asn1_stream_t *const s);
 
+/**
+ * @brief Write an object identifier complete with ASN.1 header to the given stream.
+ *
+ * If the `oid` parameter is NULL this function behaves like
+ * @ref n20_asn1_null.
+ * @see N20_ASN1_TAG_OBJECT_IDENTIFIER
+ *
+ * @param s The stream that is to be updated.
+ * @param oid The object identifier to be written to the stream.
+ */
 extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
-                                       struct n20_asn1_object_identifier const *oid);
+                                       n20_asn1_object_identifier_t const *oid);
 
+/**
+ * @brief Write an integer complete with ASN.1 header to the given stream.
+ *
+ * The function expects a buffer `n` of length `len` bytes which
+ * it will interpret as integer according to the parameters `little_endian`
+ * and `two_complement`. It will format an ASN1 INTEGER into the stream using
+ * DER, i.e., leading zero bytes (unsigned) or bytes that have all bits set
+ * according to the sign byte (2-complement) are stripped or padded as appropriate.
+ *
+ * If `n` is NULL this function behaves like @ref n20_asn1_null.
+ *
+ * @see N20_ASN1_TAG_INTEGER
+ *
+ * @param s The stream that is to be updated.
+ * @param n The buffer holding the integer.
+ * @param len The size of the buffer in bytes.
+ * @param little_endian Indicates if the byteorder of the integer in the given buffer.
+ * @param two_complement If `true` the buffer is interpreted as signed 2-complement integer.
+ */
 extern void n20_asn1_integer(
-    n20_asn1_stream_t *s, uint8_t const *n, size_t len, bool little_endian, bool unsigned_);
+    n20_asn1_stream_t *s, uint8_t const *n, size_t len, bool little_endian, bool two_complement);
 
+/**
+ * @brief Convenience function to write an unsigned C integer as ASN.1 INTEGER.
+ *
+ * This function uses @ref n20_asn1_integer to write the given
+ * integer to the stream. The endianess is determined to be the
+ * host endianess and the `two_complement` parameter is set to false.
+ * It is generally okay to promote shorter types as the
+ * DER will cause the final formatting result to be as short as
+ * possible.
+ *
+ * @param s The stream that is to be updated.
+ * @param n An unsigned integer.
+ */
 extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n);
 
+/**
+ * @brief Convenience function to write a signed C integer as ASN.1 INTEGER.
+ *
+ * This function uses @ref n20_asn1_integer to write the given
+ * integer to the stream. The endianess is determined to be the
+ * host endianess and the `two_complement` parameter is set to true.
+ * It is generally okay to promote shorter types as the
+ * DER will cause the final formatting result to be as short as
+ * possible.
+ *
+ * @param s The stream that is to be updated.
+ * @param n A signed integer.
+ */
 extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n);
 
+/**
+ * @brief Write a bit string complete with ASN.1 header to the given stream.
+ *
+ * The length of the bitstring is given in bits where `bits` may not
+ * be a multiple of 8. This means that buffer must be at least `ceil(bits/8)`
+ * octets in size. The layout is such that the first bit in the string
+ * can be found at the most significant bit of the byte at offset 0 in
+ * the buffer. The last bit in the string can be found in the least
+ * significant used bit in the byte at offset `bits/8`. The remaining
+ * bits are to be set to zero as for DER.
+ *
+ * If `b` is NULL this function behaves like @ref n20_asn1_null.
+ *
+ * @param s The stream that is to be updated.
+ * @param b Buffer holding the bitstring.
+ * @param bits Number of bits represented by the bitstring.
+ */
 extern void n20_asn1_bitstring(n20_asn1_stream_t *s, uint8_t const *b, size_t bits);
 
+/**
+ * @brief Write an octet string complete with ASN.1 header to the given stream.
+ *
+ * Writes the `len` octets from `str` to the stream.
+ *
+ * If `b` is NULL this function behaves like @ref n20_asn1_null.
+ *
+ * @param s The stream that is to be updated.
+ * @param str Buffer holding the octet string.
+ * @param len Number of octets in the octet string.
+ */
 extern void n20_asn1_octetstring(n20_asn1_stream_t *s, uint8_t const *str, size_t len);
 
+/**
+ * @brief Write an printable string complete with ASN.1 header to the given stream.
+ *
+ * This function assumes that `str` is `'\0'` terminated and uses
+ * `strlen` to determine the size of the string.
+ * It writes the string without the terminating character to the
+ * stream. Printable according to ITU X.680 printable strings
+ * may contain the following characters: `[A..Z][a..z][0..9][ '()+,-./:=?]`.
+ * It is up to the caller to uphold this invariant. This function does
+ * not perform any compliance checks.
+ *
+ * If `b` is NULL this function behaves like @ref n20_asn1_null.
+ *
+ * @see N20_ASN1_TAG_PRINTABLE_STRING
+ *
+ * @param s The stream that is to be updated.
+ * @param str Buffer holding the string.
+ */
 extern void n20_asn1_printablestring(n20_asn1_stream_t *s, char const *str);
 
+/**
+ * @brief Write a generalized time string complete with ASN.1 header to the given stream.
+ *
+ * This function assumes that `str` is `'\0'` terminated and uses
+ * `strlen` to determine the size of the string.
+ * It writes the string without the terminating character to the
+ * stream.
+ * It is up to the caller to format the time string, and no checks are
+ * performed on the string.
+ *
+ * @see N20_ASN1_TAG_GENERALIZED_TIME
+ *
+ * @param s The stream that is to be updated.
+ * @param time_str Buffer holding the string.
+ */
 extern void n20_asn1_generalized_time(n20_asn1_stream_t *s, char const *time_str);
 
 typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *, void *);

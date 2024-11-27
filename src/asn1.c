@@ -204,15 +204,14 @@ void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
 
     content_size = n20_asn1_stream_data_written(s) - content_size;
 
-    n20_asn1_header(
-        s, N20_ASN1_CLASS_UNIVERSAL, 0, N20_ASN1_TAG_N20_ASN1_OBJECT_IDENTIFIER, content_size);
+    n20_asn1_header(s, N20_ASN1_CLASS_UNIVERSAL, 0, N20_ASN1_TAG_OBJECT_IDENTIFIER, content_size);
 }
 
 static void n20_asn1_integer_internal(n20_asn1_stream_t *const s,
                                       uint8_t const *const n,
                                       size_t const len,
                                       bool const little_endian,
-                                      bool const unsigned_) {
+                                      bool const two_complement) {
     // n is never NULL because the all call sites are in this
     // compilation unit and assure that it is never NULL.
     uint8_t const *msb = n;
@@ -233,7 +232,7 @@ static void n20_asn1_integer_internal(n20_asn1_stream_t *const s,
     }
 
     // DER encoding requires that we strip leading insignificant bytes.
-    if (!unsigned_ && (*msb & 0x80)) {
+    if (two_complement && (*msb & 0x80)) {
         // Strip leading 0xff bytes if negative.
         while (*msb == 0xff && msb != end) {
             msb += inc;
@@ -266,24 +265,26 @@ void n20_asn1_integer(n20_asn1_stream_t *const s,
                       uint8_t const *const n,
                       size_t const len,
                       bool const little_endian,
-                      bool const unsigned_) {
+                      bool const two_complement) {
     // If the integer n is NULL, write an ASN1 NULL and return.
     if (n == NULL) {
         n20_asn1_null(s);
         return;
     }
     size_t content_size = n20_asn1_stream_data_written(s);
-    n20_asn1_integer_internal(s, n, len, little_endian, unsigned_);
+    n20_asn1_integer_internal(s, n, len, little_endian, two_complement);
     content_size = n20_asn1_stream_data_written(s) - content_size;
     n20_asn1_header(s, N20_ASN1_CLASS_UNIVERSAL, 0, N20_ASN1_TAG_INTEGER, content_size);
 }
 
 void n20_asn1_uint64(n20_asn1_stream_t *const s, uint64_t const n) {
-    n20_asn1_integer(s, (uint8_t *)&n, sizeof(n), LITTLE_ENDIAN == BYTE_ORDER, 1 /* unsigned */);
+    n20_asn1_integer(
+        s, (uint8_t *)&n, sizeof(n), LITTLE_ENDIAN == BYTE_ORDER, false /* two_complement */);
 }
 
 void n20_asn1_int64(n20_asn1_stream_t *const s, int64_t const n) {
-    n20_asn1_integer(s, (uint8_t *)&n, sizeof(n), LITTLE_ENDIAN == BYTE_ORDER, 0 /* unsigned */);
+    n20_asn1_integer(
+        s, (uint8_t *)&n, sizeof(n), LITTLE_ENDIAN == BYTE_ORDER, true /* two_complement */);
 }
 
 void n20_asn1_bitstring(n20_asn1_stream_t *const s, uint8_t const *const b, size_t const bits) {
