@@ -164,14 +164,14 @@ void n20_asn1_null(n20_asn1_stream_t *const s) {
 
 void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
                                 struct n20_asn1_object_identifier const *const oid) {
-    size_t e = oid->elem_count;
-    size_t content_size = n20_asn1_stream_data_written(s);
-
     // If oid is a null pointer, write a ASN1 NULL instead of the OID and return.
     if (oid == NULL) {
         n20_asn1_null(s);
         return;
     }
+
+    size_t e = oid->elem_count;
+    size_t content_size = n20_asn1_stream_data_written(s);
 
     while (e > 2) {
         --e;
@@ -361,7 +361,6 @@ void n20_asn1_sequence(n20_asn1_stream_t *const s,
 }
 
 void n20_asn1_boolean(n20_asn1_stream_t *const s, bool const v) {
-    uint8_t buffer[3] = {0x01, 0x01, 0};
-    buffer[2] = v ? 0xff : 0x00;
+    uint8_t buffer[3] = {0x01, 0x01, v ? 0xff : 0x00};
     n20_asn1_stream_prepend(s, &buffer[0], /*src_len=*/3);
 }
