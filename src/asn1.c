@@ -49,7 +49,7 @@ size_t n20_asn1_stream_data_written(n20_asn1_stream_t const *const s) {
     return s != NULL ? s->pos : 0;
 }
 
-// Returns a pointer to the begging of the written region of the buffer.
+// Returns a pointer to the beginning of the written region of the buffer.
 // IMPORTANT it is only safe to dereference the returned pointer if
 // n20_asn1_stream_is_data_good returns a non zero value. Also the access must be
 // within the range [p, p + n20_asn1_stream_data_written) where p is the
@@ -73,7 +73,7 @@ void n20_asn1_stream_prepend(n20_asn1_stream_t *const s,
     s->overflow = s->overflow || s->pos < old_pos;
     // Mark the stream as bad if it was bad or if the next write.
     // will overflow the buffer.
-    s->bad = s->bad || s->pos > s->size;
+    s->bad = s->overflow || s->bad || s->pos > s->size;
     // If the stream is good we can write at the new position.
     if (!s->bad) {
         memcpy(s->begin + (s->size - s->pos), src, src_len);

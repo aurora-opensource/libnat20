@@ -39,8 +39,28 @@
  * @sa n20_asn1_universal_tags
  */
 #define N20_ASN1_CLASS_UNIVERSAL 0
+/**
+ * @brief The application class.
+ *
+ * Indicates that the tag in the corresponding ASN.1 header
+ * is application specific.
+ */
 #define N20_ASN1_CLASS_APPLICATION 1
+/**
+ * @brief The universal class.
+ *
+ * Indicates that the tag in the corresponding ASN.1 header
+ * is context specific.
+ * @sa n20_asn1_universal_tags
+ */
 #define N20_ASN1_CLASS_CONTEXT_SPECIFIC 2
+/**
+ * @brief The universal class.
+ *
+ * Indicates that the tag in the corresponding ASN.1 header
+ * is private.
+ * @sa n20_asn1_universal_tags
+ */
 #define N20_ASN1_CLASS_PRIVATE 3
 
 /** @} */
@@ -69,7 +89,8 @@
  * bytes is used to express all significant bits.
  * Care must be taken that the most significant bit correctly
  * expresses the sign. E.g. `128` must be expressed as `0x00 0x80`
- * because the leading zeroes `0x80` would be interpreted as `-128`.
+ * because without the leading zeroes `0x80` would be interpreted as
+ * `-128`.
  */
 #define N20_ASN1_TAG_INTEGER 0x2
 /**
@@ -198,11 +219,65 @@ extern "C" {
 
 typedef uint8_t n20_asn1_class_t;
 
+/**
+ * @brief Represents an stream buffer for rendering ASN.1 artifacts.
+ *
+ * A `n20_asn1_stream` is used to render ASN.1 artifacts by writing
+ * ASN.1 structures to it in reverse order. It can also be used to
+ * compute the size of a rendered artifact without actually
+ * writing it to a buffer by initializing the buffer with NULL.
+ *
+ * Writing ASN.1 in reverse has the benefit, that the sizes of
+ * each field is known when rendering the corresponding header
+ * with no further adjustment required to adhere to DER.
+ */
 typedef struct n20_asn1_stream {
+    /**
+     * @brief Points to the beginning of the underlying buffer.
+     *
+     * This may be NULL.
+     */
     uint8_t *begin;
+    /**
+     * @brief The size of the underlying buffer.
+     *
+     * This is effectively ignored if @ref begin is NULL.
+     */
     size_t size;
+    /**
+     * @brief Pos indicates the write position in bytes.
+     *
+     * This is initialized with `0` and incremented with
+     * each byte written. The actual write position within
+     * the buffer is computed as @ref begin + @ref size - @ref pos.
+     */
     size_t pos;
+    /**
+     * @brief Indicates if the stream data is inconsistent.
+     *
+     * If @ref begin is NULL or if @ref pos became greater
+     * than @ref size or if an overflow occurred while
+     * incrementing @ref pos, @ref bad will be `true`.
+     *
+     * If @ref bad is `true`, @ref begin will not be
+     * dereferenced but subsequent writes will still update
+     * @ref pos.
+     *
+     * Note: NOT @ref bad implies NOT @ref overflow.
+     *
+     * @sa n20_asn1_stream_is_data_good
+     */
     bool bad;
+    /**
+     * @brief Indicates that an overflow occurred while incrementing @ref pos.
+     *
+     * If an overflow occurred while incrementing @ref pos,
+     * @ref overflow is set to `true`.
+     *
+     * Note: @ref overflow implies @ref bad.
+     *
+     * @sa n20_asn1_stream_is_data_written_good
+     */
     bool overflow;
 } n20_asn1_stream_t;
 
@@ -216,6 +291,11 @@ typedef struct n20_asn1_stream {
  * to it, which can be used for calculating a buffer size hint.
  * If `buffer` is given it must point to a buffer of at least
  * `buffer_size` bytes, or an out of bounds write will occur.
+ *
+ * ## Ownership and life time
+ *
+ * The initialized stream does not take ownership of the provided
+ * buffer and the buffer must outlive the stream object.
  *
  * Calling this function with `s == NULL` is safe but a noop.
  *
