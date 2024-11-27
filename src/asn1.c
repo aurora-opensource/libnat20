@@ -263,7 +263,8 @@ void n20_asn1_integer(n20_asn1_stream_t *const s,
     size_t content_size = n20_asn1_stream_data_written(s);
     n20_asn1_integer_internal(s, n, len, little_endian, two_complement);
     content_size = n20_asn1_stream_data_written(s) - content_size;
-    n20_asn1_header(s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/false, N20_ASN1_TAG_INTEGER, content_size);
+    n20_asn1_header(
+        s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/false, N20_ASN1_TAG_INTEGER, content_size);
 }
 
 void n20_asn1_uint64(n20_asn1_stream_t *const s, uint64_t const n) {
@@ -302,13 +303,14 @@ void n20_asn1_bitstring(n20_asn1_stream_t *const s, uint8_t const *const b, size
 
     content_size = n20_asn1_stream_data_written(s) - content_size;
 
-    n20_asn1_header(s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/false, N20_ASN1_TAG_BIT_STRING, content_size);
+    n20_asn1_header(
+        s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/false, N20_ASN1_TAG_BIT_STRING, content_size);
 }
 
 static void n20_asn1_stringish(n20_asn1_stream_t *const s,
-                        uint32_t tag,
-                        uint8_t const *const str,
-                        size_t const len) {
+                               uint32_t tag,
+                               uint8_t const *const str,
+                               size_t const len) {
     // If str is null, write an ASN1 NULL and return.
     if (str == NULL) {
         n20_asn1_null(s);
@@ -348,8 +350,12 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
 void n20_asn1_sequence(n20_asn1_stream_t *const s,
                        n20_asn1_content_cb_t content_cb,
                        void *cb_context) {
-    n20_asn1_header_with_content(
-        s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/true, N20_ASN1_TAG_SEQUENCE, content_cb, cb_context);
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/true,
+                                 N20_ASN1_TAG_SEQUENCE,
+                                 content_cb,
+                                 cb_context);
 }
 
 void n20_asn1_boolean(n20_asn1_stream_t *const s, bool const v) {

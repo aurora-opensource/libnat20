@@ -16,11 +16,10 @@
 
 #pragma once
 
+#include <nat20/oid.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
-
-#include <nat20/oid.h>
 
 /** @file */
 
@@ -84,7 +83,7 @@
 /**
  * @brief The integer type.
  *
- * Integers are signed and encoded using two complement
+ * Integers are signed and encoded using two's complement
  * representation, and DER requires that the least number of
  * bytes is used to express all significant bits.
  * Care must be taken that the most significant bit correctly
@@ -120,7 +119,7 @@
  * @brief The NULL type.
  *
  * The NULL type has no content. It only consists of the ASN.1
- * header with a zero length fields: `0x05 0x00`.
+ * header with a length fields: of zero: `0x05 0x00`.
  */
 #define N20_ASN1_TAG_NULL 0x5
 /**
