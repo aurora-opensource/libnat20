@@ -19,12 +19,12 @@
 
 class IntegerTest : public testing::TestWithParam<std::tuple<int64_t, std::vector<uint8_t>>> {};
 
-std::vector<uint8_t> ENCODED_0 = {0x02, 0x01, 0x0};
-std::vector<uint8_t> ENCODED_127 = {0x02, 0x01, 0x7f};
-std::vector<uint8_t> ENCODED_128 = {0x02, 0x02, 0x00, 0x80};
-std::vector<uint8_t> ENCODED_256 = {0x02, 0x02, 0x01, 0x00};
-std::vector<uint8_t> ENCODED_MINUS_128 = {0x02, 0x01, 0x80};
-std::vector<uint8_t> ENCODED_MINUS_129 = {0x02, 0x02, 0xff, 0x7f};
+std::vector<uint8_t> const ENCODED_0 = {0x02, 0x01, 0x0};
+std::vector<uint8_t> const ENCODED_127 = {0x02, 0x01, 0x7f};
+std::vector<uint8_t> const ENCODED_128 = {0x02, 0x02, 0x00, 0x80};
+std::vector<uint8_t> const ENCODED_256 = {0x02, 0x02, 0x01, 0x00};
+std::vector<uint8_t> const ENCODED_MINUS_128 = {0x02, 0x01, 0x80};
+std::vector<uint8_t> const ENCODED_MINUS_129 = {0x02, 0x02, 0xff, 0x7f};
 
 INSTANTIATE_TEST_CASE_P(Asn1IntegerTest,
                         IntegerTest,
@@ -51,13 +51,13 @@ TEST_P(IntegerTest, IntegerEncoding) {
 
 class BitStringTest : public testing::TestWithParam<std::tuple<size_t, std::vector<uint8_t>>> {};
 
-std::vector<uint8_t> PROTO_BITS = {0x6e, 0x5d, 0xc5};
+std::vector<uint8_t> const PROTO_BITS = {0x6e, 0x5d, 0xc5};
 
-std::vector<uint8_t> ENCODED_BITS_16 = {0x03, 0x03, 0x00, 0x6e, 0x5d};
-std::vector<uint8_t> ENCODED_BITS_17 = {0x03, 0x04, 0x07, 0x6e, 0x5d, 0x80};
-std::vector<uint8_t> ENCODED_BITS_18 = {0x03, 0x04, 0x06, 0x6e, 0x5d, 0xc0};
-std::vector<uint8_t> ENCODED_BITS_23 = {0x03, 0x04, 0x01, 0x6e, 0x5d, 0xc4};
-std::vector<uint8_t> ENCODED_BITS_24 = {0x03, 0x04, 0x00, 0x6e, 0x5d, 0xc5};
+std::vector<uint8_t> const ENCODED_BITS_16 = {0x03, 0x03, 0x00, 0x6e, 0x5d};
+std::vector<uint8_t> const ENCODED_BITS_17 = {0x03, 0x04, 0x07, 0x6e, 0x5d, 0x80};
+std::vector<uint8_t> const ENCODED_BITS_18 = {0x03, 0x04, 0x06, 0x6e, 0x5d, 0xc0};
+std::vector<uint8_t> const ENCODED_BITS_23 = {0x03, 0x04, 0x01, 0x6e, 0x5d, 0xc4};
+std::vector<uint8_t> const ENCODED_BITS_24 = {0x03, 0x04, 0x00, 0x6e, 0x5d, 0xc5};
 
 INSTANTIATE_TEST_CASE_P(Asn1BitStringTest,
                         BitStringTest,
