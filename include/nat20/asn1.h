@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <nat20/oid.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -37,8 +38,28 @@
  * @sa n20_asn1_universal_tags
  */
 #define N20_ASN1_CLASS_UNIVERSAL 0
+/**
+ * @brief The application class.
+ *
+ * Indicates that the tag in the corresponding ASN.1 header
+ * is application specific.
+ */
 #define N20_ASN1_CLASS_APPLICATION 1
+/**
+ * @brief The universal class.
+ *
+ * Indicates that the tag in the corresponding ASN.1 header
+ * is context specific.
+ * @sa n20_asn1_universal_tags
+ */
 #define N20_ASN1_CLASS_CONTEXT_SPECIFIC 2
+/**
+ * @brief The universal class.
+ *
+ * Indicates that the tag in the corresponding ASN.1 header
+ * is private.
+ * @sa n20_asn1_universal_tags
+ */
 #define N20_ASN1_CLASS_PRIVATE 3
 
 /** @} */
@@ -62,12 +83,13 @@
 /**
  * @brief The integer type.
  *
- * Integers are signed and encoded using two complement
+ * Integers are signed and encoded using two's complement
  * representation, and DER requires that the least number of
  * bytes is used to express all significant bits.
  * Care must be taken that the most significant bit correctly
  * expresses the sign. E.g. `128` must be expressed as `0x00 0x80`
- * because the leading zeroes `0x80` would be interpreted as `-128`.
+ * because without the leading zeroes `0x80` would be interpreted as
+ * `-128`.
  */
 #define N20_ASN1_TAG_INTEGER 0x2
 /**
@@ -97,7 +119,7 @@
  * @brief The NULL type.
  *
  * The NULL type has no content. It only consists of the ASN.1
- * header with a zero length fields: `0x05 0x00`.
+ * header with a length fields: of zero: `0x05 0x00`.
  */
 #define N20_ASN1_TAG_NULL 0x5
 /**
@@ -196,14 +218,90 @@ extern "C" {
 
 typedef uint8_t n20_asn1_class_t;
 
+/**
+ * @brief Represents an stream buffer for rendering ASN.1 artifacts.
+ *
+ * A `n20_asn1_stream` is used to render ASN.1 artifacts by writing
+ * ASN.1 structures to it in reverse order. It can also be used to
+ * compute the size of a rendered artifact without actually
+ * writing it to a buffer by initializing the buffer with NULL.
+ *
+ * Writing ASN.1 in reverse has the benefit, that the sizes of
+ * each field is known when rendering the corresponding header
+ * with no further adjustment required to adhere to DER.
+ */
 typedef struct n20_asn1_stream {
+    /**
+     * @brief Points to the beginning of the underlying buffer.
+     *
+     * This may be NULL.
+     */
     uint8_t *begin;
+    /**
+     * @brief The size of the underlying buffer.
+     *
+     * This is effectively ignored if @ref begin is NULL.
+     */
     size_t size;
+    /**
+     * @brief Pos indicates the write position in bytes.
+     *
+     * This is initialized with `0` and incremented with
+     * each byte written. The actual write position within
+     * the buffer is computed as @ref begin + @ref size - @ref pos.
+     */
     size_t pos;
+    /**
+     * @brief Indicates if the stream data is inconsistent.
+     *
+     * If @ref begin is NULL or if @ref pos became greater
+     * than @ref size or if an overflow occurred while
+     * incrementing @ref pos, @ref bad will be `true`.
+     *
+     * If @ref bad is `true`, @ref begin will not be
+     * dereferenced but subsequent writes will still update
+     * @ref pos.
+     *
+     * Note: NOT @ref bad implies NOT @ref overflow.
+     *
+     * @sa n20_asn1_stream_is_data_good
+     */
     bool bad;
+    /**
+     * @brief Indicates that an overflow occurred while incrementing @ref pos.
+     *
+     * If an overflow occurred while incrementing @ref pos,
+     * @ref overflow is set to `true`.
+     *
+     * Note: @ref overflow implies @ref bad.
+     *
+     * @sa n20_asn1_stream_is_data_written_good
+     */
     bool overflow;
 } n20_asn1_stream_t;
 
+/**
+ * @brief Initialize an @ref n20_asn1_stream_t structure.
+ *
+ * Initializes a structure of @ref n20_asn1_stream_t.
+ * It is safe to call this function with `buffer == NULL`.
+ * In this case the `buffer_size` parameter is effectively ignored
+ * and the stream will merely count the bytes written
+ * to it, which can be used for calculating a buffer size hint.
+ * If `buffer` is given it must point to a buffer of at least
+ * `buffer_size` bytes, or an out of bounds write will occur.
+ *
+ * ## Ownership and life time
+ *
+ * The initialized stream does not take ownership of the provided
+ * buffer and the buffer must outlive the stream object.
+ *
+ * Calling this function with `s == NULL` is safe but a noop.
+ *
+ * @param s A pointer to the to be initialized @ref n20_asn1_stream_t structure.
+ * @param buffer A pointer to the target stream buffer or NULL.
+ * @param buffer_size Size of `buffer` in bytes.
+ */
 extern void n20_asn1_stream_init(n20_asn1_stream_t *s, uint8_t *buffer, size_t buffer_size);
 
 /**
@@ -261,8 +359,10 @@ extern size_t n20_asn1_stream_data_written(n20_asn1_stream_t const *s);
  * this points past the end of the buffer.
  *
  * IMPORTANT it is only safe to dereference the returned pointer if
- * @ref n20_asn1_stream_is_good returns a non zero value. Also the access must be
+ * @ref n20_asn1_stream_is_data_good returns `true`. Also the access must be
  * within the range [p, p + @ref n20_asn1_stream_data_written) where p is the
+ * return value of this function.
+ *
  * @param s the pointer to the stream that is to be queried.
  * @return pointer to the beginning of the written buffer.
  */
@@ -271,7 +371,7 @@ extern uint8_t const *n20_asn1_stream_data(n20_asn1_stream_t const *s);
 /**
  * @brief Write a buffer to the front of the stream buffer.
  *
- * The asn1 stream is always written in revers. This means that
+ * The asn1 stream is always written in reverse. This means that
  * prepending is the only way to write to the stream buffer.
  * The buffer's write position is moved by `-src_len`
  * unconditionally. If the stream is good and the new position
@@ -281,9 +381,18 @@ extern uint8_t const *n20_asn1_stream_data(n20_asn1_stream_t const *s);
  * A bad stream can still be written to, but it will only record
  * the number of bytes written without storing any data.
  *
+ * If @ref src_len is exceedingly large such that the the write position
+ * would wrapp and point within the writable buffer region, the
+ * stream will remain bad but in addition the overflow flag will be
+ * raised on the stream indicating that even @ref n20_asn1_stream_data_written
+ * is no longer reliable. This condition can be queried using
+ * @ref n20_asn1_stream_is_data_written_good.
+ *
  * @param s The stream that is to be updated.
  * @param src The source buffer that is to be written to the stream.
  * @param src_len The size of the source buffer in bytes.
+ * @sa n20_asn1_stream_data_written
+ * @sa n20_asn1_stream_is_data_written_good
  */
 extern void n20_asn1_stream_prepend(n20_asn1_stream_t *s, uint8_t const *src, size_t src_len);
 
@@ -341,14 +450,14 @@ extern void n20_asn1_base128_int(n20_asn1_stream_t *s, uint64_t n);
  * Where:
  * - `c` denotes the ASN.1 class (see @ref n20_asn1_classes)
  * - `C` denotes whether the type is constructed (`1`) or primitive (`0`)
- * - `t` holds the tag (see @ref n20_asn1_universal_tags). If the tag is is greater
+ * - `t` holds the tag (see @ref n20_asn1_universal_tags). If the tag is greater than
  *       30, all `t` bits are set to `1` and the tag is encoded in
  *       subsequent bytes using base 128 encoding (see @ref n20_asn1_base128_int).
  *
- * The header and conditional tag bytes is followed by the length field.
- * If the length of the structure is less then or equal to 127, the length
+ * The header and conditional tag bytes are followed by the length field.
+ * If the length of the structure is less than or equal to 127, the length
  * is encoded in a single byte as a positive integer with the msb set to
- * `0`. If the lengths is grater than 127, the first byte of the length
+ * `0`. If the length is grater than 127, the first byte of the length
  * field indicates the size of the length field in bytes in the lower
  * seven bits with the msb set to `1`. Subsequent bytes hold the length
  * in big endian order. DER requires that the least number of bytes is
@@ -373,7 +482,7 @@ extern void n20_asn1_base128_int(n20_asn1_stream_t *s, uint64_t n);
  *
  * @param s The stream that is to be updated.
  * @param class_ One of @ref n20_asn1_classes.
- * @param constructed Non zero if the structure is constructed, zero for
+ * @param constructed `true` if the structure is constructed, `false` for
  *                    primitive.
  * @param tag The tag.
  * @param len The length of the content of the structure started by this
@@ -382,42 +491,11 @@ extern void n20_asn1_base128_int(n20_asn1_stream_t *s, uint64_t n);
 extern void n20_asn1_header(
     n20_asn1_stream_t *s, n20_asn1_class_t class_, bool constructed, uint32_t tag, size_t len);
 
-#define N20_ASN1_MAX_OID_ELEMENTS 7
-
-typedef struct n20_asn1_object_identifier {
-    size_t elem_count;
-    uint32_t elements[N20_ASN1_MAX_OID_ELEMENTS];
-} n20_asn1_object_identifier_t;
-
-#define N20_ASN1_OBJECT_ID(...)                                             \
-    {                                                                       \
-        .elem_count = sizeof((uint32_t[]){__VA_ARGS__}) / sizeof(uint32_t), \
-        .elements = {__VA_ARGS__},                                          \
-    }
-
-#define N20_ASN1_DEFINE_OID(name, ...) \
-    n20_asn1_object_identifier_t name = N20_ASN1_OBJECT_ID(__VA_ARGS__)
-
-#define N20_ASN1_DECLARE_OID(name) extern n20_asn1_object_identifier_t name
-
-N20_ASN1_DECLARE_OID(OID_RSA_ENCRYPTION);
-N20_ASN1_DECLARE_OID(OID_SHA256_WITH_RSA_ENC);
-
-N20_ASN1_DECLARE_OID(OID_LOCALITY_NAME);
-N20_ASN1_DECLARE_OID(OID_COUNTRY_NAME);
-N20_ASN1_DECLARE_OID(OID_STATE_OR_PROVINCE_NAME);
-N20_ASN1_DECLARE_OID(OID_ORGANIZATION_NAME);
-N20_ASN1_DECLARE_OID(OID_ORGANIZATION_UNIT_NAME);
-N20_ASN1_DECLARE_OID(OID_COMMON_NAME);
-
-N20_ASN1_DECLARE_OID(OID_BASIC_CONSTRAINTS);
-N20_ASN1_DECLARE_OID(OID_KEY_USAGE);
-
 /**
  * @brief Write an ASN1 NULL to the given stream.
  *
- * @see N20_ASN1_TAG_NULL
  * @param s The stream that is to be updated.
+ * @sa N20_ASN1_TAG_NULL
  */
 extern void n20_asn1_null(n20_asn1_stream_t *const s);
 
@@ -426,10 +504,10 @@ extern void n20_asn1_null(n20_asn1_stream_t *const s);
  *
  * If the `oid` parameter is NULL this function behaves like
  * @ref n20_asn1_null.
- * @see N20_ASN1_TAG_OBJECT_IDENTIFIER
  *
  * @param s The stream that is to be updated.
  * @param oid The object identifier to be written to the stream.
+ * @sa N20_ASN1_TAG_OBJECT_IDENTIFIER
  */
 extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
                                        n20_asn1_object_identifier_t const *oid);
@@ -445,13 +523,12 @@ extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
  *
  * If `n` is NULL this function behaves like @ref n20_asn1_null.
  *
- * @see N20_ASN1_TAG_INTEGER
- *
  * @param s The stream that is to be updated.
  * @param n The buffer holding the integer.
  * @param len The size of the buffer in bytes.
  * @param little_endian Indicates if the byteorder of the integer in the given buffer.
  * @param two_complement If `true` the buffer is interpreted as signed 2-complement integer.
+ * @sa N20_ASN1_TAG_INTEGER
  */
 extern void n20_asn1_integer(
     n20_asn1_stream_t *s, uint8_t const *n, size_t len, bool little_endian, bool two_complement);
@@ -497,7 +574,7 @@ extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n);
  * significant used bit in the byte at offset `bits/8`. The remaining
  * bits are to be set to zero as for DER.
  *
- * If `b` is NULL this function behaves like @ref n20_asn1_null.
+ * If @ref b is NULL an empty bitstring is written.
  *
  * @param s The stream that is to be updated.
  * @param b Buffer holding the bitstring.
@@ -510,7 +587,7 @@ extern void n20_asn1_bitstring(n20_asn1_stream_t *s, uint8_t const *b, size_t bi
  *
  * Writes the `len` octets from `str` to the stream.
  *
- * If `b` is NULL this function behaves like @ref n20_asn1_null.
+ * If @ref str is NULL an empty octetstring is written.
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the octet string.
@@ -529,12 +606,11 @@ extern void n20_asn1_octetstring(n20_asn1_stream_t *s, uint8_t const *str, size_
  * It is up to the caller to uphold this invariant. This function does
  * not perform any compliance checks.
  *
- * If `b` is NULL this function behaves like @ref n20_asn1_null.
- *
- * @see N20_ASN1_TAG_PRINTABLE_STRING
+ * If @ref str is NULL, an empty printable string is written.
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the string.
+ * @sa N20_ASN1_TAG_PRINTABLE_STRING
  */
 extern void n20_asn1_printablestring(n20_asn1_stream_t *s, char const *str);
 
@@ -548,15 +624,45 @@ extern void n20_asn1_printablestring(n20_asn1_stream_t *s, char const *str);
  * It is up to the caller to format the time string, and no checks are
  * performed on the string.
  *
- * @see N20_ASN1_TAG_GENERALIZED_TIME
+ * If @ref time_str is `NULL`, this function behaves like @ref n20_asn_null.
  *
  * @param s The stream that is to be updated.
  * @param time_str Buffer holding the string.
+ * @sa N20_ASN1_TAG_GENERALIZED_TIME
  */
 extern void n20_asn1_generalized_time(n20_asn1_stream_t *s, char const *time_str);
 
+/**
+ * @brief The callback function prototype formating constructed content.
+ *
+ * This callback function type is used by functions like
+ * @ref n20_asn1_header_with_content and @ref n20_asn1_sequence.
+ * for client code to implement the formatting of the structured content.
+ *
+ * @sa n20_asn1_header_with_content
+ * @sa n20_asn1_sequence
+ */
 typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *, void *);
 
+/**
+ * @brief Format an ASN.1 header while inferring the length field from the content.
+ *
+ * This function provided full control over the ASN.1 header fields
+ * while inferring the length field from the content of the ASN.1 structure.
+ * The function stores the current write position on the stack,
+ * runs the content call back function to render the content,
+ * computes the written content length, and renders the header.
+ *
+ * @param s The stream that is to be updated.
+ * @param class_ One of @ref n20_asn1_classes.
+ * @param constructed `true` if the structure is constructed, `false` for
+ *                    primitive.
+ * @param tag The tag.
+ * @param content_cb The callback function rendering the content.
+ * @param cb_context This opaque pointer is passed to the content callback as-is.
+ * @sa n20_asn1_header
+ * @sa n20_asn1_content_cb_t
+ */
 extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
                                          n20_asn1_class_t class_,
                                          bool constructed,
@@ -564,10 +670,46 @@ extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
                                          n20_asn1_content_cb_t content_cb,
                                          void *cb_context);
 
+/**
+ * @brief Convenience function to write an ASN.1 sequence complete with header to the given stream.
+ *
+ * This function is equivalent to:
+ *
+ * @code{.c}
+ * n20_asn1_header_with_content(
+ *     s,
+ *     N20_ASN1_CLASS_UNIVERSAL,
+ *     true,
+ *     N20_ASN1_TAG_SEQUENCE,
+ *     content_cb,
+ *     cb_context);
+ * @endcode
+ *
+ * @param s The stream that is to be updated.
+ * @param content_cb The callback function rendering the content.
+ * @param cb_context This opaque pointer is passed to the content callback as-is.
+ * @sa n20_asn1_header
+ * @sa n20_asn1_content_cb_t
+ * @sa n20_asn1_header_with_content
+ * @sa N20_ASN1_TAG_SEQUENCE
+ * @sa N20_ASN1_CLASS_UNIVERSAL
+ */
 extern void n20_asn1_sequence(n20_asn1_stream_t *s,
                               n20_asn1_content_cb_t content_cb,
                               void *cb_context);
 
+/**
+ * @brief Write an ASN.1 (DER) boolean to the given stream.
+ *
+ * Renders an ASN.1 boolean using DER, i.e., `false` is represented
+ * as `0x00` bytes and `true` is represented as `0xff` byte.
+ * With header, this amounts to `0x01 0x01 0x00` for false and
+ * `0x01 0x01 0xff` for true.
+ *
+ * @param s The stream that is to be updated.
+ * @param v The boolean value that is to be written.
+ * @sa N20_ASN1_TAG_BOOLEAN
+ */
 extern void n20_asn1_boolean(n20_asn1_stream_t *s, bool v);
 
 #ifdef __cplusplus
