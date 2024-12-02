@@ -191,7 +191,7 @@ void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
 
     n20_asn1_header(s,
                     N20_ASN1_CLASS_UNIVERSAL,
-                    /*constructed=*/true,
+                    /*constructed=*/false,
                     N20_ASN1_TAG_OBJECT_IDENTIFIER,
                     content_size);
 }

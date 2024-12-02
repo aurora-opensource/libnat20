@@ -574,7 +574,7 @@ extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n);
  * significant used bit in the byte at offset `bits/8`. The remaining
  * bits are to be set to zero as for DER.
  *
- * If `b` is NULL an empty bitstring is written.
+ * If @ref b is NULL an empty bitstring is written.
  *
  * @param s The stream that is to be updated.
  * @param b Buffer holding the bitstring.
@@ -587,7 +587,7 @@ extern void n20_asn1_bitstring(n20_asn1_stream_t *s, uint8_t const *b, size_t bi
  *
  * Writes the `len` octets from `str` to the stream.
  *
- * If @ref b is NULL an empty octetstring is written.
+ * If @ref str is NULL an empty octetstring is written.
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the octet string.
@@ -606,7 +606,7 @@ extern void n20_asn1_octetstring(n20_asn1_stream_t *s, uint8_t const *str, size_
  * It is up to the caller to uphold this invariant. This function does
  * not perform any compliance checks.
  *
- * If @ref str is NULL, an empty pritable string is written.
+ * If @ref str is NULL, an empty printable string is written.
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the string.
