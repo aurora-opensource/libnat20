@@ -30,6 +30,7 @@ jobs:
           cmake-version: '3.22.x'
       - run: |
           sudo apt install graphviz -y
+          sudo apt install doxygen -y
           cmake -S . -B cmake/build -DNAT20_WITH_TESTS=OFF -DNAT20_WITH_DOCS=ON
           cmake --build cmake/build --target nat20_docs
       - id: deployment
