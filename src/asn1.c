@@ -344,7 +344,9 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
                                   n20_asn1_content_cb_t content_cb,
                                   void *cb_context) {
     size_t content_size = n20_asn1_stream_data_written(s);
-    content_cb(s, cb_context);
+    if (content_cb != NULL) {
+        content_cb(s, cb_context);
+    }
     content_size = n20_asn1_stream_data_written(s) - content_size;
     n20_asn1_header(s, class_, constructed, tag, content_size);
 }
