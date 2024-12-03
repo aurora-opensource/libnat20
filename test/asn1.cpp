@@ -196,39 +196,39 @@ class GeneralizedTimeTest
     : public testing::TestWithParam<std::tuple<std::string, std::vector<uint8_t>>> {};
 
 std::vector<uint8_t> const ENCODED_TIME_ZERO = {0x18,
-                                          0x0f,
-                                          0x30,
-                                          0x30,
-                                          0x30,
-                                          0x31,
-                                          0x30,
-                                          0x31,
-                                          0x30,
-                                          0x31,
-                                          0x30,
-                                          0x30,
-                                          0x30,
-                                          0x30,
-                                          0x30,
-                                          0x30,
-                                          0x5a};
+                                                0x0f,
+                                                0x30,
+                                                0x30,
+                                                0x30,
+                                                0x31,
+                                                0x30,
+                                                0x31,
+                                                0x30,
+                                                0x31,
+                                                0x30,
+                                                0x30,
+                                                0x30,
+                                                0x30,
+                                                0x30,
+                                                0x30,
+                                                0x5a};
 std::vector<uint8_t> const ENCODED_TIME_NOT_ZERO = {0x18,
-                                              0x0f,
-                                              0x32,
-                                              0x30,
-                                              0x32,
-                                              0x34,
-                                              0x31,
-                                              0x31,
-                                              0x32,
-                                              0x37,
-                                              0x30,
-                                              0x33,
-                                              0x31,
-                                              0x34,
-                                              0x35,
-                                              0x38,
-                                              0x5a};
+                                                    0x0f,
+                                                    0x32,
+                                                    0x30,
+                                                    0x32,
+                                                    0x34,
+                                                    0x31,
+                                                    0x31,
+                                                    0x32,
+                                                    0x37,
+                                                    0x30,
+                                                    0x33,
+                                                    0x31,
+                                                    0x34,
+                                                    0x35,
+                                                    0x38,
+                                                    0x5a};
 
 INSTANTIATE_TEST_CASE_P(Asn1GeneralizedTimeTest,
                         GeneralizedTimeTest,
@@ -242,6 +242,51 @@ TEST_P(GeneralizedTimeTest, OctetStringEncoding) {
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
     n20_asn1_generalized_time(&s, i.c_str());
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(expected, got);
+}
+
+class SequenceTest
+    : public testing::TestWithParam<
+          std::tuple<void (*)(n20_asn1_stream_t *, void *), void *, std::vector<uint8_t>>> {};
+
+void noop(n20_asn1_stream_t *s, void *cb_context) {}
+
+void flat(n20_asn1_stream_t *s, void *cb_context) {
+    n20_asn1_printablestring(s, "flat");
+    n20_asn1_boolean(s, true);
+}
+
+void nested(n20_asn1_stream_t *s, void *cb_context) {
+    n20_asn1_printablestring(s, "nested");
+    n20_asn1_sequence(s, &flat, cb_context);
+}
+
+std::vector<uint8_t> const ENCODED_SEQUENCE_NULL = {0x30, 0x00};
+std::vector<uint8_t> const ENCODED_SEQUENCE_NOOP = {0x30, 0x00};
+std::vector<uint8_t> const ENCODED_SEQUENCE_FLAT = {
+    0x30, 0x09, 0x01, 0x01, 0xff, 0x13, 0x04, 0x66, 0x6c, 0x61, 0x74};
+std::vector<uint8_t> const ENCODED_SEQUENCE_NESTED = {0x30, 0x13, 0x30, 0x09, 0x01, 0x01, 0xff,
+                                                      0x13, 0x04, 0x66, 0x6c, 0x61, 0x74, 0x13,
+                                                      0x06, 0x6e, 0x65, 0x73, 0x74, 0x65, 0x64};
+
+INSTANTIATE_TEST_CASE_P(Asn1SequenceTest,
+                        SequenceTest,
+                        testing::Values(std::tuple(nullptr, nullptr, ENCODED_SEQUENCE_NULL),
+                                        std::tuple(&noop, nullptr, ENCODED_SEQUENCE_NOOP),
+                                        std::tuple(&flat, nullptr, ENCODED_SEQUENCE_FLAT),
+                                        std::tuple(&nested, nullptr, ENCODED_SEQUENCE_NESTED)));
+
+TEST_P(SequenceTest, SequenceEncoding) {
+    auto [content_cb, cb_context, expected] = GetParam();
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_asn1_sequence(&s, content_cb, cb_context);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
