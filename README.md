@@ -1,4 +1,4 @@
-# Libnat20
+# The libnat20 DICE library {#mainpage}
 
 Libnat20 is a free standing DICE library implementing the protocols
 for OpenDICE, the TCG DICE Attestation Architecture, and the TCG DICE
@@ -45,10 +45,11 @@ or similar. The core library can be build with minimal dependencies:
 sudo apt install build-essential cmake
 ```
 
-For generating the documentation doxygen needs to be installed.
+For generating the documentation doxygen and the graphviz package need to
+be installed.
 
 ```sh
-sudo apt install doxygen
+sudo apt install doxygen graphviz
 ```
 
 ### Building

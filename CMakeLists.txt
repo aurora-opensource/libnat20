@@ -56,6 +56,12 @@ set(LIBNAT20_TEST_SOURCES
     test/asn1.cpp
 )
 
+set(LIBNAT20_DOC_PAGES
+    # Add additional input files for doxygen here.
+    README.md
+    CONTRIBUTING.md
+)
+
 ###################################################################################################
 
 ###################################################################################################
@@ -126,6 +132,7 @@ if (NAT20_WITH_DOCS)
 
     doxygen_add_docs(nat20_docs
         ${LIBNAT20_PUB_HEADERS}
+        ${LIBNAT20_DOC_PAGES}
     )
 
 endif() # NAT20_WITH_DOCS
