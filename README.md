@@ -88,5 +88,5 @@ build directory.
 
 ## API Reference
 
-The API references is generated using doxygen from the main branch and deployed
+The API references is generated from the main branch using doxygen and deployed
 as [LibNat20 Github Pages](https://aurora-opensource.github.io/libnat20).
