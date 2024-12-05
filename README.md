@@ -85,3 +85,8 @@ make nat20_docs
 
 Open the documentation by pointing your browser to `html/index.html` in your
 build directory.
+
+## API Reference
+
+The API references is generated using doxygen from the main branch and deployed
+as [LibNat20 Github Pages](https://aurora-opensource.github.io/libnat20).
