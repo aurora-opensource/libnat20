@@ -21,8 +21,8 @@ project(LibNat20 VERSION 0.0.1)
 # The test can be run with `make test` or `ctest`.
 option(NAT20_WITH_TESTS "Build the test suite." OFF)
 
-# Enable the libnat20 test suite by specifying
-# -DNAT20_WITH_TESTS=ON on the `cmake --build` command line.
+# Enable libnat20 documentation generation by specifying
+# -DNAT20_WITH_DOCS=ON on the `cmake --build` command line.
 # Build the docs by building the target `make nat20_docs`.
 option(NAT20_WITH_DOCS "Create the documentation target." OFF)
 
