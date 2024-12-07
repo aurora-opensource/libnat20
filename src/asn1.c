@@ -325,7 +325,7 @@ void n20_asn1_octetstring(n20_asn1_stream_t *const s, uint8_t const *const str, 
 }
 
 void n20_asn1_printablestring(n20_asn1_stream_t *const s, char const *const str) {
-    n20_asn1_stringish(s, N20_ASN1_TAG_PRINTABLE_STRING, (uint8_t const *const)str, strlen(str));
+    n20_asn1_stringish(s, N20_ASN1_TAG_PRINTABLE_STRING, (uint8_t const *const)str, str == NULL ? 0 : strlen(str));
 }
 
 void n20_asn1_generalized_time(n20_asn1_stream_t *const s, char const *const time_str) {
