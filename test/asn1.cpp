@@ -22,6 +22,98 @@
 #include <variant>
 #include <vector>
 
+class StreamTest
+    : public testing::TestWithParam<std::tuple<size_t, std::vector<std::vector<uint8_t>>, bool>> {};
+
+std::vector<std::vector<uint8_t>> const BYTES_TO_PREPEND_EMPTY = {};
+std::vector<std::vector<uint8_t>> const BYTES_TO_PREPEND_NULLPTR = {{}};
+std::vector<std::vector<uint8_t>> const BYTES_TO_PREPEND_NULLPTR_NULLPTR = {{}, {}};
+std::vector<std::vector<uint8_t>> const BYTES_TO_PREPEND_NULL = {{0x05, 0x00}};
+std::vector<std::vector<uint8_t>> const BYTES_TO_PREPEND_NULLPTR_NULL_NULLPTR = {
+    {}, {0x05, 0x00}, {}};
+std::vector<std::vector<uint8_t>> const BYTES_TO_PREPEND_SEQUENCE = {
+    {0x6e, 0x65, 0x73, 0x74, 0x65, 0x64},
+    {0x13, 0x06},
+    {0x66, 0x6c, 0x61, 0x74},
+    {0x13, 0x04},
+    {0xff},
+    {0x01, 0x01},
+    {0x30, 0x09},
+    {0x30, 0x13}};
+
+INSTANTIATE_TEST_CASE_P(Asn1StreamTest,
+                        StreamTest,
+                        testing::Values(std::tuple(1, BYTES_TO_PREPEND_EMPTY, true),
+                                        std::tuple(2, BYTES_TO_PREPEND_EMPTY, true),
+                                        std::tuple(1, BYTES_TO_PREPEND_NULLPTR, true),
+                                        std::tuple(2, BYTES_TO_PREPEND_NULLPTR, true),
+                                        std::tuple(1, BYTES_TO_PREPEND_NULLPTR_NULLPTR, true),
+                                        std::tuple(2, BYTES_TO_PREPEND_NULLPTR_NULLPTR, true),
+                                        std::tuple(1, BYTES_TO_PREPEND_NULL, false),
+                                        std::tuple(2, BYTES_TO_PREPEND_NULL, true),
+                                        std::tuple(3, BYTES_TO_PREPEND_NULL, true),
+                                        std::tuple(1, BYTES_TO_PREPEND_NULLPTR_NULL_NULLPTR, false),
+                                        std::tuple(2, BYTES_TO_PREPEND_NULLPTR_NULL_NULLPTR, true),
+                                        std::tuple(3, BYTES_TO_PREPEND_NULLPTR_NULL_NULLPTR, true),
+                                        std::tuple(1, BYTES_TO_PREPEND_SEQUENCE, false),
+                                        std::tuple(2, BYTES_TO_PREPEND_SEQUENCE, false),
+                                        std::tuple(10, BYTES_TO_PREPEND_SEQUENCE, false),
+                                        std::tuple(20, BYTES_TO_PREPEND_SEQUENCE, false),
+                                        std::tuple(21, BYTES_TO_PREPEND_SEQUENCE, true),
+                                        std::tuple(22, BYTES_TO_PREPEND_SEQUENCE, true)));
+
+TEST_P(StreamTest, StreamPrepend) {
+    auto [buffer_size, bytes_to_prepend, is_data_good] = GetParam();
+
+    // Reverse
+    std::vector<std::vector<uint8_t>> bytes_to_prepend_copy(bytes_to_prepend);
+    std::reverse(bytes_to_prepend_copy.begin(), bytes_to_prepend_copy.end());
+    // Flatten
+    std::vector<uint8_t> expected;
+    for (auto const &bytes : bytes_to_prepend_copy) {
+        for (auto const &byte : bytes) {
+            expected.push_back(byte);
+        }
+    }
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[buffer_size];
+    n20_asn1_stream_init(&s, buffer, buffer_size);
+    for (auto const &bytes : bytes_to_prepend) {
+        n20_asn1_stream_prepend(&s, bytes.data(), bytes.size());
+    }
+    ASSERT_EQ(is_data_good, n20_asn1_stream_is_data_good(&s));
+    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
+    if (is_data_good) {
+        std::vector<uint8_t> got = std::vector<uint8_t>(
+            n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        ASSERT_EQ(expected, got);
+    }
+}
+
+TEST(StreamTest, StreamCounterOverflow) {
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+
+    n20_asn1_stream_prepend(&s, nullptr, std::numeric_limits<uint64_t>::max());
+    ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+
+    n20_asn1_stream_prepend(&s, nullptr, 1);
+    ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_FALSE(n20_asn1_stream_is_data_written_good(&s));
+
+    n20_asn1_stream_prepend(&s, nullptr, std::numeric_limits<uint64_t>::max() - 1);
+    ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_FALSE(n20_asn1_stream_is_data_written_good(&s));
+
+    n20_asn1_stream_prepend(&s, nullptr, 1);
+    ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_FALSE(n20_asn1_stream_is_data_written_good(&s));
+}
+
 class HeaderTest : public testing::TestWithParam<
                        std::tuple<n20_asn1_class_t, bool, uint32_t, size_t, std::vector<uint8_t>>> {
 };
@@ -70,6 +162,7 @@ TEST_P(HeaderTest, HeaderEncoding) {
         n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
     ASSERT_EQ(expected, got);
 }
+
 class HeaderWithContentTest
     : public testing::TestWithParam<
           std::tuple<void (*)(n20_asn1_stream_t *, void *), void *, std::vector<uint8_t>>> {};
@@ -100,10 +193,11 @@ std::vector<uint8_t> const ENCODED_HEADER_WITH_CONTENT_EIGHT_ZEROS = {
 INSTANTIATE_TEST_CASE_P(
     Asn1HeaderWithContentTest,
     HeaderWithContentTest,
-    testing::Values(std::tuple(nullptr, nullptr, ENCODED_HEADER_WITH_CONTENT_NOOP),
-                    std::tuple(&noop, nullptr, ENCODED_HEADER_WITH_CONTENT_NOOP),
-                    std::tuple(&prepend_five_zeros, nullptr, ENCODED_HEADER_WITH_CONTENT_FIVE_ZEROS),
-                    std::tuple(&prepend_zeros, (void*)&EIGHT, ENCODED_HEADER_WITH_CONTENT_EIGHT_ZEROS)));
+    testing::Values(
+        std::tuple(nullptr, nullptr, ENCODED_HEADER_WITH_CONTENT_NOOP),
+        std::tuple(&noop, nullptr, ENCODED_HEADER_WITH_CONTENT_NOOP),
+        std::tuple(&prepend_five_zeros, nullptr, ENCODED_HEADER_WITH_CONTENT_FIVE_ZEROS),
+        std::tuple(&prepend_zeros, (void *)&EIGHT, ENCODED_HEADER_WITH_CONTENT_EIGHT_ZEROS)));
 
 TEST_P(HeaderWithContentTest, HeaderWithContentEncoding) {
     auto [content_cb, cb_context, expected] = GetParam();
