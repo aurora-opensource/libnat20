@@ -240,12 +240,12 @@ INSTANTIATE_TEST_CASE_P(Asn1BooleanTest,
                                         std::tuple(true, ENCODED_TRUE)));
 
 TEST_P(BooleanTest, BooleanEncoding) {
-    auto [i, expected] = GetParam();
+    auto [v, expected] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_boolean(&s, i);
+    n20_asn1_boolean(&s, v);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -299,12 +299,12 @@ INSTANTIATE_TEST_CASE_P(
         std::tuple(BYTES_MINUS_129_BIG_ENDIAN_PADDED, true, ENCODED_MINUS_129)));
 
 TEST_P(IntegerTest, IntegerEncodingBigEndian) {
-    auto [bytes, i, expected] = GetParam();
+    auto [bytes, two_complement, expected] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_integer(&s, bytes.data(), bytes.size(), false, i);
+    n20_asn1_integer(&s, bytes.data(), bytes.size(), false, two_complement);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -313,13 +313,13 @@ TEST_P(IntegerTest, IntegerEncodingBigEndian) {
 }
 
 TEST_P(IntegerTest, IntegerEncodingLittleEndian) {
-    auto [bytes, i, expected] = GetParam();
+    auto [bytes, two_complement, expected] = GetParam();
     std::vector<uint8_t> bytes_reversed(bytes.rbegin(), bytes.rend());
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_integer(&s, bytes_reversed.data(), bytes.size(), true, i);
+    n20_asn1_integer(&s, bytes_reversed.data(), bytes.size(), true, two_complement);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -344,15 +344,15 @@ INSTANTIATE_TEST_CASE_P(Asn1Int64Test,
                                         std::tuple(-129L, ENCODED_MINUS_129)));
 
 TEST_P(Int64Test, Int64Encoding) {
-    auto [i, expected] = GetParam();
+    auto [n, expected] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    if (uint64_t const *ptr = std::get_if<uint64_t>(&i)) {
+    if (uint64_t const *ptr = std::get_if<uint64_t>(&n)) {
         n20_asn1_uint64(&s, *ptr);
     }
-    if (int64_t const *ptr = std::get_if<int64_t>(&i)) {
+    if (int64_t const *ptr = std::get_if<int64_t>(&n)) {
         n20_asn1_int64(&s, *ptr);
     }
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
@@ -386,12 +386,12 @@ INSTANTIATE_TEST_CASE_P(Asn1BitStringTest,
                                         std::tuple(PROTO_BITS, 24, ENCODED_BITS_24)));
 
 TEST_P(BitStringTest, BitStringEncoding) {
-    auto [bits, i, expected] = GetParam();
+    auto [bits, bits_size, expected] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_bitstring(&s, bits.data(), i);
+    n20_asn1_bitstring(&s, bits.data(), bits_size);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -420,12 +420,12 @@ INSTANTIATE_TEST_CASE_P(Asn1OctetStringTest,
                                         std::tuple(BYTES_THREE, ENCODED_BYTES_THREE)));
 
 TEST_P(OctetStringTest, OctetStringEncoding) {
-    auto [i, expected] = GetParam();
+    auto [bytes, expected] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_octetstring(&s, i.data(), i.size());
+    n20_asn1_octetstring(&s, bytes.data(), bytes.size());
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -457,13 +457,13 @@ INSTANTIATE_TEST_CASE_P(
                    ENCODED_STRING_FULL_CHARSET)));
 
 TEST_P(PrintableStringTest, PrintableStringEncoding) {
-    auto [i, expected] = GetParam();
+    auto [optional_string, expected] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    if (i.has_value()) {
-        n20_asn1_printablestring(&s, i.value().c_str());
+    if (optional_string.has_value()) {
+        n20_asn1_printablestring(&s, optional_string.value().c_str());
     } else {
         n20_asn1_printablestring(&s, nullptr);
     }
@@ -520,13 +520,13 @@ INSTANTIATE_TEST_CASE_P(Asn1GeneralizedTimeTest,
                                         std::tuple("20241127031458Z", ENCODED_TIME_NOT_ZERO)));
 
 TEST_P(GeneralizedTimeTest, GeneralizedTimeEncoding) {
-    auto [i, expected] = GetParam();
+    auto [optional_string, expected] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    if (i.has_value()) {
-        n20_asn1_generalized_time(&s, i.value().c_str());
+    if (optional_string.has_value()) {
+        n20_asn1_generalized_time(&s, optional_string.value().c_str());
     } else {
         n20_asn1_generalized_time(&s, nullptr);
     }
@@ -599,13 +599,13 @@ INSTANTIATE_TEST_CASE_P(Asn1ObjectIdentifierTest,
                                         std::tuple(OID_GOOGLE, ENCODED_OID_GOOGLE)));
 
 TEST_P(ObjectIdentifierTest, ObjectIdentifierEncoding) {
-    auto [i, expected] = GetParam();
+    auto [optional_oid, expected] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    if (i.has_value()) {
-        n20_asn1_object_identifier(&s, &i.value());
+    if (optional_oid.has_value()) {
+        n20_asn1_object_identifier(&s, &optional_oid.value());
     } else {
         n20_asn1_object_identifier(&s, nullptr);
     }
