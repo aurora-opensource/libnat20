@@ -647,18 +647,17 @@ typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *, void *);
 /**
  * @brief Format an ASN.1 header while inferring the length field from the content.
  *
- * This function provided full control over the ASN.1 header fields
- * while inferring the length field from the content of the ASN.1 structure.
- * The function stores the current write position on the stack,
- * runs the content call back function to render the content,
- * computes the written content length, and renders the header.
+ * This function provides full control over the ASN.1 header fields while inferring the length
+ * field from the content of the ASN.1 structure. The function stores the current write position on
+ * the stack, runs the content call back function to render the content, computes the written
+ * content length, and renders the header.
  *
  * @param s The stream that is to be updated.
  * @param class_ One of @ref n20_asn1_classes.
- * @param constructed `true` if the structure is constructed, `false` for
- *                    primitive.
+ * @param constructed `true` if the structure is constructed, `false` for primitive.
  * @param tag The tag.
- * @param content_cb The callback function rendering the content.
+ * @param content_cb The callback function rendering the content. A null function pointer will be
+ * treated as a no-op function.
  * @param cb_context This opaque pointer is passed to the content callback as-is.
  * @sa n20_asn1_header
  * @sa n20_asn1_content_cb_t
@@ -686,7 +685,8 @@ extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
  * @endcode
  *
  * @param s The stream that is to be updated.
- * @param content_cb The callback function rendering the content.
+ * @param content_cb The callback function rendering the content. A null function pointer will be
+ * treated as a no-op function.
  * @param cb_context This opaque pointer is passed to the content callback as-is.
  * @sa n20_asn1_header
  * @sa n20_asn1_content_cb_t

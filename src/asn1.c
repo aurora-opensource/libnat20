@@ -325,7 +325,8 @@ void n20_asn1_octetstring(n20_asn1_stream_t *const s, uint8_t const *const str, 
 }
 
 void n20_asn1_printablestring(n20_asn1_stream_t *const s, char const *const str) {
-    n20_asn1_stringish(s, N20_ASN1_TAG_PRINTABLE_STRING, (uint8_t const *const)str, strlen(str));
+    n20_asn1_stringish(
+        s, N20_ASN1_TAG_PRINTABLE_STRING, (uint8_t const *const)str, str == NULL ? 0 : strlen(str));
 }
 
 void n20_asn1_generalized_time(n20_asn1_stream_t *const s, char const *const time_str) {
@@ -344,7 +345,9 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
                                   n20_asn1_content_cb_t content_cb,
                                   void *cb_context) {
     size_t content_size = n20_asn1_stream_data_written(s);
-    content_cb(s, cb_context);
+    if (content_cb != NULL) {
+        content_cb(s, cb_context);
+    }
     content_size = n20_asn1_stream_data_written(s) - content_size;
     n20_asn1_header(s, class_, constructed, tag, content_size);
 }
