@@ -16,6 +16,7 @@
 
 #include <endian.h>
 #include <nat20/asn1.h>
+#include <nat20/oid.h>
 #include <string.h>
 
 void n20_asn1_stream_init(n20_asn1_stream_t *s, uint8_t *const buffer, size_t buffer_size) {
@@ -163,9 +164,11 @@ void n20_asn1_null(n20_asn1_stream_t *const s) {
 }
 
 void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
-                                struct n20_asn1_object_identifier const *const oid) {
-    // If oid is a null pointer, write a ASN1 NULL instead of the OID and return.
-    if (oid == NULL) {
+                                n20_asn1_object_identifier_t const *const oid) {
+    // If oid is a null pointer, or
+    // if the element count was initialized to an out of bounds
+    // value write a ASN1 NULL instead of the OID and return.
+    if (oid == NULL || oid->elem_count > N20_ASN1_MAX_OID_ELEMENTS) {
         n20_asn1_null(s);
         return;
     }
