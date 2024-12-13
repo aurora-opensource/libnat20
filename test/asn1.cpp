@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <nat20/asn1.h>
+#include <nat20/oid.h>
 
 #include <cstdint>
 #include <string>
@@ -585,18 +586,21 @@ class ObjectIdentifierTest
           std::tuple<std::optional<n20_asn1_object_identifier_t>, std::vector<uint8_t>>> {};
 
 n20_asn1_object_identifier_t OID_GOOGLE = {7, {1, 3, 6, 1, 4, 1, 11129}};
+n20_asn1_object_identifier_t INVALID_OID_WITH_TOO_HIGH_ELEM_COUNT = {
+    .elem_count = N20_ASN1_MAX_OID_ELEMENTS + 1, .elements{0}};
 
 std::vector<uint8_t> const ENCODED_OID_SHA256_WITH_RSA_ENC = {
     0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b};
 std::vector<uint8_t> const ENCODED_OID_GOOGLE = {
     0x06, 0x07, 0x2b, 0x06, 0x01, 0x04, 0x01, 0xd6, 0x79};
 
-INSTANTIATE_TEST_CASE_P(Asn1ObjectIdentifierTest,
-                        ObjectIdentifierTest,
-                        testing::Values(std::tuple(std::nullopt, ENCODED_NULL),
-                                        std::tuple(OID_SHA256_WITH_RSA_ENC,
-                                                   ENCODED_OID_SHA256_WITH_RSA_ENC),
-                                        std::tuple(OID_GOOGLE, ENCODED_OID_GOOGLE)));
+INSTANTIATE_TEST_CASE_P(
+    Asn1ObjectIdentifierTest,
+    ObjectIdentifierTest,
+    testing::Values(std::tuple(std::nullopt, ENCODED_NULL),
+                    std::tuple(OID_SHA256_WITH_RSA_ENC, ENCODED_OID_SHA256_WITH_RSA_ENC),
+                    std::tuple(OID_GOOGLE, ENCODED_OID_GOOGLE),
+                    std::tuple(INVALID_OID_WITH_TOO_HIGH_ELEM_COUNT, ENCODED_NULL)));
 
 TEST_P(ObjectIdentifierTest, ObjectIdentifierEncoding) {
     auto [optional_oid, expected] = GetParam();

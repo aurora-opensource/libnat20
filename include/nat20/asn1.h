@@ -502,7 +502,11 @@ extern void n20_asn1_null(n20_asn1_stream_t *const s);
 /**
  * @brief Write an object identifier complete with ASN.1 header to the given stream.
  *
- * If the `oid` parameter is NULL this function behaves like
+ * If the @ref oid parameter is NULL this function behaves like
+ * @ref n20_asn1_null.
+ *
+ * If `oid->element_count` is initialized to avalue greater than
+ * @ref N20_ASN1_MAX_OID_ELEMENTS this function behaves like
  * @ref n20_asn1_null.
  *
  * @param s The stream that is to be updated.
