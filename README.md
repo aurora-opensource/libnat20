@@ -16,7 +16,7 @@ means of an interface that users are expected to provide. A reference
 implementation of this interface based on boring ssl is provided
 and can be compiled optionally.
 
-## Contributing
+## Contributing!
 
 The project is licensed under Apache 2 license and contributers are expected
 to sign a CLA before contributions can be considered.
