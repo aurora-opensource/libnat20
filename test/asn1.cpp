@@ -582,9 +582,9 @@ TEST_P(SequenceTest, SequenceEncoding) {
 
 class ObjectIdentifierTest
     : public testing::TestWithParam<
-          std::tuple<std::optional<struct n20_asn1_object_identifier>, std::vector<uint8_t>>> {};
+          std::tuple<std::optional<n20_asn1_object_identifier_t>, std::vector<uint8_t>>> {};
 
-struct n20_asn1_object_identifier OID_GOOGLE = {7, {1, 3, 6, 1, 4, 1, 11129}};
+n20_asn1_object_identifier_t OID_GOOGLE = {7, {1, 3, 6, 1, 4, 1, 11129}};
 
 std::vector<uint8_t> const ENCODED_OID_SHA256_WITH_RSA_ENC = {
     0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b};

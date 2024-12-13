@@ -73,7 +73,7 @@ typedef struct n20_x509_rdn_s {
     /**
      * @brief The object identifier of the RDNSequence element.
      */
-    struct n20_asn1_object_identifier *type;
+    n20_asn1_object_identifier_t *type;
     /**
      * @brief The value of the RDNSequence element.
      *

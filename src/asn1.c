@@ -163,7 +163,7 @@ void n20_asn1_null(n20_asn1_stream_t *const s) {
 }
 
 void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
-                                struct n20_asn1_object_identifier const *const oid) {
+                                n20_asn1_object_identifier_t const *const oid) {
     // If oid is a null pointer, write a ASN1 NULL instead of the OID and return.
     if (oid == NULL) {
         n20_asn1_null(s);

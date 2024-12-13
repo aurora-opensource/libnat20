@@ -42,7 +42,7 @@
 /**
  * @brief Structure representing an object identifier.
  */
-typedef struct n20_asn1_object_identifier {
+typedef struct n20_asn1_object_identifier_s {
     /**
      * @brief Indicates the number of elements used.
      */

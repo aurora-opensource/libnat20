@@ -230,7 +230,7 @@ typedef uint8_t n20_asn1_class_t;
  * each field is known when rendering the corresponding header
  * with no further adjustment required to adhere to DER.
  */
-typedef struct n20_asn1_stream {
+typedef struct n20_asn1_stream_s {
     /**
      * @brief Points to the beginning of the underlying buffer.
      *
