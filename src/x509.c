@@ -28,8 +28,11 @@ void n20_x509_rdn_content(n20_asn1_stream_t *const s, void *context) {
 void n20_x509_rdn(n20_asn1_stream_t *const s, n20_x509_rdn_t const *rdn) {
     size_t mark = n20_asn1_stream_data_written(s);
     n20_asn1_sequence(s, n20_x509_rdn_content, (void *)rdn);
-    n20_asn1_header(
-        s, N20_ASN1_CLASS_UNIVERSAL, 1, N20_ASN1_TAG_SET, n20_asn1_stream_data_written(s) - mark);
+    n20_asn1_header(s,
+                    N20_ASN1_CLASS_UNIVERSAL,
+                    /*constructed=*/true,
+                    N20_ASN1_TAG_SET,
+                    n20_asn1_stream_data_written(s) - mark);
 }
 
 void n20_x509_name_content(n20_asn1_stream_t *const s, void *context) {
@@ -66,7 +69,7 @@ static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context
 
         n20_asn1_header(s,
                         N20_ASN1_CLASS_UNIVERSAL,
-                        0,
+                        /*constructed=*/false,
                         N20_ASN1_TAG_OCTET_STRING,
                         n20_asn1_stream_data_written(s) - mark);
 
@@ -82,14 +85,14 @@ static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context
 
         n20_asn1_header(s,
                         N20_ASN1_CLASS_UNIVERSAL,
-                        1,
+                        /*constructed=*/true,
                         N20_ASN1_TAG_SEQUENCE,
                         n20_asn1_stream_data_written(s) - mark);
     }
 }
 
 void n20_x509_extension(n20_asn1_stream_t *const s, n20_x509_extensions_t const *exts) {
-    if (!exts || !exts->extensions || exts->extensions_count == 0) {
+    if (exts == NULL || exts->extensions == NULL || exts->extensions_count == 0) {
         return;
     }
 
@@ -97,9 +100,12 @@ void n20_x509_extension(n20_asn1_stream_t *const s, n20_x509_extensions_t const 
 
     n20_asn1_sequence(s, n20_x509_extension_content, (void *)exts);
 
-    // Extensions have an explicit tag 3.
-    n20_asn1_header(
-        s, N20_ASN1_CLASS_CONTEXT_SPECIFIC, 1, 3, n20_asn1_stream_data_written(s) - mark);
+    // Extensions have an explicit context specific tag of 3.
+    n20_asn1_header(s,
+                    N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                    /*constructed=*/true,
+                    /*tag=*/3,
+                    n20_asn1_stream_data_written(s) - mark);
 }
 
 void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, void *context) {
@@ -113,11 +119,11 @@ void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, void *co
         if (basic_constraints->has_path_length) {
             n20_asn1_uint64(s, basic_constraints->path_length);
         }
-        n20_asn1_boolean(s, 1);
+        n20_asn1_boolean(s, true);
     }
     n20_asn1_header(s,
                     N20_ASN1_CLASS_UNIVERSAL,
-                    1,
+                    /*constructed=*/true,
                     N20_ASN1_TAG_SEQUENCE,
                     n20_asn1_stream_data_written(s) - mark);
 }
@@ -131,9 +137,9 @@ void n20_x509_ext_key_usage_content(n20_asn1_stream_t *const s, void *context) {
     }
 
     // Compute the minimal number of bits in the bit string.
-    if (key_usage->key_usage_mask[1]) {
+    if (key_usage->key_usage_mask[1] != 0) {
         bits = 9;
-    } else if (key_usage->key_usage_mask[0]) {
+    } else if (key_usage->key_usage_mask[0] != 0) {
         bits = 8;
         uint8_t c = key_usage->key_usage_mask[0];
         if ((c & 0xf) == 0) {
@@ -154,6 +160,9 @@ void n20_x509_ext_key_usage_content(n20_asn1_stream_t *const s, void *context) {
 
 void n20_x509_algorithm_identifier_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_algorithm_identifier_t const *alg_id = context;
+    if (alg_id == NULL) {
+        return;
+    }
 
     switch (alg_id->params.variant) {
         case n20_x509_pv_none_e:
@@ -201,10 +210,9 @@ void n20_x509_validity(n20_asn1_stream_t *const s, n20_x509_validity_t const *co
 
 void n20_x509_version_3(n20_asn1_stream_t *const s) {
     // Version 3 (value 2) with explicit tag 0.
-    size_t mark = n20_asn1_stream_data_written(s);
-    n20_asn1_uint64(s, 2);
-    n20_asn1_header(
-        s, N20_ASN1_CLASS_CONTEXT_SPECIFIC, 1, 0, n20_asn1_stream_data_written(s) - mark);
+    static uint8_t const x509_version_3_with_explicit_tag_0[] = {0xa0, 0x03, 0x02, 0x01, 0x02};
+    n20_asn1_stream_prepend(
+        s, &x509_version_3_with_explicit_tag_0[0], sizeof(x509_version_3_with_explicit_tag_0));
 }
 
 void n20_x509_cert_tbs_content(n20_asn1_stream_t *const s, void *context) {

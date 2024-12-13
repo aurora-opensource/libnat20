@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Maximum number of elements of element in @ref n20_x509_name.
+ * @brief Maximum number of elements in @ref n20_x509_name.
  *
  * @ref n20_x509_name contains an array of elements for storing
  * elements of the RDNSequence. This macro definition controls the size
@@ -58,7 +58,7 @@ static char const *const n20_x509_unix_epoch = "19700101000000Z";
  *
  * As of this writing only elements that are presented as
  * PritableString are supported. This means that the provided
- * nul terminated string must only contain allows characters
+ * nul terminated string must only contain allowed characters
  * as outlined in @ref n20_asn1_printablestring. No checking
  * is done on the provided string, this means that if the
  * caller provides a string containing invalid characters,
@@ -93,8 +93,8 @@ typedef struct n20_x509_rdn_s {
  * The following example is safe. Both pointers
  * are pointing to static objects that will remain valid
  * for the entire runtime of the program.
- * If either argument is created through heap allocation.
- * The user is responsible for making sure that the arguments.
+ * If either argument is created through heap allocation,
+ * the user is responsible for making sure that the arguments.
  * outlive `rdn`.
  *
  * @code{.c}
@@ -119,7 +119,7 @@ typedef struct n20_x509_rdn_s {
  */
 typedef struct n20_x509_name_s {
     /**
-     * @brief Number of actual elements in the seqence.
+     * @brief Number of actual elements in the sequence.
      *
      * Must be in the range of [0 .. @ref N20_X509_NAME_MAX_NAME_ELEMENTS]
      */
@@ -208,7 +208,7 @@ typedef struct n20_x509_extension_s {
      *
      * The callback function renders the value of the extension.
      * this content is consumed by n20_x509_extension and treated
-     * as octet string.
+     * as an octet string.
      *
      * If the content_cb is NULL the extension value
      * will be an empty octet string.
@@ -227,7 +227,7 @@ typedef struct n20_x509_extension_s {
  * @brief Represents a set of x509 v3 extensions.
  *
  * The extensions will appear in the output in the
- * same order that they appear in @ref extensions.
+ * same order they appear in @ref extensions.
  *
  * @sa n20_x509_extension
  */
@@ -258,7 +258,7 @@ typedef struct n20_x509_extensions_s {
 } n20_x509_extensions_t;
 
 /**
- * @brief Renders a the extensions field of an X509 certificate.
+ * @brief Renders the extensions field of an X509 certificate.
  *
  * This function renders the given set of extensions to the
  * given stream. The function also renders the enveloping sequence
@@ -272,7 +272,7 @@ typedef struct n20_x509_extensions_s {
  * # Example
  *
  * The following example shows how to render the extensions field
- * of an X509 certificate comprising a key usage
+ * of an X509 certificate containing a key usage
  * extensions and a basic constraints extension.
  *
  * @code{.c}
@@ -448,7 +448,7 @@ extern void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, v
  * @ref n20_x509_extension_t.context to an instance of this
  * struct.
  *
- * Always zero initialize instances of this structure as and
+ * Always zero initialize instances of this structure and
  * set the flags using the @ref n20_x509_key_usage_macros.
  *
  * # Example
@@ -465,9 +465,9 @@ typedef struct n20_x509_ext_key_usage_s {
     /**
      * @brief The key usage mask.
      *
-     * Use the @ref n20_x509_key_usage_macros to set the individual
+     * Use the @ref n20_x509_key_usage_macros to set the individual bits
      * of the key usage mask. As described at @ref n20_x509_ext_key_usage_t.
-     * there no need accessing this field directly.
+     * There is no need accessing this field directly.
      */
     uint8_t key_usage_mask[2];
 } n20_x509_ext_key_usage_t;
@@ -613,7 +613,7 @@ typedef struct n20_x509_validity_s {
     /**
      * @brief The certificate shall not be valid before.
      *
-     * Must be initialize to a generalized time string of the form as
+     * Must be initialized to a generalized time string of the form
      * described in @ref N20_ASN1_TAG_UTC_TIME, or NULL.
      * If NULL, the not before field of the certificate will be set to
      * @ref n20_x509_unix_epoch.
@@ -623,7 +623,7 @@ typedef struct n20_x509_validity_s {
     /**
      * @brief The certificate shall not be valid after.
      *
-     * Must be initialize to a generalized time string of the form as
+     * Must be initialized to a generalized time string of the form
      * described in @ref N20_ASN1_TAG_UTC_TIME, or NULL.
      * If NULL, the not after field of the certificate will be set to
      * @ref n20_x509_no_expiration.
@@ -712,7 +712,7 @@ typedef struct n20_x509_s {
      * @brief A representation of the to-be-signed section of the certificate.
      *
      * This must be identical to the representation that was used
-     * to render that tbs section that was signed by @ref signature.
+     * to render the tbs section that was signed by @ref signature.
      * Otherwise the resulting certificate cannot be verified.
      *
      * No ownership is taken. The user must make sure that the target
@@ -756,7 +756,7 @@ typedef struct n20_x509_s {
      * If @ref signature is NULL, it results in an empty octet string
      * in the output certificate.
      *
-     * Now ownership is assumed. The user has to assure that
+     * No ownership is assumed. The user has to assure that
      * the target buffer outlives the instance of this structure.
      */
     uint8_t const *signature;
@@ -770,11 +770,11 @@ typedef struct n20_x509_s {
  * @ref tbs must be valid for the duration of the function call.
  * And no ownership is assumed.
  *
- * If @ref tbs is NULL and empty sequence is rendered.
+ * If @ref tbs is NULL an empty sequence is rendered.
  *
- * @param s The stream that is to be updated.
+ * @param s The stream to be updated.
  * @param tbs Pointer to @ref n20_x509_tbs_t holding the certificate content
- * that is to be rendered.
+ * to be rendered.
  *
  * @sa n20_x509_tbs_t
  */
@@ -790,9 +790,9 @@ extern void n20_x509_cert_tbs(n20_asn1_stream_t *const s, n20_x509_tbs_t const *
  *
  * If @ref x509 is NULL an empty sequence is rendered.
  *
- * @param s The stream that is to be updated.
+ * @param s The stream to be updated.
  * @param x509 Pointer to an instance of @ref n20_x509_t holding the
- * certificate content that is to be rendered.
+ * certificate content to be rendered.
  */
 extern void n20_x509_cert(n20_asn1_stream_t *const s, n20_x509_t const *x509);
 
