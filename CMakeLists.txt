@@ -41,6 +41,7 @@ set(LIBNAT20_SOURCES
     # Add the core library source files here.
     src/asn1.c
     src/oid.c
+    src/x509_ext_open_dice_input.c
     src/x509.c
 )
 
@@ -49,6 +50,8 @@ set(LIBNAT20_PUB_HEADERS
     # These files will be included in the generation of the API documentation.
     include/nat20/asn1.h
     include/nat20/oid.h
+    include/nat20/open_dice.h
+    include/nat20/x509_ext_open_dice_input.h
     include/nat20/x509.h
 )
 
@@ -56,6 +59,7 @@ set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
     test/test.cpp
     test/asn1.cpp
+    test/x509_ext_open_dice_input.cpp
 )
 
 set(LIBNAT20_DOC_PAGES
