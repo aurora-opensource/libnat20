@@ -25,8 +25,19 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Length of the digests used in OpenDICE.
+ */
 #define N20_OPEN_DICE_HASH_LENGTH 64
+
+/**
+ * @brief Length of the inline configuration used in OpenDICE.
+ */
 #define N20_OPEN_DICE_CONFIGURATION_INLINE_LENGTH 64
+
+/**
+ * @brief Length of the hidden input used in OpenDICE.
+ */
 #define N20_OPEN_DICE_HIDDEN_LENGTH 64
 
 /**
