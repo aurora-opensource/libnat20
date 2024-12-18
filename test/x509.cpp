@@ -78,7 +78,10 @@ uint8_t const test_uds[] = {
     0xbb, 0xe0, 0x21, 0xf5, 0x87, 0x1c, 0x6c, 0x0c, 0x30, 0x2b, 0x32, 0x4f, 0x4c, 0x44, 0xd1, 0x26,
     0xca, 0x35, 0x6b, 0xc3, 0xc5, 0x0e, 0x17, 0xc6, 0x21, 0xad, 0x1d, 0x32, 0xbd, 0x6e, 0x35, 0x08};
 
-EVP_PKEY_PTR_t make_key(int type, std::string const& context) {
+constexpr int secp256r1 = 1;
+constexpr int secp384r1 = 2;
+
+EVP_PKEY_PTR_t make_key(int type, std::string const& context, int curve) {
     std::vector<uint8_t> out_key(32);
     int rc = HKDF_expand(out_key.data(),
                          out_key.size(),
@@ -98,8 +101,15 @@ EVP_PKEY_PTR_t make_key(int type, std::string const& context) {
     }
 
     if (type == EVP_PKEY_EC) {
+        EC_GROUP const* group;
+        if (curve == secp256r1) {
+            group = EC_group_p256();
+        } else {
+            group = EC_group_p384();
+        }
 
-        auto ec_key = EC_KEY_PTR_t(EC_KEY_derive_from_secret(EC_group_p256(), out_key.data(), 32));
+        auto ec_key =
+            EC_KEY_PTR_t(EC_KEY_derive_from_secret(group, out_key.data(), out_key.size()));
         EXPECT_TRUE(ec_key != NULL);
         if (!ec_key) return {};
 
@@ -114,10 +124,10 @@ EVP_PKEY_PTR_t make_key(int type, std::string const& context) {
     return {};
 }
 
-EVP_PKEY_PTR_t generate_key(int type, uint32_t key_bits, std::string const& context) {
+EVP_PKEY_PTR_t generate_key(int type, uint32_t key_bits_curve, std::string const& context) {
 
     if (type == EVP_PKEY_ED25519 || type == EVP_PKEY_EC) {
-        return make_key(type, context);
+        return make_key(type, context, key_bits_curve);
     }
 
     auto evp_ctx = EVP_PKEY_CTX_PTR_t(EVP_PKEY_CTX_new_id(type, NULL));
@@ -132,7 +142,7 @@ EVP_PKEY_PTR_t generate_key(int type, uint32_t key_bits, std::string const& cont
     }
 
     if (type == EVP_PKEY_RSA) {
-        if (!EVP_PKEY_CTX_set_rsa_keygen_bits(evp_ctx.get(), key_bits)) {
+        if (!EVP_PKEY_CTX_set_rsa_keygen_bits(evp_ctx.get(), key_bits_curve)) {
             ADD_FAILURE();
             return nullptr;
         }
@@ -178,8 +188,6 @@ std::optional<std::vector<uint8_t>> sign(EVP_PKEY_PTR_t const& key,
             ADD_FAILURE();
             return std::nullopt;
         }
-
-        sig_size += 3;
 
         std::vector<uint8_t> result(sig_size);
 
@@ -310,6 +318,8 @@ TEST_F(X509Test, Inittest) {
 }
 
 class CertIssueTest : public testing::TestWithParam<std::tuple<int,
+                                                               int,
+                                                               size_t,
                                                                n20_asn1_object_identifier_t*,
                                                                n20_asn1_object_identifier_t*,
                                                                size_t,
@@ -347,25 +357,42 @@ INSTANTIATE_TEST_CASE_P(
     X509Test,
     CertIssueTest,
     testing::Values(std::tuple(EVP_PKEY_RSA,
+                               2048,
+                               256,
                                &OID_SHA256_WITH_RSA_ENC,
                                &OID_RSA_ENCRYPTION,
                                673,
                                n20_x509_algorithm_parameters_t{.variant = n20_x509_pv_null_e},
                                true),
                     std::tuple(EVP_PKEY_EC,
+                               secp256r1,
+                               72,
                                &OID_ECDSA_WITH_SHA256,
                                &OID_EC_PUBLIC_KEY,
                                469,
                                n20_x509_algorithm_parameters_t{.variant = n20_x509_pv_ec_curve_e,
                                                                .ec_curve = &OID_SECP256R1},
                                true),
+                    std::tuple(EVP_PKEY_EC,
+                               secp384r1,
+                               104,
+                               &OID_ECDSA_WITH_SHA256,
+                               &OID_EC_PUBLIC_KEY,
+                               498,
+                               n20_x509_algorithm_parameters_t{.variant = n20_x509_pv_ec_curve_e,
+                                                               .ec_curve = &OID_SECP384R1},
+                               true),
                     std::tuple(EVP_PKEY_ED25519,
+                               0,
+                               64,
                                &OID_ED25519,
                                &OID_ED25519,
                                417,
                                n20_x509_algorithm_parameters_t{.variant = n20_x509_pv_none_e},
                                true),
                     std::tuple(EVP_PKEY_ED25519,
+                               0,
+                               64,
                                &OID_ED25519,
                                &OID_ED25519,
                                414,
@@ -382,13 +409,15 @@ std::vector<uint8_t> from_stream(n20_asn1_stream_t const* s) {
 
 TEST_P(CertIssueTest, CertIssue) {
     auto [key_type,
+          key_bits_curve,
+          sig_size,
           signature_algorithm,
           publickey_algorithm,
           want_tbs_size,
           want_params,
           has_path_length] = GetParam();
 
-    auto key = generate_key(key_type, 2048, "CertIssueTest1");
+    auto key = generate_key(key_type, key_bits_curve, "CertIssueTest1");
     ASSERT_TRUE(!!key);
 
     auto key_bits = get_public_key_bits(key);
@@ -474,6 +503,8 @@ TEST_P(CertIssueTest, CertIssue) {
         key, std::vector<uint8_t>(n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + tbs_size));
     ASSERT_TRUE(!!sig);
 
+    ASSERT_LE(sig->size(), sig_size);
+
     // Combine the tbs info with the signature algorithm,
     // reinitialize the asn1 stream and write out the entire
     // certificate.
@@ -536,7 +567,7 @@ TEST_P(CertIssueTest, CertIssue) {
 
     ASSERT_EQ(want_tbs_size, tbs_size);
 
-    auto key2 = generate_key(key_type, 2048, "CertIssueTest2");
+    auto key2 = generate_key(key_type, key_bits_curve, "CertIssueTest2");
 
     // Sign the TBS part.
     auto sig2 = sign(
