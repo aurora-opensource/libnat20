@@ -26,6 +26,12 @@ option(NAT20_WITH_TESTS "Build the test suite." OFF)
 # Build the docs by building the target `make nat20_docs`.
 option(NAT20_WITH_DOCS "Create the documentation target." OFF)
 
+# Enable building the boringssl based reference implementation
+# for the nat20 crypto interface.
+# -DNAT20_WITH_CRYPTO_BSSL=ON on the `cmake -B` command line.
+# Build the docs by building the target `make nat20_docs`.
+option(NAT20_WITH_CRYPTO_BSSL "Build the boringssl based crypto reference implementation." OFF)
+
 # The C standard shall be C11.
 set(CMAKE_C_STANDARD 11)
 
@@ -64,6 +70,15 @@ set(LIBNAT20_DOC_PAGES
     CONTRIBUTING.md
 )
 
+set(LIBNAT20_PUB_BSSL_HEADERS
+    include/nat20/crypto_bssl/crypto.h
+)
+
+
+set(LIBNAT20_CRYPTO_BSSL_SOURCES
+    src/crypto/crypto_boringssl.cpp
+)
+
 set(LIBNAT20_CRYPTO_BSSL_TEST_SOURCES
     src/crypto/test/test.cpp
     src/crypto/test/crypto_boringssl.cpp
@@ -95,9 +110,9 @@ target_include_directories(nat20
 ###################################################################################################
 
 ###################################################################################################
-# Import boringssl when building the test.
+# Import boringssl when building the test and/or the reference crypto implementation.
 
-if(NAT20_WITH_TESTS)
+if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
     include(FetchContent)
 
     FetchContent_Declare(
@@ -106,6 +121,36 @@ if(NAT20_WITH_TESTS)
         GIT_TAG        dc65229e58a98c0768d017d0c9bbe376f20c2577 # tag 0.20241024.0
     )
     FetchContent_MakeAvailable(crypto)
+endif()
+
+###################################################################################################
+
+###################################################################################################
+# The nat20_crypto_boringssl library is a reference implementation
+# the libnat20 crypto interface using boring ssl.
+# It will be compiled when selected by setting `-DNAT20_WITH_CRYPTO_BSSL` on
+# the `cmake -B` command line.
+if (NAT20_WITH_CRYPTO_BSSL)
+    add_library(nat20_crypto_boringssl)
+
+    target_sources(nat20_crypto_boringssl
+        PRIVATE ${LIBNAT20_CRYPTO_BSSL_SOURCES}
+        INTERFACE ${LIBNAT20_PUB_CRYPTO_BSSL_HEADERS}
+    )
+
+    target_compile_options(nat20_crypto_boringssl
+        PRIVATE -pedantic
+        PRIVATE -Wall
+        PRIVATE -Wextra
+        PRIVATE -Werror
+    )
+
+    target_include_directories(nat20_crypto_boringssl
+        PUBLIC include
+    )
+
+    target_link_libraries(nat20_crypto_boringssl crypto)
+
 endif()
 
 ###################################################################################################

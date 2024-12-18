@@ -512,4 +512,16 @@ uint8_t const test_cdi[] = {
     0xbb, 0xe0, 0x21, 0xf5, 0x87, 0x1c, 0x6c, 0x0c, 0x30, 0x2b, 0x32, 0x4f, 0x4c, 0x44, 0xd1, 0x26,
     0xca, 0x35, 0x6b, 0xc3, 0xc5, 0x0e, 0x17, 0xc6, 0x21, 0xad, 0x1d, 0x32, 0xbd, 0x6e, 0x35, 0x08};
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CryptoTestFixture);
+struct CryptoImplBSSL {
+    static n20_crypto_error_t open(n20_crypto_context_t** ctx) {
+        n20_crypto_buffer_t cdi = {sizeof(test_cdi), const_cast<uint8_t*>(&test_cdi[0])};
+        return n20_crypto_open_boringssl(ctx, &cdi);
+    }
+    static n20_crypto_error_t close(n20_crypto_context_t* ctx) {
+        return n20_crypto_close_boringssl(ctx);
+    }
+};
+
+using CryptoImpls = ::testing::Types<CryptoImplBSSL>;
+
+INSTANTIATE_TYPED_TEST_SUITE_P(BSSLCrypto, CryptoTestFixture, CryptoImpls);
