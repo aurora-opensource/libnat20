@@ -13,16 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <stdint.h>
 #include <unistd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum n20_crypto_error_s {
+    n20_crypto_error_ok_e,
+    n20_crypto_error_unexpected_null_e,
     n20_crypto_error_not_implemented_e,
-    n20_crypto_incompatible_algorithm_e,
-    n20_crypto_missing_context_e,
-    n20_crypto_invalid_key_e,
-    n20_crypto_no_memory_e,
+    n20_crypto_error_incompatible_algorithm_e,
+    n20_crypto_error_unkown_algorithm_e,
+    n20_crypto_error_missing_context_e,
+    n20_crypto_error_invalid_key_e,
+    n20_crypto_error_no_memory_e,
+    n20_crypto_error_insufficient_buffer_size_e,
+    n20_crypto_error_implementation_specific_e,
+    n20_crypto_error_invalid_context_e,
 } n20_crypto_error_t;
 
 typedef enum n20_crypto_digest_algorithm_s {
@@ -74,3 +85,7 @@ typedef struct n20_crypto_context_s {
                                              size_t* public_key_size_out);
     n20_crypto_error_t (*key_free)(struct n20_crypto_context_s* ctx, n20_crypto_key_t key_in);
 } n20_crypto_context_t;
+
+#ifdef __cplusplus
+}
+#endif
