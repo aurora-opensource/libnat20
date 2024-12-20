@@ -27,7 +27,11 @@ void n20_x509_rdn_content(n20_asn1_stream_t *const s, void *context) {
 
 void n20_x509_rdn(n20_asn1_stream_t *const s, n20_x509_rdn_t const *rdn) {
     size_t mark = n20_asn1_stream_data_written(s);
-    n20_asn1_sequence(s, n20_x509_rdn_content, (void *)rdn);
+    n20_asn1_sequence_t sequence = {
+        .content_cb = n20_x509_rdn_content,
+        .cb_context = (void *)rdn,
+    };
+    n20_asn1_sequence(s, &sequence);
     n20_asn1_header(s,
                     N20_ASN1_CLASS_UNIVERSAL,
                     /*constructed=*/true,
@@ -48,7 +52,11 @@ void n20_x509_name_content(n20_asn1_stream_t *const s, void *context) {
 }
 
 void n20_x509_name(n20_asn1_stream_t *const s, n20_x509_name_t const *name) {
-    n20_asn1_sequence(s, n20_x509_name_content, (void *)name);
+    n20_asn1_sequence_t sequence = {
+        .content_cb = n20_x509_name_content,
+        .cb_context = (void *)name,
+    };
+    n20_asn1_sequence(s, &sequence);
 }
 
 static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context) {
@@ -96,16 +104,12 @@ void n20_x509_extension(n20_asn1_stream_t *const s, n20_x509_extensions_t const 
         return;
     }
 
-    size_t mark = n20_asn1_stream_data_written(s);
-
-    n20_asn1_sequence(s, n20_x509_extension_content, (void *)exts);
-
-    // Extensions have an explicit context specific tag of 3.
-    n20_asn1_header(s,
-                    N20_ASN1_CLASS_CONTEXT_SPECIFIC,
-                    /*constructed=*/true,
-                    /*tag=*/3,
-                    n20_asn1_stream_data_written(s) - mark);
+    // Extensions have a context specific explicit tag of 3.
+    n20_asn1_sequence_t sequence = {
+        .content_cb = n20_x509_extension_content,
+        .cb_context = (void *)exts,
+    };
+    n20_asn1_sequence_explicitly_tagged(s, /*tag=*/3, &sequence);
 }
 
 void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, void *context) {
@@ -155,7 +159,11 @@ void n20_x509_ext_key_usage_content(n20_asn1_stream_t *const s, void *context) {
         }
     }
 
-    n20_asn1_bitstring(s, key_usage->key_usage_mask, bits);
+    n20_asn1_bitstring_t bitstring = {
+        .b = key_usage->key_usage_mask,
+        .bits = bits,
+    };
+    n20_asn1_bitstring(s, &bitstring);
 }
 
 void n20_x509_algorithm_identifier_content(n20_asn1_stream_t *const s, void *context) {
@@ -180,18 +188,30 @@ void n20_x509_algorithm_identifier_content(n20_asn1_stream_t *const s, void *con
 
 void n20_x509_algorithm_identifier(
     n20_asn1_stream_t *const s, n20_x509_algorithm_identifier_t const *const algorithm_identifier) {
-    n20_asn1_sequence(s, n20_x509_algorithm_identifier_content, (void *)algorithm_identifier);
+    n20_asn1_sequence_t sequence = {
+        .content_cb = n20_x509_algorithm_identifier_content,
+        .cb_context = (void *)algorithm_identifier,
+    };
+    n20_asn1_sequence(s, &sequence);
 }
 
 void n20_x509_public_key_info_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_public_key_info_t const *pub_key_info = context;
-    n20_asn1_bitstring(s, pub_key_info->public_key, pub_key_info->public_key_bits);
+    n20_asn1_bitstring_t bitstring = {
+        .b = pub_key_info->public_key,
+        .bits = pub_key_info->public_key_bits,
+    };
+    n20_asn1_bitstring(s, &bitstring);
     n20_x509_algorithm_identifier(s, &pub_key_info->algorithm_identifier);
 }
 
 void n20_x509_public_key_info(n20_asn1_stream_t *const s,
                               n20_x509_public_key_info_t const *const public_key_info) {
-    n20_asn1_sequence(s, n20_x509_public_key_info_content, (void *)public_key_info);
+    n20_asn1_sequence_t sequence = {
+        .content_cb = n20_x509_public_key_info_content,
+        .cb_context = (void *)public_key_info,
+    };
+    n20_asn1_sequence(s, &sequence);
 }
 
 void n20_x509_validity_content(n20_asn1_stream_t *const s, void *context) {
@@ -205,14 +225,16 @@ void n20_x509_validity_content(n20_asn1_stream_t *const s, void *context) {
 }
 
 void n20_x509_validity(n20_asn1_stream_t *const s, n20_x509_validity_t const *const validity) {
-    n20_asn1_sequence(s, n20_x509_validity_content, (void *)validity);
+    n20_asn1_sequence_t sequence = {
+        .content_cb = n20_x509_validity_content,
+        .cb_context = (void *)validity,
+    };
+    n20_asn1_sequence(s, &sequence);
 }
 
 void n20_x509_version_3(n20_asn1_stream_t *const s) {
     // Version 3 (value 2) with explicit tag 0.
-    static uint8_t const x509_version_3_with_explicit_tag_0[] = {0xa0, 0x03, 0x02, 0x01, 0x02};
-    n20_asn1_stream_prepend(
-        s, &x509_version_3_with_explicit_tag_0[0], sizeof(x509_version_3_with_explicit_tag_0));
+    n20_asn1_uint64_explicitly_tagged(s, /*tag=*/0, /*n=*/2);
 }
 
 void n20_x509_cert_tbs_content(n20_asn1_stream_t *const s, void *context) {
@@ -251,7 +273,11 @@ void n20_x509_cert_tbs_content(n20_asn1_stream_t *const s, void *context) {
 }
 
 void n20_x509_cert_tbs(n20_asn1_stream_t *const s, n20_x509_tbs_t const *const tbs) {
-    n20_asn1_sequence(s, n20_x509_cert_tbs_content, (void *)tbs);
+    n20_asn1_sequence_t sequence = {
+        .content_cb = n20_x509_cert_tbs_content,
+        .cb_context = (void *)tbs,
+    };
+    n20_asn1_sequence(s, &sequence);
 }
 
 void n20_x509_cert_content(n20_asn1_stream_t *const s, void *context) {
@@ -259,11 +285,19 @@ void n20_x509_cert_content(n20_asn1_stream_t *const s, void *context) {
     if (x509 == NULL) {
         return;
     }
-    n20_asn1_bitstring(s, x509->signature, x509->signature_bits);
+    n20_asn1_bitstring_t bitstring = {
+        .b = x509->signature,
+        .bits = x509->signature_bits,
+    };
+    n20_asn1_bitstring(s, &bitstring);
     n20_x509_algorithm_identifier(s, &x509->signature_algorithm);
     n20_x509_cert_tbs(s, x509->tbs);
 }
 
 void n20_x509_cert(n20_asn1_stream_t *const s, n20_x509_t const *const x509) {
-    n20_asn1_sequence(s, n20_x509_cert_content, (void *)x509);
+    n20_asn1_sequence_t sequence = {
+        .content_cb = n20_x509_cert_content,
+        .cb_context = (void *)x509,
+    };
+    n20_asn1_sequence(s, &sequence);
 }

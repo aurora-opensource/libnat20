@@ -46,7 +46,7 @@
  */
 #define N20_ASN1_CLASS_APPLICATION 1
 /**
- * @brief The universal class.
+ * @brief The context specific class.
  *
  * Indicates that the tag in the corresponding ASN.1 header
  * is context specific.
@@ -54,7 +54,7 @@
  */
 #define N20_ASN1_CLASS_CONTEXT_SPECIFIC 2
 /**
- * @brief The universal class.
+ * @brief The private class.
  *
  * Indicates that the tag in the corresponding ASN.1 header
  * is private.
@@ -216,6 +216,9 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Represents an ASN.1 class.
+ */
 typedef uint8_t n20_asn1_class_t;
 
 /**
@@ -496,8 +499,19 @@ extern void n20_asn1_header(
  *
  * @param s The stream that is to be updated.
  * @sa N20_ASN1_TAG_NULL
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
 extern void n20_asn1_null(n20_asn1_stream_t *const s);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged ASN1 NULL to the given
+ * stream.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_null_implicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag);
 
 /**
  * @brief Write an object identifier complete with ASN.1 header to the given stream.
@@ -505,37 +519,129 @@ extern void n20_asn1_null(n20_asn1_stream_t *const s);
  * If the @ref oid parameter is NULL this function behaves like
  * @ref n20_asn1_null.
  *
- * If `oid->element_count` is initialized to avalue greater than
+ * If `oid->element_count` is initialized to a value greater than
  * @ref N20_ASN1_MAX_OID_ELEMENTS this function behaves like
  * @ref n20_asn1_null.
  *
  * @param s The stream that is to be updated.
  * @param oid The object identifier to be written to the stream.
+ * @sa n20_asn1_object_identifier_t
  * @sa N20_ASN1_TAG_OBJECT_IDENTIFIER
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
 extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
                                        n20_asn1_object_identifier_t const *oid);
 
 /**
+ * @brief Convenience function to write a context specific implicitly tagged object identifier
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_object_identifier, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param oid The object identifier to be written to the stream.
+ * @sa n20_asn1_object_identifier_t
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_object_identifier_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                         uint32_t tag,
+                                                         n20_asn1_object_identifier_t const *oid);
+
+/**
+ * @brief Convenience function to write a context specific explicitly tagged object identifier
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_object_identifier, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded identifier.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param oid The object identifier to be written to the stream.
+ * @sa n20_asn1_object_identifier_t
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_object_identifier_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                         uint32_t tag,
+                                                         n20_asn1_object_identifier_t const *oid);
+
+/**
+ * @brief Represents an integer to be encoded.
+ */
+typedef struct n20_asn1_interger_s {
+    /**
+     * @brief The buffer holding the integer.
+     */
+    uint8_t const *n;
+    /**
+     * @brief The size of the buffer in bytes.
+     */
+    size_t length;
+    /**
+     * @brief Indicates if the byteorder of the integer in the given buffer.
+     */
+    bool little_endian;
+    /**
+     * @brief If `true` the buffer is interpreted as signed 2-complement integer.
+     */
+    bool two_complement;
+} n20_asn1_interger_t;
+
+/**
  * @brief Write an integer complete with ASN.1 header to the given stream.
  *
- * The function expects a buffer `n` of length `len` bytes which
- * it will interpret as integer according to the parameters `little_endian`
- * and `two_complement`. It will format an ASN1 INTEGER into the stream using
+ * The function expects a buffer `integer->n` of length `integer->length` bytes which
+ * it will interpret as integer according to the parameters `integer->little_endian`
+ * and `integer->two_complement`. It will format an ASN1 INTEGER into the stream using
  * DER, i.e., leading zero bytes (unsigned) or bytes that have all bits set
  * according to the sign byte (2-complement) are stripped or padded as appropriate.
  *
- * If `n` is NULL this function behaves like @ref n20_asn1_null.
+ * If `integer` or `integer->n` are NULL, this function behaves like @ref n20_asn1_null.
  *
  * @param s The stream that is to be updated.
- * @param n The buffer holding the integer.
- * @param len The size of the buffer in bytes.
- * @param little_endian Indicates if the byteorder of the integer in the given buffer.
- * @param two_complement If `true` the buffer is interpreted as signed 2-complement integer.
+ * @param integer The integer to encode.
+ * @sa n20_asn1_interger_t
  * @sa N20_ASN1_TAG_INTEGER
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
-extern void n20_asn1_integer(
-    n20_asn1_stream_t *s, uint8_t const *n, size_t len, bool little_endian, bool two_complement);
+extern void n20_asn1_integer(n20_asn1_stream_t *s, n20_asn1_interger_t const *integer);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged integer complete with
+ * ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_integer, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * If `integer` or `integer->n` are NULL, this function behaves like @ref n20_asn1_null.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param integer The integer to encode.
+ * @sa n20_asn1_interger_t
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_integer_implicitly_tagged(n20_asn1_stream_t *s,
+                                               uint32_t tag,
+                                               n20_asn1_interger_t const *integer);
+
+/**
+ * @brief Convenience function to write a context specific explicitly tagged integer complete with
+ * ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_integer, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded integer.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param integer The integer to encode.
+ * @sa n20_asn1_interger_t
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_integer_explicitly_tagged(n20_asn1_stream_t *s,
+                                               uint32_t tag,
+                                               n20_asn1_interger_t const *integer);
 
 /**
  * @brief Convenience function to write an unsigned C integer as ASN.1 INTEGER.
@@ -549,8 +655,42 @@ extern void n20_asn1_integer(
  *
  * @param s The stream that is to be updated.
  * @param n An unsigned integer.
+ * @sa N20_ASN1_TAG_INTEGER
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
 extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged unsigned C integer as
+ * ASN.1 INTEGER.
+ *
+ * Behaves similarly to @ref n20_asn1_uint64, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param n An unsigned integer.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_uint64_implicitly_tagged(n20_asn1_stream_t *const s,
+                                              uint32_t tag,
+                                              uint64_t const n);
+
+/**
+ * @brief Convenience function to write a context specific explicitly tagged unsigned C integer as
+ * ASN.1 INTEGER.
+ *
+ * Behaves similarly to @ref n20_asn1_uint64, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded unsigned integer.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param n An unsigned integer.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_uint64_explicitly_tagged(n20_asn1_stream_t *const s,
+                                              uint32_t tag,
+                                              uint64_t const n);
 
 /**
  * @brief Convenience function to write a signed C integer as ASN.1 INTEGER.
@@ -564,11 +704,45 @@ extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n);
  *
  * @param s The stream that is to be updated.
  * @param n A signed integer.
+ * @sa N20_ASN1_TAG_INTEGER
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
 extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n);
 
 /**
- * @brief Write a bit string complete with ASN.1 header to the given stream.
+ * @brief Convenience function to write a context specific implicitly tagged signed C integer as
+ * ASN.1 INTEGER.
+ *
+ * Behaves similarly to @ref n20_asn1_int64, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param n A signed integer.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_int64_implicitly_tagged(n20_asn1_stream_t *const s,
+                                             uint32_t tag,
+                                             int64_t const n);
+
+/**
+ * @brief Convenience function to write a context specific explicitly tagged signed C integer as
+ * ASN.1 INTEGER.
+ *
+ * Behaves similarly to @ref n20_asn1_int64, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded signed integer.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param n A signed integer.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_int64_explicitly_tagged(n20_asn1_stream_t *const s,
+                                             uint32_t tag,
+                                             int64_t const n);
+
+/**
+ * @brief Represents a bitstring to be encoded.
  *
  * The length of the bitstring is given in bits where `bits` may not
  * be a multiple of 8. This means that buffer must be at least `ceil(bits/8)`
@@ -577,27 +751,128 @@ extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n);
  * the buffer. The last bit in the string can be found in the least
  * significant used bit in the byte at offset `bits/8`. The remaining
  * bits are to be set to zero as for DER.
+ */
+typedef struct n20_asn1_bitstring_s {
+    /**
+     * @brief Buffer holding the bitstring.
+     */
+    uint8_t const *b;
+    /**
+     * @brief Number of bits represented by the bitstring.
+     */
+    size_t bits;
+} n20_asn1_bitstring_t;
+
+/**
+ * @brief Write a bit string complete with ASN.1 header to the given stream.
  *
- * If @ref b is NULL an empty bitstring is written.
+ * If @ref bitstring is NULL, nothing is written to the stream.
+ * If @ref bitstring->b is NULL an empty bit string is written.
  *
  * @param s The stream that is to be updated.
- * @param b Buffer holding the bitstring.
- * @param bits Number of bits represented by the bitstring.
+ * @param bitstring The bit string to encode.
+ * @sa n20_asn1_bitstring_s
+ * @sa N20_ASN1_TAG_BIT_STRING
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
-extern void n20_asn1_bitstring(n20_asn1_stream_t *s, uint8_t const *b, size_t bits);
+extern void n20_asn1_bitstring(n20_asn1_stream_t *s, n20_asn1_bitstring_t *const bitstring);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged bit string complete
+ * with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_bitstring, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param bitstring The bitstring to encode.
+ * @sa n20_asn1_bitstring_s
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_bitstring_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                 uint32_t tag,
+                                                 n20_asn1_bitstring_t *const bitstring);
+
+/**
+ * @brief Convenience function to write a context specific exlicitly tagged bit string complete
+ * with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_bitstring, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded bit string.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param bitstring The bitstring to encode.
+ * @sa n20_asn1_bitstring_s
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_bitstring_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                 uint32_t tag,
+                                                 n20_asn1_bitstring_t *const bitstring);
+
+/**
+ * @brief Represents a string-like object to be encoded.
+ */
+typedef struct n20_asn1_string_s {
+    /**
+     * @brief Represents a string-like object to be encoded.
+     */
+    uint8_t const *str;
+    /**
+     * @brief Number of octets in the string-like object.
+     */
+    size_t length;
+} n20_asn1_string_t;
 
 /**
  * @brief Write an octet string complete with ASN.1 header to the given stream.
  *
- * Writes the `len` octets from `str` to the stream.
+ * Writes the `string_->length` octets from `string_->str` to the stream.
  *
- * If @ref str is NULL an empty octetstring is written.
+ * If `string_->str` is NULL an empty octetstring is written.
  *
  * @param s The stream that is to be updated.
- * @param str Buffer holding the octet string.
- * @param len Number of octets in the octet string.
+ * @param string_ Octet string to encode.
+ * @sa n20_asn1_string_t
+ * @sa N20_ASN1_TAG_OCTET_STRING
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
-extern void n20_asn1_octetstring(n20_asn1_stream_t *s, uint8_t const *str, size_t len);
+extern void n20_asn1_octetstring(n20_asn1_stream_t *s, n20_asn1_string_t *const string_);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged octet string complete
+ * with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_octetstring, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param string_ Octet string to encode.
+ * @sa n20_asn1_string_t
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_octetstring_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                   uint32_t tag,
+                                                   n20_asn1_string_t *const string_);
+
+/**
+ * @brief Convenience function to write a context specific explicitly tagged octet string complete
+ * with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_octetstring, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded octet string.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param string_ Octet string to encode.
+ * @sa n20_asn1_string_t
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_octetstring_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                   uint32_t tag,
+                                                   n20_asn1_string_t *const string_);
 
 /**
  * @brief Write an printable string complete with ASN.1 header to the given stream.
@@ -615,8 +890,41 @@ extern void n20_asn1_octetstring(n20_asn1_stream_t *s, uint8_t const *str, size_
  * @param s The stream that is to be updated.
  * @param str Buffer holding the string.
  * @sa N20_ASN1_TAG_PRINTABLE_STRING
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
 extern void n20_asn1_printablestring(n20_asn1_stream_t *s, char const *str);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged printable string
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_printablestring, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param str Buffer holding the string.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_printablestring_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                       uint32_t tag,
+                                                       char const *str);
+
+/**
+ * @brief Convenience function to write a context specific explicitly tagged printable string
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_printablestring, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded printable string.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param str Buffer holding the string.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_printablestring_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                       uint32_t tag,
+                                                       char const *str);
 
 /**
  * @brief Write a generalized time string complete with ASN.1 header to the given stream.
@@ -633,8 +941,42 @@ extern void n20_asn1_printablestring(n20_asn1_stream_t *s, char const *str);
  * @param s The stream that is to be updated.
  * @param time_str Buffer holding the string.
  * @sa N20_ASN1_TAG_GENERALIZED_TIME
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
 extern void n20_asn1_generalized_time(n20_asn1_stream_t *s, char const *time_str);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged generalized time string
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_generalized_time, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param str Buffer holding the string.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_generalized_time_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                        uint32_t tag,
+                                                        char const *time_str);
+
+/**
+ * @brief Convenience function to write a context specific explicitly tagged generalized time string
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_generalized_time, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded generalized time
+ * string.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param str Buffer holding the string.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_generalized_time_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                        uint32_t tag,
+                                                        char const *time_str);
 
 /**
  * @brief The callback function prototype formating constructed content.
@@ -674,6 +1016,23 @@ extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
                                          void *cb_context);
 
 /**
+ * @brief Callback function and context to encode a sequence.
+ */
+typedef struct n20_asn1_sequence_s {
+    /**
+     * @brief The callback function rendering the content. A null function pointer will be
+     * treated as a no-op function.
+     *
+     * @sa n20_asn1_content_cb_t
+     */
+    n20_asn1_content_cb_t *content_cb;
+    /**
+     * @brief This opaque pointer is passed to the content callback as-is.
+     */
+    void *cb_context;
+} n20_asn1_sequence_t;
+
+/**
  * @brief Convenience function to write an ASN.1 sequence complete with header to the given stream.
  *
  * This function is equivalent to:
@@ -684,23 +1043,54 @@ extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
  *     N20_ASN1_CLASS_UNIVERSAL,
  *     true,
  *     N20_ASN1_TAG_SEQUENCE,
- *     content_cb,
- *     cb_context);
+ *     sequence->content_cb,
+ *     sequence->cb_context);
  * @endcode
  *
  * @param s The stream that is to be updated.
- * @param content_cb The callback function rendering the content. A null function pointer will be
- * treated as a no-op function.
- * @param cb_context This opaque pointer is passed to the content callback as-is.
- * @sa n20_asn1_header
- * @sa n20_asn1_content_cb_t
+ * @param sequence The sequence to encode.
  * @sa n20_asn1_header_with_content
+ * @sa n20_asn1_sequence_t
  * @sa N20_ASN1_TAG_SEQUENCE
  * @sa N20_ASN1_CLASS_UNIVERSAL
  */
-extern void n20_asn1_sequence(n20_asn1_stream_t *s,
-                              n20_asn1_content_cb_t content_cb,
-                              void *cb_context);
+extern void n20_asn1_sequence(n20_asn1_stream_t *s, n20_asn1_sequence_t *const sequence);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged sequence
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_sequence, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param sequence The sequence to encode.
+ * @sa n20_asn1_header_with_content
+ * @sa n20_asn1_sequence_t
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_sequence_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                uint32_t tag,
+                                                n20_asn1_sequence_t *const sequence);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged sequence
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_sequence, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded sequence.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param sequence The sequence to encode.
+ * @sa n20_asn1_header_with_content
+ * @sa n20_asn1_sequence_t
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_sequence_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                uint32_t tag,
+                                                n20_asn1_sequence_t *const sequence);
 
 /**
  * @brief Write an ASN.1 (DER) boolean to the given stream.
@@ -713,8 +1103,37 @@ extern void n20_asn1_sequence(n20_asn1_stream_t *s,
  * @param s The stream that is to be updated.
  * @param v The boolean value that is to be written.
  * @sa N20_ASN1_TAG_BOOLEAN
+ * @sa N20_ASN1_CLASS_UNIVERSAL
  */
 extern void n20_asn1_boolean(n20_asn1_stream_t *s, bool v);
+
+/**
+ * @brief Convenience function to write a context specific implicitly tagged boolean
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_boolean, but replaces the universal class and tag
+ * with @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param v The boolean value that is to be written.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_boolean_implicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag, bool v);
+
+/**
+ * @brief Convenience function to write a context specific explicitly tagged boolean
+ * complete with ASN.1 header to the given stream.
+ *
+ * Behaves similarly to @ref n20_asn1_boolean, but places an explicit TLV (with @ref
+ * N20_ASN1_CLASS_CONTEXT_SPECIFIC and the passed in tag.) before the encoded boolean.
+ *
+ * @param s The stream that is to be updated.
+ * @param tag The tag to use.
+ * @param v The boolean value that is to be written.
+ * @sa N20_ASN1_CLASS_CONTEXT_SPECIFIC
+ */
+extern void n20_asn1_boolean_explicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag, bool v);
 
 #ifdef __cplusplus
 }

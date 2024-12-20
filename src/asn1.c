@@ -163,19 +163,17 @@ void n20_asn1_null(n20_asn1_stream_t *const s) {
     n20_asn1_header(s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/false, N20_ASN1_TAG_NULL, 0);
 }
 
-void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
-                                n20_asn1_object_identifier_t const *const oid) {
-    // If oid is a null pointer, or
-    // if the element count was initialized to an out of bounds
-    // value write a ASN1 NULL instead of the OID and return.
-    if (oid == NULL || oid->elem_count > N20_ASN1_MAX_OID_ELEMENTS) {
-        n20_asn1_null(s);
-        return;
-    }
+void n20_asn1_null_implicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag) {
+    n20_asn1_header(s, N20_ASN1_CLASS_CONTEXT_SPECIFIC, /*constructed=*/false, tag, 0);
+}
 
+static void n20_asn1_object_identifier_content(n20_asn1_stream_t *const s, void *context) {
+    n20_asn1_object_identifier_t const *const oid =
+        (n20_asn1_object_identifier_t const *const)context;
+
+    // oid is never NULL because all of the call sites are in this
+    // compilation unit and assure that it is never NULL.
     size_t e = oid->elem_count;
-    size_t content_size = n20_asn1_stream_data_written(s);
-
     while (e > 2) {
         --e;
         n20_asn1_base128_int(s, oid->elements[e]);
@@ -189,42 +187,84 @@ void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
         h += oid->elements[0] * 40;
     }
     n20_asn1_stream_prepend(s, &h, /*src_len=*/1);
-
-    content_size = n20_asn1_stream_data_written(s) - content_size;
-
-    n20_asn1_header(s,
-                    N20_ASN1_CLASS_UNIVERSAL,
-                    /*constructed=*/false,
-                    N20_ASN1_TAG_OBJECT_IDENTIFIER,
-                    content_size);
 }
 
-static void n20_asn1_integer_internal(n20_asn1_stream_t *const s,
-                                      uint8_t const *const n,
-                                      size_t const len,
-                                      bool const little_endian,
-                                      bool const two_complement) {
-    // n is never NULL because all of the call sites are in this
+void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
+                                n20_asn1_object_identifier_t const *const oid) {
+    // If oid is a null pointer, or
+    // if the element count was initialized to an out of bounds
+    // value write a ASN1 NULL instead of the OID and return.
+    if (NULL == oid || oid->elem_count > N20_ASN1_MAX_OID_ELEMENTS) {
+        n20_asn1_null(s);
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/false,
+                                 N20_ASN1_TAG_OBJECT_IDENTIFIER,
+                                 n20_asn1_object_identifier_content,
+                                 (void *)oid);
+}
+
+void n20_asn1_object_identifier_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                  uint32_t tag,
+                                                  n20_asn1_object_identifier_t const *const oid) {
+    // If oid is a null pointer, or
+    // if the element count was initialized to an out of bounds
+    // value write a ASN1 NULL instead of the OID and return.
+    if (NULL == oid || oid->elem_count > N20_ASN1_MAX_OID_ELEMENTS) {
+        n20_asn1_null_implicitly_tagged(s, tag);
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/false,
+                                 tag,
+                                 n20_asn1_object_identifier_content,
+                                 (void *)oid);
+}
+
+static void n20_asn1_object_identifier_explicit_wrapper(n20_asn1_stream_t *const s, void *context) {
+    n20_asn1_object_identifier_t const *const oid =
+        (n20_asn1_object_identifier_t const *const)context;
+    n20_asn1_object_identifier(s, oid);
+}
+
+void n20_asn1_object_identifier_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                  uint32_t tag,
+                                                  n20_asn1_object_identifier_t const *const oid) {
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 n20_asn1_object_identifier_explicit_wrapper,
+                                 (void *)oid);
+}
+
+static void n20_asn1_integer_content(n20_asn1_stream_t *s, void *context) {
+    n20_asn1_interger_t const *const integer = (n20_asn1_interger_t const *const)context;
+
+    // integer is never NULL because all of the call sites are in this
     // compilation unit and assure that it is never NULL.
-    uint8_t const *msb = n;
-    uint8_t const *end = n + len;
+    uint8_t const *msb = integer->n;
+    uint8_t const *end = integer->n + integer->length;
     ssize_t inc = 1;
     int add_extra = 0;
     uint8_t extra = 0;
 
-    if (little_endian) {
+    if (integer->little_endian) {
         // If the buffer is in little endian order:
         // - flip the direction
         inc = -1;
         // - point the most significant pointer to the last byte.
         msb = end - 1;
         // - point the end pointer one position before the first byte.
-        end = n - 1;
+        end = integer->n - 1;
         // Now the rest of the algorithm traverses the buffer in reverse order.
     }
 
     // DER encoding requires that we strip leading insignificant bytes.
-    if (two_complement && (*msb & 0x80)) {
+    if (integer->two_complement && (*msb & 0x80)) {
         // Strip leading 0xff bytes if negative.
         while (*msb == 0xff && msb != end) {
             msb += inc;
@@ -253,83 +293,282 @@ static void n20_asn1_integer_internal(n20_asn1_stream_t *const s,
     }
 }
 
-void n20_asn1_integer(n20_asn1_stream_t *const s,
-                      uint8_t const *const n,
-                      size_t const len,
-                      bool const little_endian,
-                      bool const two_complement) {
+void n20_asn1_integer(n20_asn1_stream_t *s, n20_asn1_interger_t const *const integer) {
     // If the integer n is NULL, write an ASN1 NULL and return.
-    if (n == NULL) {
+    if (NULL == integer || NULL == integer->n) {
         n20_asn1_null(s);
         return;
     }
-    size_t content_size = n20_asn1_stream_data_written(s);
-    n20_asn1_integer_internal(s, n, len, little_endian, two_complement);
-    content_size = n20_asn1_stream_data_written(s) - content_size;
-    n20_asn1_header(
-        s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/false, N20_ASN1_TAG_INTEGER, content_size);
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/false,
+                                 N20_ASN1_TAG_INTEGER,
+                                 n20_asn1_integer_content,
+                                 (void *)integer);
+}
+
+void n20_asn1_integer_implicitly_tagged(n20_asn1_stream_t *s,
+                                        uint32_t tag,
+                                        n20_asn1_interger_t const *const integer) {
+    // If the integer n is NULL, write an ASN1 NULL and return.
+    if (NULL == integer || NULL == integer->n) {
+        n20_asn1_null_implicitly_tagged(s, tag);
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/false,
+                                 tag,
+                                 n20_asn1_integer_content,
+                                 (void *)integer);
+}
+
+static void n20_asn1_integer_explicit_wrapper(n20_asn1_stream_t *const s, void *context) {
+    n20_asn1_interger_t const *const integer = (n20_asn1_interger_t const *const)context;
+    n20_asn1_integer(s, integer);
+}
+
+void n20_asn1_integer_explicitly_tagged(n20_asn1_stream_t *s,
+                                        uint32_t tag,
+                                        n20_asn1_interger_t const *const integer) {
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 n20_asn1_integer_explicit_wrapper,
+                                 (void *)integer);
 }
 
 void n20_asn1_uint64(n20_asn1_stream_t *const s, uint64_t const n) {
-    n20_asn1_integer(
-        s, (uint8_t *)&n, sizeof(n), LITTLE_ENDIAN == BYTE_ORDER, false /* two_complement */);
+    n20_asn1_interger_t integer = {
+        .n = (uint8_t *)&n,
+        .length = sizeof(n),
+        .little_endian = LITTLE_ENDIAN == BYTE_ORDER,
+        .two_complement = false,
+    };
+    n20_asn1_integer(s, &integer);
+}
+
+void n20_asn1_uint64_implicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag, uint64_t const n) {
+    n20_asn1_interger_t integer = {
+        .n = (uint8_t *)&n,
+        .length = sizeof(n),
+        .little_endian = LITTLE_ENDIAN == BYTE_ORDER,
+        .two_complement = false,
+    };
+    n20_asn1_integer_implicitly_tagged(s, tag, &integer);
+}
+
+void n20_asn1_uint64_explicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag, uint64_t const n) {
+    n20_asn1_interger_t integer = {
+        .n = (uint8_t *)&n,
+        .length = sizeof(n),
+        .little_endian = LITTLE_ENDIAN == BYTE_ORDER,
+        .two_complement = false,
+    };
+    n20_asn1_integer_explicitly_tagged(s, tag, &integer);
 }
 
 void n20_asn1_int64(n20_asn1_stream_t *const s, int64_t const n) {
-    n20_asn1_integer(
-        s, (uint8_t *)&n, sizeof(n), LITTLE_ENDIAN == BYTE_ORDER, true /* two_complement */);
+    n20_asn1_interger_t integer = {
+        .n = (uint8_t *)&n,
+        .length = sizeof(n),
+        .little_endian = LITTLE_ENDIAN == BYTE_ORDER,
+        .two_complement = true,
+    };
+    n20_asn1_integer(s, &integer);
 }
 
-void n20_asn1_bitstring(n20_asn1_stream_t *const s, uint8_t const *const b, size_t bits) {
-    // If the bitstring is NULL, write empty bitstring;
-    if (b == NULL) {
-        bits = 0;
+void n20_asn1_int64_implicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag, int64_t const n) {
+    n20_asn1_interger_t integer = {
+        .n = (uint8_t *)&n,
+        .length = sizeof(n),
+        .little_endian = LITTLE_ENDIAN == BYTE_ORDER,
+        .two_complement = true,
+    };
+    n20_asn1_integer_implicitly_tagged(s, tag, &integer);
+}
+
+void n20_asn1_int64_explicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag, int64_t const n) {
+    n20_asn1_interger_t integer = {
+        .n = (uint8_t *)&n,
+        .length = sizeof(n),
+        .little_endian = LITTLE_ENDIAN == BYTE_ORDER,
+        .two_complement = true,
+    };
+    n20_asn1_integer_explicitly_tagged(s, tag, &integer);
+}
+
+static void n20_asn1_bitstring_content(n20_asn1_stream_t *s, void *context) {
+    n20_asn1_bitstring_t *const bitstring = (n20_asn1_bitstring_t *const)context;
+
+    // bitstring is never NULL because all of the call sites are in this
+    // compilation unit and assure that it is never NULL.
+    // If the b is NULL, write empty bitstring;
+    if (NULL == bitstring->b) {
+        bitstring->bits = 0;
     }
 
-    size_t bytes = (bits + 7) >> 3;
-    uint8_t unused = (8 - (bits & 7)) & 7;
-
-    size_t content_size = n20_asn1_stream_data_written(s);
-
+    size_t bytes = (bitstring->bits + 7) >> 3;
+    uint8_t unused = (8 - (bitstring->bits & 7)) & 7;
     if (bytes) {
         --bytes;
-        uint8_t c = b[bytes] & ~((1 << unused) - 1);
+        uint8_t c = bitstring->b[bytes] & ~((1 << unused) - 1);
         n20_asn1_stream_prepend(s, &c, /*src_len=*/1);
         while (bytes) {
             --bytes;
-            n20_asn1_stream_prepend(s, &b[bytes], /*src_len=*/1);
+            n20_asn1_stream_prepend(s, &bitstring->b[bytes], /*src_len=*/1);
         }
     }
 
     n20_asn1_stream_prepend(s, &unused, /*src_len=*/1);
-
-    content_size = n20_asn1_stream_data_written(s) - content_size;
-
-    n20_asn1_header(
-        s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/false, N20_ASN1_TAG_BIT_STRING, content_size);
 }
 
-static void n20_asn1_stringish(n20_asn1_stream_t *const s,
-                               uint32_t tag,
-                               uint8_t const *const str,
-                               size_t len) {
-    // If str is null force len to be zero. And write an empty string.
-    if (str == NULL) {
-        len = 0;
+void n20_asn1_bitstring(n20_asn1_stream_t *const s, n20_asn1_bitstring_t *const bitstring) {
+    if (NULL == bitstring) {
+        return;
     }
-    size_t content_size = n20_asn1_stream_data_written(s);
-    n20_asn1_stream_prepend(s, str, len);
-    content_size = n20_asn1_stream_data_written(s) - content_size;
-    n20_asn1_header(s, N20_ASN1_CLASS_UNIVERSAL, /*constructed=*/false, tag, content_size);
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/false,
+                                 N20_ASN1_TAG_BIT_STRING,
+                                 n20_asn1_bitstring_content,
+                                 bitstring);
 }
 
-void n20_asn1_octetstring(n20_asn1_stream_t *const s, uint8_t const *const str, size_t const len) {
-    n20_asn1_stringish(s, N20_ASN1_TAG_OCTET_STRING, str, len);
+void n20_asn1_bitstring_implicitly_tagged(n20_asn1_stream_t *const s,
+                                          uint32_t tag,
+                                          n20_asn1_bitstring_t *const bitstring) {
+    if (NULL == bitstring) {
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/false,
+                                 tag,
+                                 n20_asn1_bitstring_content,
+                                 bitstring);
+}
+
+static void n20_asn1_bitstring_explicit_wrapper(n20_asn1_stream_t *const s, void *context) {
+    n20_asn1_bitstring_t *const bitstring = (n20_asn1_bitstring_t *const)context;
+    n20_asn1_bitstring(s, bitstring);
+}
+
+void n20_asn1_bitstring_explicitly_tagged(n20_asn1_stream_t *const s,
+                                          uint32_t tag,
+                                          n20_asn1_bitstring_t *const bitstring) {
+    if (NULL == bitstring) {
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 n20_asn1_bitstring_explicit_wrapper,
+                                 bitstring);
+}
+
+static void n20_asn1_string_content(n20_asn1_stream_t *const s, void *context) {
+    n20_asn1_string_t *const string = (n20_asn1_string_t *const)context;
+
+    // string is never NULL because all of the call sites are in this
+    // compilation unit and assure that it is never NULL.
+
+    // If str is null force len to be zero. And write an empty string.
+    if (NULL == string->str) {
+        string->length = 0;
+    }
+    n20_asn1_stream_prepend(s, string->str, string->length);
+}
+
+void n20_asn1_octetstring(n20_asn1_stream_t *const s, n20_asn1_string_t *const string_) {
+    if (NULL == string_) {
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/false,
+                                 N20_ASN1_TAG_OCTET_STRING,
+                                 n20_asn1_string_content,
+                                 string_);
+}
+
+void n20_asn1_octetstring_implicitly_tagged(n20_asn1_stream_t *const s,
+                                            uint32_t tag,
+                                            n20_asn1_string_t *const string_) {
+    if (NULL == string_) {
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/false,
+                                 tag,
+                                 n20_asn1_string_content,
+                                 string_);
+}
+
+static void n20_asn1_octetstring_explicit_wrapper(n20_asn1_stream_t *const s, void *context) {
+    n20_asn1_string_t *const string_ = (n20_asn1_string_t *const)context;
+    n20_asn1_octetstring(s, string_);
+}
+
+void n20_asn1_octetstring_explicitly_tagged(n20_asn1_stream_t *const s,
+                                            uint32_t tag,
+                                            n20_asn1_string_t *const string_) {
+    if (NULL == string_) {
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 n20_asn1_octetstring_explicit_wrapper,
+                                 string_);
 }
 
 void n20_asn1_printablestring(n20_asn1_stream_t *const s, char const *const str) {
-    n20_asn1_stringish(
-        s, N20_ASN1_TAG_PRINTABLE_STRING, (uint8_t const *const)str, str == NULL ? 0 : strlen(str));
+    n20_asn1_string_t string_ = {
+        .str = (uint8_t const *)str,
+        .length = NULL == str ? 0 : strlen(str),
+    };
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/false,
+                                 N20_ASN1_TAG_PRINTABLE_STRING,
+                                 n20_asn1_string_content,
+                                 &string_);
+}
+
+void n20_asn1_printablestring_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                uint32_t tag,
+                                                char const *const str) {
+    n20_asn1_string_t string_ = {
+        .str = (uint8_t const *)str,
+        .length = NULL == str ? 0 : strlen(str),
+    };
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/false,
+                                 tag,
+                                 n20_asn1_string_content,
+                                 &string_);
+}
+
+static void n20_asn1_printablestring_explicit_wrapper(n20_asn1_stream_t *const s, void *context) {
+    char const *const str = (char *const)context;
+    n20_asn1_printablestring(s, str);
+}
+
+void n20_asn1_printablestring_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                uint32_t tag,
+                                                char const *const str) {
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 n20_asn1_printablestring_explicit_wrapper,
+                                 (void *)str);
 }
 
 void n20_asn1_generalized_time(n20_asn1_stream_t *const s, char const *const time_str) {
@@ -337,8 +576,53 @@ void n20_asn1_generalized_time(n20_asn1_stream_t *const s, char const *const tim
         n20_asn1_null(s);
         return;
     }
-    n20_asn1_stringish(
-        s, N20_ASN1_TAG_GENERALIZED_TIME, (uint8_t const *)time_str, strlen(time_str));
+
+    n20_asn1_string_t string_ = {
+        .str = (uint8_t const *)time_str,
+        .length = strlen(time_str),
+    };
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/false,
+                                 N20_ASN1_TAG_GENERALIZED_TIME,
+                                 n20_asn1_string_content,
+                                 &string_);
+}
+
+void n20_asn1_generalized_time_implicitly_tagged(n20_asn1_stream_t *const s,
+                                                 uint32_t tag,
+                                                 char const *const time_str) {
+    if (time_str == NULL) {
+        n20_asn1_null_implicitly_tagged(s, tag);
+        return;
+    }
+
+    n20_asn1_string_t string_ = {
+        .str = (uint8_t const *)time_str,
+        .length = strlen(time_str),
+    };
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/false,
+                                 tag,
+                                 n20_asn1_string_content,
+                                 &string_);
+}
+
+static void n20_asn1_generalized_time_explicit_wrapper(n20_asn1_stream_t *const s, void *context) {
+    char *const str = (char *const)context;
+    n20_asn1_generalized_time(s, str);
+}
+
+void n20_asn1_generalized_time_explicitly_tagged(n20_asn1_stream_t *const s,
+                                                 uint32_t tag,
+                                                 char const *const str) {
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 n20_asn1_generalized_time_explicit_wrapper,
+                                 (void *)str);
 }
 
 void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
@@ -355,18 +639,90 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
     n20_asn1_header(s, class_, constructed, tag, content_size);
 }
 
-void n20_asn1_sequence(n20_asn1_stream_t *const s,
-                       n20_asn1_content_cb_t content_cb,
-                       void *cb_context) {
+void n20_asn1_sequence(n20_asn1_stream_t *const s, n20_asn1_sequence_t *const sequence) {
+    if (NULL == sequence) {
+        return;
+    }
     n20_asn1_header_with_content(s,
                                  N20_ASN1_CLASS_UNIVERSAL,
                                  /*constructed=*/true,
                                  N20_ASN1_TAG_SEQUENCE,
-                                 content_cb,
-                                 cb_context);
+                                 sequence->content_cb,
+                                 sequence->cb_context);
 }
 
-void n20_asn1_boolean(n20_asn1_stream_t *const s, bool const v) {
-    uint8_t buffer[3] = {0x01, 0x01, v ? 0xff : 0x00};
-    n20_asn1_stream_prepend(s, &buffer[0], /*src_len=*/3);
+void n20_asn1_sequence_implicitly_tagged(n20_asn1_stream_t *const s,
+                                         uint32_t tag,
+                                         n20_asn1_sequence_t *const sequence) {
+    if (NULL == sequence) {
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 sequence->content_cb,
+                                 sequence->cb_context);
+}
+
+static void n20_asn1_sequence_explicit_wrapper(n20_asn1_stream_t *const s, void *context) {
+    n20_asn1_sequence_t *const sequence = (n20_asn1_sequence_t *const)context;
+    n20_asn1_sequence(s, sequence);
+}
+
+void n20_asn1_sequence_explicitly_tagged(n20_asn1_stream_t *const s,
+                                         uint32_t tag,
+                                         n20_asn1_sequence_t *const sequence) {
+    if (NULL == sequence) {
+        return;
+    }
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 n20_asn1_sequence_explicit_wrapper,
+                                 sequence);
+}
+
+static void n20_asn1_boolean_content(n20_asn1_stream_t *const s, void *context) {
+    // context is never NULL because all of the call sites are in this
+    // compilation unit and assure that it is never NULL.
+    bool v = *(bool *)context;
+
+    uint8_t buffer[1] = {v ? 0xff : 0x00};
+    n20_asn1_stream_prepend(s, &buffer[0], /*src_len=*/1);
+}
+
+void n20_asn1_boolean(n20_asn1_stream_t *const s, bool v) {
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/false,
+                                 N20_ASN1_TAG_BOOLEAN,
+                                 n20_asn1_boolean_content,
+                                 &v);
+}
+
+void n20_asn1_boolean_implicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag, bool v) {
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/false,
+                                 tag,
+                                 n20_asn1_boolean_content,
+                                 &v);
+}
+
+static void n20_asn1_boolean_explicit_wrapper(n20_asn1_stream_t *const s, void *context) {
+    // context is never NULL because all of the call sites are in this
+    // compilation unit and assure that it is never NULL.
+    bool v = *(bool *)context;
+    n20_asn1_boolean(s, v);
+}
+
+void n20_asn1_boolean_explicitly_tagged(n20_asn1_stream_t *const s, uint32_t tag, bool v) {
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                                 /*constructed=*/true,
+                                 tag,
+                                 n20_asn1_boolean_explicit_wrapper,
+                                 &v);
 }
