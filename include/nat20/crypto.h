@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <stdint.h>
@@ -79,6 +80,7 @@ typedef struct n20_crypto_context_s {
                                n20_crypto_gather_list_t const* msg,
                                uint8_t* signature_out,
                                size_t* signature_size_in_out);
+    n20_crypto_error_t (*get_cdi)(struct n20_crypto_context_s* ctx, n20_crypto_key_t* key_out);
     n20_crypto_error_t (*key_get_public_key)(struct n20_crypto_context_s* ctx,
                                              n20_crypto_key_t key_in,
                                              uint8_t* public_key_out,
