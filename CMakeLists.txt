@@ -35,13 +35,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ###################################################################################################
 # The following section defines all the groups of source files.
-# All files must be specified explicitely; no globbing or other generation is allowed.
+# All files must be specified explicitly; no globbing or other generation is allowed.
 
 set(LIBNAT20_SOURCES
     # Add the core library source files here.
-    src/asn1.c
-    src/oid.c
-    src/x509.c
+    src/core/asn1.c
+    src/core/oid.c
+    src/core/x509.c
 )
 
 set(LIBNAT20_PUB_HEADERS
@@ -54,8 +54,8 @@ set(LIBNAT20_PUB_HEADERS
 
 set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
-    test/test.cpp
-    test/asn1.cpp
+    src/core/test/test.cpp
+    src/core/test/asn1.cpp
 )
 
 set(LIBNAT20_DOC_PAGES
