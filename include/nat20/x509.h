@@ -86,7 +86,7 @@ typedef struct n20_x509_rdn_s {
 } n20_x509_rdn_t;
 
 /**
- * @brief Convenience macro for initializing @ref n20_x509_rdn.
+ * @brief Convenience macro for initializing @ref n20_x509_rdn_t.
  *
  * # Example
  *
@@ -173,7 +173,7 @@ typedef struct n20_x509_name_s {
  * @ref N20_X509_NAME_MAX_NAME_ELEMENTS `ASN1 NULL` is rendered.
  *
  * @param s The stream that is to be updated.
- * @param name Pointer to an initialized instance of @ref x20_x509_name_t
+ * @param name Pointer to an initialized instance of @ref n20_x509_name_t
  */
 extern void n20_x509_name(n20_asn1_stream_t *s, n20_x509_name_t const *name);
 
@@ -374,9 +374,9 @@ extern void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, v
  * @defgroup n20_x509_key_usage_macros Key Usage Macros
  *
  * These macros set the corresponding flags in the key
- * useage bit mask of @ref n20_x509_key_usage_t.
+ * usage bit mask of @ref n20_x509_ext_key_usage_t.
  * Each macro takes a pointer to an instance of
- * @ref n20_x509_key_usage_t as its argument.
+ * @ref n20_x509_ext_key_usage_t as its argument.
  *
  * See RFC5280 Section 4.2.1.3.
  *
