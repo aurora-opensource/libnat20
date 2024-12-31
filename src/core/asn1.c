@@ -454,8 +454,11 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
     if (tag_info != NULL && !tag_info->implicit) {
         // If there is an explicit tag info, add another
         // context specific tag header to the previously finalized structure.
-        n20_asn1_header(
-            s, N20_ASN1_CLASS_CONTEXT_SPECIFIC, /*constructed=*/true, tag_info->tag, n20_asn1_stream_data_written(s) - mark);
+        n20_asn1_header(s,
+                        N20_ASN1_CLASS_CONTEXT_SPECIFIC,
+                        /*constructed=*/true,
+                        tag_info->tag,
+                        n20_asn1_stream_data_written(s) - mark);
     }
 }
 
