@@ -532,15 +532,76 @@ typedef struct n20_asn1_tag_info_s {
     bool implicit;
 } n20_asn1_tag_info_t;
 
+/**
+ * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
+ *
+ * Create a tag info structure indicating that explicit
+ * context specific tagging is desired.
+ *
+ * The two following code snippets are semantically equivalent.
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = n20_asn1_explicit_tag(7);
+ * @endcode
+ *
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = { .tag = 7, .implicit = false };
+ * @endcode
+ *
+ * @param tag The desired explicit tag number.
+ * @return n20_asn1_tag_info_t
+ */
 extern n20_asn1_tag_info_t n20_asn1_explicit_tag(int tag);
-
+/**
+ * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
+ *
+ * Create a tag info structure indicating that implicit
+ * context specific tagging is desired.
+ *
+ * The two following code snippets are semantically equivalent.
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = n20_asn1_implicit_tag(7);
+ * @endcode
+ *
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = { .tag = 7, .implicit = true };
+ * @endcode
+ *
+ * @param tag The desired explicit tag number.
+ * @return n20_asn1_tag_info_t
+ */
+extern n20_asn1_tag_info_t n20_asn1_implicit_tag(int tag);
 
 #define N20_ASN1_IMPLICIT_TAG(value) \
     { .tag = value, .implicit = true }
 
-
+/**
+ * @brief Refers to a constant buffer of the specified size.
+ *
+ * This is used to refer to foreign buffers non mutable buffers
+ * of a given size. The user has to assure buffer outlives
+ * the instance of the slice and that the buffer is
+ * sufficiently large to accommodate @ref size bytes of data.
+ *
+ * No ownership is implied.
+ *
+ * Implementations must handle the cases where @ref buffer
+ * is NULL gracefully, and must not dereference the pointer
+ * even if @ref size is not 0.
+ *
+ * If @ref size is 0, implementation may use the value of buffer
+ * to distinguish between an empty buffer and an optional
+ * field that is not present.
+ */
 typedef struct n20_asn1_slice_s {
+    /**
+     * @brief Pointer to the buffer.
+     *
+     * A buffer with a capacity of at least @ref size bytes or NULL.
+     */
     uint8_t const *buffer;
+    /**
+     * @brief The guaranteed capacity of the buffer.
+     */
     size_t size;
 } n20_asn1_slice_t;
 

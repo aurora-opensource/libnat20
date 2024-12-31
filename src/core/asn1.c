@@ -101,7 +101,12 @@ void n20_asn1_base128_int(n20_asn1_stream_t *const s, uint64_t n) {
 }
 
 n20_asn1_tag_info_t n20_asn1_explicit_tag(int tag) {
-    n20_asn1_tag_info_t ret = { .tag = tag, .implicit = false };
+    n20_asn1_tag_info_t ret = {.tag = tag, .implicit = false};
+    return ret;
+}
+
+n20_asn1_tag_info_t n20_asn1_implicit_tag(int tag) {
+    n20_asn1_tag_info_t ret = {.tag = tag, .implicit = true};
     return ret;
 }
 
