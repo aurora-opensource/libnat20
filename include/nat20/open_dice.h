@@ -18,8 +18,8 @@
 
 #pragma once
 
+#include <nat20/asn1.h>
 #include <stdint.h>
-#include <stdlib.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,7 +88,8 @@ typedef struct n20_open_dice_inputs_s {
     /**
      * @brief Digest of the code used as input to the DICE.
      */
-    uint8_t code_hash[N20_OPEN_DICE_HASH_LENGTH];
+    n20_asn1_slice_t code_hash;
+
     /**
      * @brief Additional data used in the code input to the DICE.
      *
@@ -100,7 +101,7 @@ typedef struct n20_open_dice_inputs_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    uint8_t const *code_descriptor;
+    n20_asn1_slice_t code_descriptor;
     /**
      * @brief Length of the buffer pointed to by @ref code_descriptor, in bytes.
      */
@@ -129,14 +130,14 @@ typedef struct n20_open_dice_inputs_s {
      * (TODO): This will be defind in detail in a later PR. Per the OpenDICE profile,
      * it is @ref N20_OPEN_DICE_CONFIGURATION_INLINE_LENGTH bytes in length.
      */
-    uint8_t configuration_inline[N20_OPEN_DICE_CONFIGURATION_INLINE_LENGTH];
+    n20_asn1_slice_t configuration_inline;
     /**
      * @brief Digest of the configuration descriptor used as input to the DICE.
      *
      * Only valid if @ref configuration_format is set to @ref
      * n20_open_dice_configuration_format_decriptor_e.
      */
-    uint8_t configuration_hash[N20_OPEN_DICE_HASH_LENGTH];
+    n20_asn1_slice_t configuration_hash;
     /**
      * @brief The configuration data used to calculate the digest used for the configuration input
      * to the DICE.
@@ -150,18 +151,11 @@ typedef struct n20_open_dice_inputs_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    uint8_t const *configuration_descriptor;
-    /**
-     * @brief Length of the buffer pointed to by @ref configuration_descriptor, in bytes.
-     *
-     * Only valid if @ref configuration_format is set to @ref
-     * n20_open_dice_configuration_format_decriptor_e.
-     */
-    size_t configuration_descriptor_length;
+    n20_asn1_slice_t configuration_descriptor;
     /**
      * @brief Digest of the authority used as input to the DICE.
      */
-    uint8_t authority_hash[N20_OPEN_DICE_HASH_LENGTH];
+    n20_asn1_slice_t authority_hash;
     /**
      * @brief Additional data used in the authority input to the DICE.
      *
@@ -173,11 +167,7 @@ typedef struct n20_open_dice_inputs_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    uint8_t const *authority_descriptor;
-    /**
-     * @brief Length of the buffer pointed to by @ref authority_descriptor, in bytes.
-     */
-    size_t authority_descriptor_length;
+    n20_asn1_slice_t authority_descriptor;
     /**
      * @brief The DICE mode input.
      *
@@ -189,7 +179,7 @@ typedef struct n20_open_dice_inputs_s {
      *
      * This value does not appear in certificates.
      */
-    uint8_t hidden[N20_OPEN_DICE_HIDDEN_LENGTH];
+    n20_asn1_slice_t hidden;
 } n20_open_dice_inputs_t;
 
 #ifdef __cplusplus

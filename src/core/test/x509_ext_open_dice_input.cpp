@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include "nat20/x509_ext_open_dice_input.h"
-
 #include <gtest/gtest.h>
+#include <nat20/asn1.h>
+#include <nat20/oid.h>
+#include <nat20/x509.h>
+#include <nat20/x509_ext_open_dice_input.h>
 
 #include <array>
 #include <cstdint>
@@ -24,9 +26,6 @@
 #include <string>
 #include <tuple>
 #include <vector>
-
-#include "nat20/oid.h"
-#include "nat20/x509.h"
 
 class X509ExtOpenDiceInputTest
     : public testing::TestWithParam<
@@ -289,6 +288,11 @@ INSTANTIATE_TEST_CASE_P(OpenDiceInputEncoding,
                                                    "",
                                                    EXTENSION_WITHOUT_OPTIONALS)));
 
+template <typename T>
+inline static n20_asn1_slice_t v2slice(T const& v) {
+    return n20_asn1_slice_t{v.data(), v.size()};
+}
+
 TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
     auto [code_hash,
           code_descriptor,
@@ -305,32 +309,27 @@ TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
     n20_open_dice_inputs_t inputs;
     std::memset(&inputs, 0, sizeof(n20_open_dice_inputs_t));
 
-    std::memcpy(inputs.code_hash, code_hash.data(), code_hash.size());
+    inputs.code_hash = v2slice(code_hash);
     if (0 != code_descriptor.size()) {
-        inputs.code_descriptor = code_descriptor.data();
-        inputs.code_descriptor_length = code_descriptor.size();
+        inputs.code_descriptor = v2slice(code_descriptor);
     }
 
     inputs.configuration_format = configuration_format;
     switch (inputs.configuration_format) {
         case n20_open_dice_configuration_format_inline_e:
-            std::memcpy(
-                inputs.configuration_inline, &configuration_inline[0], configuration_inline.size());
+            inputs.configuration_inline = v2slice(configuration_inline);
             break;
         case n20_open_dice_configuration_format_descriptor_e:
-            std::memcpy(
-                inputs.configuration_hash, &configuration_hash[0], configuration_hash.size());
+            inputs.configuration_hash = v2slice(configuration_hash);
             if (0 != configuration_descriptor.size()) {
-                inputs.configuration_descriptor = configuration_descriptor.data();
-                inputs.configuration_descriptor_length = configuration_descriptor.size();
+                inputs.configuration_descriptor = v2slice(configuration_descriptor);
             }
             break;
     }
 
-    std::memcpy(inputs.authority_hash, authority_hash.data(), authority_hash.size());
+    inputs.authority_hash = v2slice(authority_hash);
     if (0 != authority_descriptor.size()) {
-        inputs.authority_descriptor = authority_descriptor.data();
-        inputs.authority_descriptor_length = authority_descriptor.size();
+        inputs.authority_descriptor = v2slice(authority_descriptor);
     }
 
     inputs.mode = mode;
@@ -397,5 +396,6 @@ TEST(X509ExtOpenDiceInputTest, NullPointers) {
     bytes_written = n20_asn1_stream_data_written(&s);
     ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
     ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
-    ASSERT_EQ(0, bytes_written);
+    // If no inputs are given, so an empty sequence will be rendered.
+    ASSERT_EQ(2, bytes_written);
 }
