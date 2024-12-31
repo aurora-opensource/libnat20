@@ -532,7 +532,6 @@ typedef struct n20_asn1_tag_info_s {
     bool implicit;
 } n20_asn1_tag_info_t;
 
-
 typedef struct n20_asn1_slice_s {
     uint8_t const *buffer;
     size_t size;

@@ -437,11 +437,10 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
                                   n20_asn1_content_cb_t content_cb,
                                   void *cb_context,
                                   n20_asn1_tag_info_t const *const tag_info) {
-    size_t content_size = n20_asn1_stream_data_written(s);
+    size_t mark = n20_asn1_stream_data_written(s);
     if (content_cb != NULL) {
         content_cb(s, cb_context);
     }
-    content_size = n20_asn1_stream_data_written(s) - content_size;
 
     if (tag_info != NULL && tag_info->implicit) {
         // If there is an implicit tag override, ignore
@@ -450,14 +449,13 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
         tag = tag_info->tag;
     }
 
-    n20_asn1_header(s, class_, constructed, tag, content_size);
+    n20_asn1_header(s, class_, constructed, tag, n20_asn1_stream_data_written(s) - mark);
 
     if (tag_info != NULL && !tag_info->implicit) {
         // If there is an explicit tag info, add another
         // context specific tag header to the previously finalized structure.
-        content_size = n20_asn1_stream_data_written(s) - content_size;
         n20_asn1_header(
-            s, N20_ASN1_CLASS_CONTEXT_SPECIFIC, /*constructed=*/true, tag_info->tag, content_size);
+            s, N20_ASN1_CLASS_CONTEXT_SPECIFIC, /*constructed=*/true, tag_info->tag, n20_asn1_stream_data_written(s) - mark);
     }
 }
 
