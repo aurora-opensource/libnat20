@@ -37,7 +37,7 @@
  * @sa N20_ASN1_DEFINE_OID
  * @sa N20_ASN1_DECLARE_OID
  */
-#define N20_ASN1_MAX_OID_ELEMENTS 20
+#define N20_ASN1_MAX_OID_ELEMENTS 10
 
 /**
  * @brief Structure representing an object identifier.
