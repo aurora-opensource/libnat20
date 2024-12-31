@@ -18,12 +18,169 @@
 
 #pragma once
 
-#include "asn1.h"
-#include "open_dice.h"
+#include <nat20/asn1.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief Length of the digests used in OpenDICE.
+ */
+#define N20_X509_EXT_OPEN_DICE_HASH_LENGTH 64
+
+/**
+ * @brief Length of the inline configuration used in OpenDICE.
+ */
+#define N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH 64
+
+/**
+ * @brief Length of the hidden input used in OpenDICE.
+ */
+#define N20_X509_EXT_OPEN_DICE_HIDDEN_LENGTH 64
+
+/**
+ * @brief Mode inputs to the DICE.
+ */
+typedef enum n20_x509_ext_open_dice_modes_s {
+    /**
+     * @brief No security features (e.g. verified boot) have been configured on the device.
+     */
+    n20_x509_ext_open_dice_not_configured_e = 0,
+    /**
+     * @brief Device is operating normally with security features enabled.
+     */
+    n20_x509_ext_open_dice_normal_e = 1,
+    /**
+     * @brief Device is in debug mode, which is a non-secure state.
+     */
+    n20_x509_ext_open_dice_debug_e = 2,
+    /**
+     * @brief Device is in a debug or maintenance mode.
+     */
+    n20_x509_ext_open_dice_recovery_e = 3,
+} n20_x509_ext_open_dice_modes_t;
+
+/**
+ * @brief Format of the configuration data used as input to the DICE.
+ */
+typedef enum n20_x509_ext_open_dice_configuration_format_s {
+    /**
+     * @brief Format of the configuration data is an implementation defined inline value (not a
+     * hash).
+     */
+    n20_x509_ext_open_dice_configuration_format_inline_e = 0,
+    /**
+     * @brief Format of the configuration data is a hash over an implementation defined
+     * configuration descriptor.
+     */
+    n20_x509_ext_open_dice_configuration_format_descriptor_e = 1,
+} n20_x509_ext_open_dice_configuration_format_t;
+
+/**
+ * @brief Inputs to the DICE.
+ *
+ * This structure represents all the security-revelvant properties to calculate the CDI values
+ * for the next layer.
+ */
+typedef struct n20_x509_ext_open_dice_inputs_s {
+    /**
+     * @brief Digest of the code used as input to the DICE.
+     */
+    n20_asn1_slice_t code_hash;
+
+    /**
+     * @brief Additional data used in the code input to the DICE.
+     *
+     * Implementation specific data about the code used to compute the CDI values.
+     * If the data pointed to by @ref code_descriptor changes, this implies a change in the value
+     * of @ref code_hash.
+     *
+     * No ownerships is taken. The user has to
+     * assure that the buffer outlives the instance
+     * of this structure.
+     */
+    n20_asn1_slice_t code_descriptor;
+    /**
+     * @brief Length of the buffer pointed to by @ref code_descriptor, in bytes.
+     */
+    size_t code_descriptor_length;
+    /**
+     * @brief Configuration type (inline or descriptor).
+     *
+     * If @ref configuration_format is set to @ref
+     * n20_x509_ext_open_dice_configuration_format_inline_e, @ref configuration_inline is used as
+     * the configuation input to the DICE. @ref configuration_descriptor and
+     * @ref configuration_hash are ignored.
+     *
+     * If @ref configuration_format is set to @ref
+     * n20_x509_ext_open_dice_configuration_format_decriptor_e,
+     * @ref configuration_descriptor and @ref configuration_hash are used.
+     * @ref configuration_inline is ignored.
+     *
+     * @sa n20_x509_ext_open_dice_configuration_t
+     */
+    n20_x509_ext_open_dice_configuration_format_t configuration_format;
+    /**
+     * @brief Implementation defined inline configuration input to the DICE.
+     *
+     * Only valid if @ref configuration_format is set to @ref
+     * n20_x509_ext_open_dice_configuration_format_inline_e.
+     *
+     * (TODO): This will be defind in detail in a later PR. Per the OpenDICE profile,
+     * it is @ref N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH bytes in length.
+     */
+    n20_asn1_slice_t configuration_inline;
+    /**
+     * @brief Digest of the configuration descriptor used as input to the DICE.
+     *
+     * Only valid if @ref configuration_format is set to @ref
+     * n20_x509_ext_open_dice_configuration_format_decriptor_e.
+     */
+    n20_asn1_slice_t configuration_hash;
+    /**
+     * @brief The configuration data used to calculate the digest used for the configuration input
+     * to the DICE.
+     *
+     * H( @ref configuration_descriptor ) must equal the value stored in @ref configuration_hash.
+     *
+     * Only valid if @ref configuration_format is set to @ref
+     * n20_x509_ext_open_dice_configuration_format_decriptor_e.
+     *
+     * No ownerships is taken. The user has to
+     * assure that the buffer outlives the instance
+     * of this structure.
+     */
+    n20_asn1_slice_t configuration_descriptor;
+    /**
+     * @brief Digest of the authority used as input to the DICE.
+     */
+    n20_asn1_slice_t authority_hash;
+    /**
+     * @brief Additional data used in the authority input to the DICE.
+     *
+     * Implementation specific data about the authority used to compute the CDI values.
+     * If the data pointed to by @ref authority_descriptor changes, this implies a change in the
+     * value of @ref authority_hash.
+     *
+     * No ownerships is taken. The user has to
+     * assure that the buffer outlives the instance
+     * of this structure.
+     */
+    n20_asn1_slice_t authority_descriptor;
+    /**
+     * @brief The DICE mode input.
+     *
+     * @sa n20_x509_ext_open_dice_modes_t
+     */
+    n20_x509_ext_open_dice_modes_t mode;
+    /**
+     * @brief The hidden input to the DICE.
+     *
+     * This value does not appear in certificates.
+     */
+    n20_asn1_slice_t hidden;
+} n20_x509_ext_open_dice_inputs_t;
 
 /**
  * @brief OpenDICE input content context.
@@ -44,9 +201,9 @@ typedef struct n20_x509_ext_open_dice_input_s {
     /**
      * @brief The DICE inputs to include in the certificate extension.
      *
-     * @sa n20_open_dice_inputs_t
+     * @sa n20_x509_ext_open_dice_inputs_t
      */
-    n20_open_dice_inputs_t const *inputs;
+    n20_x509_ext_open_dice_inputs_t const *inputs;
 
     /**
      * @brief The DICE profile that defines the contents of this certificate.

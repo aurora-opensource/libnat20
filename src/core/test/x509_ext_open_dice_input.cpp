@@ -29,19 +29,19 @@
 
 class X509ExtOpenDiceInputTest
     : public testing::TestWithParam<
-          std::tuple<std::array<uint8_t, N20_OPEN_DICE_HASH_LENGTH> const,
+          std::tuple<std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const,
                      std::vector<uint8_t> const,
-                     n20_open_dice_configuration_format_t const,
-                     std::array<uint8_t, N20_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const,
-                     std::array<uint8_t, N20_OPEN_DICE_HASH_LENGTH> const,
+                     n20_x509_ext_open_dice_configuration_format_t const,
+                     std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const,
+                     std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const,
                      std::vector<uint8_t> const,
-                     std::array<uint8_t, N20_OPEN_DICE_HASH_LENGTH> const,
+                     std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const,
                      std::vector<uint8_t> const,
-                     n20_open_dice_modes_t const,
+                     n20_x509_ext_open_dice_modes_t const,
                      std::string const,
                      std::vector<uint8_t> const>> {};
 
-std::array<uint8_t, N20_OPEN_DICE_HASH_LENGTH> const CODE_HASH = {
+std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const CODE_HASH = {
     0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
     0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
     0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
@@ -50,14 +50,16 @@ std::array<uint8_t, N20_OPEN_DICE_HASH_LENGTH> const CODE_HASH = {
 
 std::vector<uint8_t> const CODE_DESCRIPTOR = {0x63, 0x6f, 0x64, 0x65};
 
-std::array<uint8_t, N20_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const CONFIGURATION_INLINE = {
-    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const CONFIGURATION_INLINE =
+    {
+        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
 };
 
-std::array<uint8_t, N20_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const CONFIGURATION_HASH = {
+std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const CONFIGURATION_HASH = {
     0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65,
     0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65,
     0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65,
@@ -66,7 +68,7 @@ std::array<uint8_t, N20_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const CONFIGURATI
 
 std::vector<uint8_t> const CONFIGURATION_DESCRIPTOR = {0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67};
 
-std::array<uint8_t, N20_OPEN_DICE_HASH_LENGTH> const AUTHORITY_HASH = {
+std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const AUTHORITY_HASH = {
     0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
     0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
     0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
@@ -75,14 +77,16 @@ std::array<uint8_t, N20_OPEN_DICE_HASH_LENGTH> const AUTHORITY_HASH = {
 
 std::vector<uint8_t> const AUTHORITY_DESCRIPTOR = {0x61, 0x75, 0x74, 0x68};
 
-std::array<uint8_t, N20_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const EMPTY_CONFIGURATION_INLINE = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const
+    EMPTY_CONFIGURATION_INLINE = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-std::array<uint8_t, N20_OPEN_DICE_HASH_LENGTH> const EMPTY_CONFIGURATION_HASH = {
+std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const EMPTY_CONFIGURATION_HASH = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -252,41 +256,42 @@ std::vector<uint8_t> const EXTENSION_WITHOUT_OPTIONALS = {
 
 std::string const AURORA_OPEN_DICE_PROFILE = "Aurora OpenDICE Profile";
 
-INSTANTIATE_TEST_CASE_P(OpenDiceInputEncoding,
-                        X509ExtOpenDiceInputTest,
-                        testing::Values(std::tuple(CODE_HASH,
-                                                   CODE_DESCRIPTOR,
-                                                   n20_open_dice_configuration_format_inline_e,
-                                                   CONFIGURATION_INLINE,
-                                                   EMPTY_CONFIGURATION_HASH,
-                                                   EMPTY_FIELD,
-                                                   AUTHORITY_HASH,
-                                                   AUTHORITY_DESCRIPTOR,
-                                                   n20_open_dice_normal_e,
-                                                   AURORA_OPEN_DICE_PROFILE,
-                                                   EXTENSION_WITH_INLINE_CONFIGURATION),
-                                        std::tuple(CODE_HASH,
-                                                   CODE_DESCRIPTOR,
-                                                   n20_open_dice_configuration_format_descriptor_e,
-                                                   EMPTY_CONFIGURATION_INLINE,
-                                                   CONFIGURATION_HASH,
-                                                   CONFIGURATION_DESCRIPTOR,
-                                                   AUTHORITY_HASH,
-                                                   AUTHORITY_DESCRIPTOR,
-                                                   n20_open_dice_normal_e,
-                                                   AURORA_OPEN_DICE_PROFILE,
-                                                   EXTENSION_WITH_CONFIGURATION_DESCRIPTOR),
-                                        std::tuple(CODE_HASH,
-                                                   EMPTY_FIELD,
-                                                   n20_open_dice_configuration_format_inline_e,
-                                                   CONFIGURATION_INLINE,
-                                                   EMPTY_CONFIGURATION_HASH,
-                                                   EMPTY_FIELD,
-                                                   AUTHORITY_HASH,
-                                                   EMPTY_FIELD,
-                                                   n20_open_dice_normal_e,
-                                                   "",
-                                                   EXTENSION_WITHOUT_OPTIONALS)));
+INSTANTIATE_TEST_CASE_P(
+    OpenDiceInputEncoding,
+    X509ExtOpenDiceInputTest,
+    testing::Values(std::tuple(CODE_HASH,
+                               CODE_DESCRIPTOR,
+                               n20_x509_ext_open_dice_configuration_format_inline_e,
+                               CONFIGURATION_INLINE,
+                               EMPTY_CONFIGURATION_HASH,
+                               EMPTY_FIELD,
+                               AUTHORITY_HASH,
+                               AUTHORITY_DESCRIPTOR,
+                               n20_x509_ext_open_dice_normal_e,
+                               AURORA_OPEN_DICE_PROFILE,
+                               EXTENSION_WITH_INLINE_CONFIGURATION),
+                    std::tuple(CODE_HASH,
+                               CODE_DESCRIPTOR,
+                               n20_x509_ext_open_dice_configuration_format_descriptor_e,
+                               EMPTY_CONFIGURATION_INLINE,
+                               CONFIGURATION_HASH,
+                               CONFIGURATION_DESCRIPTOR,
+                               AUTHORITY_HASH,
+                               AUTHORITY_DESCRIPTOR,
+                               n20_x509_ext_open_dice_normal_e,
+                               AURORA_OPEN_DICE_PROFILE,
+                               EXTENSION_WITH_CONFIGURATION_DESCRIPTOR),
+                    std::tuple(CODE_HASH,
+                               EMPTY_FIELD,
+                               n20_x509_ext_open_dice_configuration_format_inline_e,
+                               CONFIGURATION_INLINE,
+                               EMPTY_CONFIGURATION_HASH,
+                               EMPTY_FIELD,
+                               AUTHORITY_HASH,
+                               EMPTY_FIELD,
+                               n20_x509_ext_open_dice_normal_e,
+                               "",
+                               EXTENSION_WITHOUT_OPTIONALS)));
 
 template <typename T>
 inline static n20_asn1_slice_t v2slice(T const& v) {
@@ -306,8 +311,8 @@ TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
           profile,
           expected] = GetParam();
 
-    n20_open_dice_inputs_t inputs;
-    std::memset(&inputs, 0, sizeof(n20_open_dice_inputs_t));
+    n20_x509_ext_open_dice_inputs_t inputs;
+    std::memset(&inputs, 0, sizeof(n20_x509_ext_open_dice_inputs_t));
 
     inputs.code_hash = v2slice(code_hash);
     if (0 != code_descriptor.size()) {
@@ -316,10 +321,10 @@ TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
 
     inputs.configuration_format = configuration_format;
     switch (inputs.configuration_format) {
-        case n20_open_dice_configuration_format_inline_e:
+        case n20_x509_ext_open_dice_configuration_format_inline_e:
             inputs.configuration_inline = v2slice(configuration_inline);
             break;
-        case n20_open_dice_configuration_format_descriptor_e:
+        case n20_x509_ext_open_dice_configuration_format_descriptor_e:
             inputs.configuration_hash = v2slice(configuration_hash);
             if (0 != configuration_descriptor.size()) {
                 inputs.configuration_descriptor = v2slice(configuration_descriptor);

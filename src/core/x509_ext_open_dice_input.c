@@ -15,7 +15,6 @@
  */
 
 #include <nat20/asn1.h>
-#include <nat20/open_dice.h>
 #include <nat20/x509.h>
 #include <nat20/x509_ext_open_dice_input.h>
 
@@ -26,7 +25,7 @@ static void n20_x509_ext_open_dice_input_sequence_content(n20_asn1_stream_t *con
         return;
     }
 
-    n20_open_dice_inputs_t const *inputs = open_dice_input->inputs;
+    n20_x509_ext_open_dice_inputs_t const *inputs = open_dice_input->inputs;
     if (inputs == NULL) {
         return;
     }
@@ -60,12 +59,12 @@ static void n20_x509_ext_open_dice_input_sequence_content(n20_asn1_stream_t *con
     n20_asn1_octetstring(s, &inputs->authority_hash, &tag_info);
 
     switch (inputs->configuration_format) {
-        case n20_open_dice_configuration_format_inline_e:
+        case n20_x509_ext_open_dice_configuration_format_inline_e:
             // configurationDescriptor [3] EXPLICIT OCTET STRING OPTIONAL
             tag_info = n20_asn1_explicit_tag(3);
             n20_asn1_octetstring(s, &inputs->configuration_inline, &tag_info);
             break;
-        case n20_open_dice_configuration_format_descriptor_e:
+        case n20_x509_ext_open_dice_configuration_format_descriptor_e:
             // configurationDescriptor [3] EXPLICIT OCTET STRING OPTIONAL
             tag_info = n20_asn1_explicit_tag(3);
             n20_asn1_octetstring(s, &inputs->configuration_descriptor, &tag_info);

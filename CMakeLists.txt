@@ -50,7 +50,6 @@ set(LIBNAT20_PUB_HEADERS
     # These files will be included in the generation of the API documentation.
     include/nat20/asn1.h
     include/nat20/oid.h
-    include/nat20/open_dice.h
     include/nat20/x509_ext_open_dice_input.h
     include/nat20/x509.h
 )
