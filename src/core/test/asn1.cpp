@@ -206,7 +206,7 @@ TEST_P(HeaderWithContentTest, HeaderWithContentEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_header_with_content(&s, 0, 0, 0, content_cb, cb_context);
+    n20_asn1_header_with_content(&s, 0, 0, 0, content_cb, cb_context, /*tag_info=*/nullptr);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -222,7 +222,7 @@ TEST(NullTest, NullEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_null(&s);
+    n20_asn1_null(&s, /*tag_info=*/nullptr);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_NULL.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -246,7 +246,7 @@ TEST_P(BooleanTest, BooleanEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_boolean(&s, v);
+    n20_asn1_boolean(&s, v, /*tag_info=*/nullptr);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -305,7 +305,7 @@ TEST_P(IntegerTest, IntegerEncodingBigEndian) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_integer(&s, bytes.data(), bytes.size(), false, two_complement);
+    n20_asn1_integer(&s, bytes.data(), bytes.size(), false, two_complement, /*tag_info=*/nullptr);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -320,7 +320,8 @@ TEST_P(IntegerTest, IntegerEncodingLittleEndian) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_integer(&s, bytes_reversed.data(), bytes.size(), true, two_complement);
+    n20_asn1_integer(
+        &s, bytes_reversed.data(), bytes.size(), true, two_complement, /*tag_info=*/nullptr);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -351,10 +352,10 @@ TEST_P(Int64Test, Int64Encoding) {
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
     if (uint64_t const *ptr = std::get_if<uint64_t>(&n)) {
-        n20_asn1_uint64(&s, *ptr);
+        n20_asn1_uint64(&s, *ptr, /*tag_info=*/nullptr);
     }
     if (int64_t const *ptr = std::get_if<int64_t>(&n)) {
-        n20_asn1_int64(&s, *ptr);
+        n20_asn1_int64(&s, *ptr, /*tag_info=*/nullptr);
     }
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
@@ -392,7 +393,7 @@ TEST_P(BitStringTest, BitStringEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_bitstring(&s, bits.data(), bits_size);
+    n20_asn1_bitstring(&s, bits.data(), bits_size, /*tag_info=*/nullptr);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -426,7 +427,11 @@ TEST_P(OctetStringTest, OctetStringEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_octetstring(&s, bytes.data(), bytes.size());
+    n20_asn1_slice_t slice = {
+        .buffer = bytes.data(),
+        .size = bytes.size(),
+    };
+    n20_asn1_octetstring(&s, &slice, /*tag_info=*/nullptr);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -464,9 +469,9 @@ TEST_P(PrintableStringTest, PrintableStringEncoding) {
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
     if (optional_string.has_value()) {
-        n20_asn1_printablestring(&s, optional_string.value().c_str());
+        n20_asn1_printablestring(&s, optional_string.value().c_str(), /*tag_info=*/nullptr);
     } else {
-        n20_asn1_printablestring(&s, nullptr);
+        n20_asn1_printablestring(&s, nullptr, /*tag_info=*/nullptr);
     }
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
@@ -527,9 +532,9 @@ TEST_P(GeneralizedTimeTest, GeneralizedTimeEncoding) {
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
     if (optional_string.has_value()) {
-        n20_asn1_generalized_time(&s, optional_string.value().c_str());
+        n20_asn1_generalized_time(&s, optional_string.value().c_str(), /*tag_info=*/nullptr);
     } else {
-        n20_asn1_generalized_time(&s, nullptr);
+        n20_asn1_generalized_time(&s, nullptr, /*tag_info=*/nullptr);
     }
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
@@ -543,13 +548,13 @@ class SequenceTest
           std::tuple<void (*)(n20_asn1_stream_t *, void *), void *, std::vector<uint8_t>>> {};
 
 void flat(n20_asn1_stream_t *s, void *cb_context) {
-    n20_asn1_printablestring(s, "flat");
-    n20_asn1_boolean(s, true);
+    n20_asn1_printablestring(s, "flat", /*tag_info=*/nullptr);
+    n20_asn1_boolean(s, true, /*tag_info=*/nullptr);
 }
 
 void nested(n20_asn1_stream_t *s, void *cb_context) {
-    n20_asn1_printablestring(s, "nested");
-    n20_asn1_sequence(s, &flat, cb_context);
+    n20_asn1_printablestring(s, "nested", /*tag_info=*/nullptr);
+    n20_asn1_sequence(s, &flat, cb_context, /*tag_info=*/nullptr);
 }
 
 std::vector<uint8_t> const ENCODED_SEQUENCE_NULL = {0x30, 0x00};
@@ -573,7 +578,7 @@ TEST_P(SequenceTest, SequenceEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_sequence(&s, content_cb, cb_context);
+    n20_asn1_sequence(&s, content_cb, cb_context, /*tag_info=*/nullptr);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -609,9 +614,9 @@ TEST_P(ObjectIdentifierTest, ObjectIdentifierEncoding) {
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
     if (optional_oid.has_value()) {
-        n20_asn1_object_identifier(&s, &optional_oid.value());
+        n20_asn1_object_identifier(&s, &optional_oid.value(), /*tag_info=*/nullptr);
     } else {
-        n20_asn1_object_identifier(&s, nullptr);
+        n20_asn1_object_identifier(&s, nullptr, /*tag_info=*/nullptr);
     }
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
