@@ -532,6 +532,13 @@ typedef struct n20_asn1_tag_info_s {
     bool implicit;
 } n20_asn1_tag_info_t;
 
+extern n20_asn1_tag_info_t n20_asn1_explicit_tag(int tag);
+
+
+#define N20_ASN1_IMPLICIT_TAG(value) \
+    { .tag = value, .implicit = true }
+
+
 typedef struct n20_asn1_slice_s {
     uint8_t const *buffer;
     size_t size;
