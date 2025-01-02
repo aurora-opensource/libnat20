@@ -102,10 +102,6 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
      */
     n20_asn1_slice_t code_descriptor;
     /**
-     * @brief Length of the buffer pointed to by @ref code_descriptor, in bytes.
-     */
-    size_t code_descriptor_length;
-    /**
      * @brief Configuration type (inline or descriptor).
      *
      * If @ref configuration_format is set to @ref
