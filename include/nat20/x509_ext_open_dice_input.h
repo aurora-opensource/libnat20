@@ -80,7 +80,7 @@ typedef enum n20_x509_ext_open_dice_configuration_format_s {
 /**
  * @brief Inputs to the DICE.
  *
- * This structure represents all the security-revelvant properties to calculate the CDI values
+ * This structure represents all the security-relevant properties to calculate the CDI values
  * for the next layer.
  */
 typedef struct n20_x509_ext_open_dice_inputs_s {
@@ -110,11 +110,11 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
      *
      * If @ref configuration_format is set to @ref
      * n20_x509_ext_open_dice_configuration_format_inline_e, @ref configuration_inline is used as
-     * the configuation input to the DICE. @ref configuration_descriptor and
+     * the configuration input to the DICE. @ref configuration_descriptor and
      * @ref configuration_hash are ignored.
      *
      * If @ref configuration_format is set to @ref
-     * n20_x509_ext_open_dice_configuration_format_decriptor_e,
+     * n20_x509_ext_open_dice_configuration_format_descriptor_e,
      * @ref configuration_descriptor and @ref configuration_hash are used.
      * @ref configuration_inline is ignored.
      *
@@ -127,7 +127,7 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
      * Only valid if @ref configuration_format is set to @ref
      * n20_x509_ext_open_dice_configuration_format_inline_e.
      *
-     * (TODO): This will be defind in detail in a later PR. Per the OpenDICE profile,
+     * (TODO): This will be defined in detail in a later PR. Per the OpenDICE profile,
      * it is @ref N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH bytes in length.
      */
     n20_asn1_slice_t configuration_inline;
@@ -135,7 +135,7 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
      * @brief Digest of the configuration descriptor used as input to the DICE.
      *
      * Only valid if @ref configuration_format is set to @ref
-     * n20_x509_ext_open_dice_configuration_format_decriptor_e.
+     * n20_x509_ext_open_dice_configuration_format_descriptor_e.
      */
     n20_asn1_slice_t configuration_hash;
     /**
@@ -145,7 +145,7 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
      * H( @ref configuration_descriptor ) must equal the value stored in @ref configuration_hash.
      *
      * Only valid if @ref configuration_format is set to @ref
-     * n20_x509_ext_open_dice_configuration_format_decriptor_e.
+     * n20_x509_ext_open_dice_configuration_format_descriptor_e.
      *
      * No ownerships is taken. The user has to
      * assure that the buffer outlives the instance
