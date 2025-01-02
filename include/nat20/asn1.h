@@ -46,7 +46,7 @@
  */
 #define N20_ASN1_CLASS_APPLICATION 1
 /**
- * @brief The universal class.
+ * @brief The context specific class.
  *
  * Indicates that the tag in the corresponding ASN.1 header
  * is context specific.
@@ -54,7 +54,7 @@
  */
 #define N20_ASN1_CLASS_CONTEXT_SPECIFIC 2
 /**
- * @brief The universal class.
+ * @brief The private class.
  *
  * Indicates that the tag in the corresponding ASN.1 header
  * is private.
@@ -216,6 +216,11 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Represents the ASN.1 class of an object.
+ *
+ * This type shall take one of values in @ref n20_asn1_classes.
+ */
 typedef uint8_t n20_asn1_class_t;
 
 /**
