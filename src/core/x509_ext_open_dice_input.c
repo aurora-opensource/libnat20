@@ -32,9 +32,6 @@ static void n20_x509_ext_open_dice_input_sequence_content(n20_asn1_stream_t *con
 
     n20_asn1_tag_info_t tag_info;
 
-    // size_t sequence_mark = n20_asn1_stream_data_written(s);
-    // size_t mark = sequence_mark;
-
     // profileName [7] EXPLICIT UTF8String OPTIONAL
     // Don't include this if it's NULL.
     if (open_dice_input->profile_name != NULL) {
