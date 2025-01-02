@@ -96,10 +96,7 @@ void n20_x509_extension(n20_asn1_stream_t *const s, n20_x509_extensions_t const 
         return;
     }
 
-    n20_asn1_tag_info_t tag_info = {
-        .tag = 3,
-        .implicit = false,
-    };
+    n20_asn1_tag_info_t tag_info = n20_asn1_explicit_tag(3);
 
     n20_asn1_sequence(s, n20_x509_extension_content, (void *)exts, &tag_info);
 }
