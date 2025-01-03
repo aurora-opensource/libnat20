@@ -81,7 +81,7 @@ static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_
     }
 
     if (digest_size_in_out == NULL) {
-        return n20_crypto_error_unexpected_null_e;
+        return n20_crypto_error_unexpected_null_size_e;
     }
 
     EVP_MD const* md = NULL;
@@ -110,7 +110,7 @@ static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_
     // If the provided buffer size is too small or no buffer was provided
     // set the required buffer size and return
     // n20_crypto_error_insufficient_buffer_size_e.
-    if (digest_size > *digest_size_in_out || digest_out == NULL) {
+    if (digest_size > *digest_size_in_out || digest_out == nullptr) {
         *digest_size_in_out = digest_size;
         return n20_crypto_error_insufficient_buffer_size_e;
     }
@@ -118,8 +118,12 @@ static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_
     // It can be tolerated above if no message was given.
     // The caller might just query the required buffer size.
     // But from here a message must be provided.
-    if (msg_in == NULL) {
-        return n20_crypto_error_unexpected_null_e;
+    if (msg_in == nullptr) {
+        return n20_crypto_error_unexpected_null_data_e;
+    }
+
+    if (msg_in->count != 0 && msg_in->list == nullptr) {
+        return n20_crypto_error_unexpected_null_list_e;
     }
 
     auto md_ctx = EVP_MD_CTX_PTR_t(EVP_MD_CTX_new());
@@ -130,8 +134,8 @@ static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_
 
     for (size_t i = 0; i < msg_in->count; ++i) {
         if (msg_in->list[i].size == 0) continue;
-        if (msg_in->list[i].buffer == NULL) {
-            return n20_crypto_error_unexpected_null_e;
+        if (msg_in->list[i].buffer == nullptr) {
+            return n20_crypto_error_unexpected_null_slice_e;
         }
         EVP_DigestUpdate(md_ctx.get(), msg_in->list[i].buffer, msg_in->list[i].size);
     }
@@ -148,13 +152,18 @@ static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_
 static std::variant<n20_crypto_error_t, std::vector<uint8_t> const> gather_list_to_vector(
     n20_crypto_gather_list_t const* list) {
     std::vector<uint8_t> result;
-    if (list == NULL) {
-        return n20_crypto_error_unexpected_null_e;
+    if (list == nullptr) {
+        return n20_crypto_error_unexpected_null_data_e;
     }
+
+    if (list->count != 0 && list->list == nullptr) {
+        return n20_crypto_error_unexpected_null_list_e;
+    }
+
     for (size_t i = 0; i < list->count; ++i) {
         if (list->list[i].size == 0) continue;
         if (list->list[i].buffer == NULL) {
-            return n20_crypto_error_unexpected_null_e;
+            return n20_crypto_error_unexpected_null_slice_e;
         }
         result.insert(
             result.end(), list->list[i].buffer, list->list[i].buffer + list->list[i].size);
@@ -173,7 +182,7 @@ static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* 
     }
 
     if (key_in == NULL) {
-        return n20_crypto_error_unexpected_null_e;
+        return n20_crypto_error_unexpected_null_key_in_e;
     }
 
     auto bssl_base_key = reinterpret_cast<n20_bssl_key_base*>(key_in);
@@ -184,7 +193,7 @@ static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* 
     auto bssl_cdi_key = static_cast<n20_bssl_cdi_key*>(bssl_base_key);
 
     if (key_out == NULL) {
-        return n20_crypto_error_unexpected_null_e;
+        return n20_crypto_error_unexpected_null_key_out_e;
     }
 
     auto const context_error = gather_list_to_vector(context_in);
@@ -261,7 +270,7 @@ static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* 
         }
     }
 
-    return n20_crypto_error_not_implemented_e;
+    return n20_crypto_error_invalid_key_type_e;
 }
 
 static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s* ctx,
@@ -275,7 +284,11 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
     }
 
     if (key_in == nullptr) {
-        return n20_crypto_error_unexpected_null_e;
+        return n20_crypto_error_unexpected_null_key_in_e;
+    }
+
+    if (signature_size_in_out == nullptr) {
+        return n20_crypto_error_unexpected_null_size_e;
     }
 
     auto bssl_base_key = reinterpret_cast<n20_bssl_key_base*>(key_in);
@@ -297,6 +310,16 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
                 return n20_crypto_error_implementation_specific_e;
             }
 
+            size_t given_sig_size = *signature_size_in_out;
+            *signature_size_in_out = 0;
+            if (1 != EVP_DigestSign(md_ctx.get(), nullptr, signature_size_in_out, nullptr, 0)) {
+                return n20_crypto_error_implementation_specific_e;
+            }
+
+            if (given_sig_size < *signature_size_in_out || signature_out == nullptr) {
+                return n20_crypto_error_insufficient_buffer_size_e;
+            }
+
             auto const msg_error = gather_list_to_vector(msg_in);
             if (auto error = std::get_if<n20_crypto_error_t>(&msg_error)) {
                 return *error;
@@ -304,15 +327,10 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
 
             auto msg = std::get<std::vector<uint8_t> const>(std::move(msg_error));
 
-            size_t given_sig_size = *signature_size_in_out;
             if (1 !=
                 EVP_DigestSign(
                     md_ctx.get(), signature_out, signature_size_in_out, msg.data(), msg.size())) {
                 return n20_crypto_error_implementation_specific_e;
-            }
-
-            if (given_sig_size < *signature_size_in_out || signature_out == nullptr) {
-                return n20_crypto_error_insufficient_buffer_size_e;
             }
 
             return n20_crypto_error_ok_e;
@@ -324,10 +342,20 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
                 return n20_crypto_error_implementation_specific_e;
             }
 
-            // No message can be tolerated if the caller is just querying
-            // the buffer size, e.i. the signature_out buffer is NULL.
-            if (msg_in == NULL && signature_out != NULL) {
-                return n20_crypto_error_unexpected_null_e;
+            size_t given_sig_size = *signature_size_in_out;
+            if (1 != EVP_DigestSignFinal(md_ctx.get(), nullptr, signature_size_in_out)) {
+                return n20_crypto_error_implementation_specific_e;
+            }
+
+            if (given_sig_size < *signature_size_in_out || signature_out == nullptr) {
+                return n20_crypto_error_insufficient_buffer_size_e;
+            }
+
+            if (msg_in == NULL) {
+                return n20_crypto_error_unexpected_null_data_e;
+            }
+            if (msg_in->count != 0 && msg_in->list == nullptr) {
+                return n20_crypto_error_unexpected_null_list_e;
             }
 
             for (size_t i = 0; i < msg_in->count; ++i) {
@@ -335,7 +363,7 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
                 if (msg_in->list[i].size == 0) continue;
                 // But non empty segments cannot have nullptr buffers.
                 if (msg_in->list[i].buffer == nullptr) {
-                    return n20_crypto_error_unexpected_null_e;
+                    return n20_crypto_error_unexpected_null_slice_e;
                 }
 
                 if (1 != EVP_DigestSignUpdate(
@@ -344,13 +372,8 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
                 }
             }
 
-            size_t given_sig_size = *signature_size_in_out;
             if (1 != EVP_DigestSignFinal(md_ctx.get(), signature_out, signature_size_in_out)) {
                 return n20_crypto_error_implementation_specific_e;
-            }
-
-            if (given_sig_size < *signature_size_in_out || signature_out == nullptr) {
-                return n20_crypto_error_insufficient_buffer_size_e;
             }
 
             return n20_crypto_error_ok_e;
@@ -368,7 +391,7 @@ static n20_crypto_error_t n20_crypto_boringssl_get_cdi(struct n20_crypto_context
     }
 
     if (key_out == nullptr) {
-        return n20_crypto_error_unexpected_null_e;
+        return n20_crypto_error_unexpected_null_key_out_e;
     }
 
     auto bssl_ctx = context_cast(ctx);
@@ -389,12 +412,12 @@ static n20_crypto_error_t n20_crypto_boringssl_key_get_public_key(struct n20_cry
         return n20_crypto_error_invalid_context_e;
     }
 
-    if (key_in == nullptr) {
-        return n20_crypto_error_unexpected_null_e;
+    if (public_key_size_in_out == nullptr) {
+        return n20_crypto_error_unexpected_null_size_e;
     }
 
-    if (public_key_size_in_out == nullptr) {
-        return n20_crypto_error_unexpected_null_e;
+    if (key_in == nullptr) {
+        return n20_crypto_error_unexpected_null_key_in_e;
     }
 
     auto bssl_base_key = reinterpret_cast<n20_bssl_key_base*>(key_in);
@@ -470,14 +493,14 @@ static n20_crypto_error_t n20_crypto_boringssl_key_free(struct n20_crypto_contex
     }
 
     if (key_in == NULL) {
-        return n20_crypto_error_unexpected_null_e;
+        return n20_crypto_error_ok_e;
     }
 
     auto bssl_key = reinterpret_cast<n20_bssl_key_base*>(key_in);
 
     // Every key handle given out by the library must be freed eventually.
     // But the key handle for the root secret is owned by the context
-    // we there is nothing to do here in this case.
+    // there is nothing to do here in this case.
     auto bssl_ctx = context_cast(ctx);
     if (bssl_key == static_cast<n20_bssl_key_base*>(&bssl_ctx->cdi)) {
         return n20_crypto_error_ok_e;
@@ -496,7 +519,7 @@ static n20_crypto_context_t bssl_ctx{n20_crypto_boringssl_digest,
                                      n20_crypto_boringssl_key_free};
 
 extern "C" n20_crypto_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx,
-                                                        n20_crypto_buffer_t const* cdi) {
+                                                        n20_crypto_slice_t const* cdi) {
     if (ctx == NULL || cdi == NULL || cdi->buffer == NULL || cdi->size == 0) {
         return n20_crypto_error_unexpected_null_e;
     }
