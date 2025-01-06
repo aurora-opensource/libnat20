@@ -217,7 +217,9 @@ extern "C" {
 #endif
 
 /**
- * @brief Represents an ASN.1 class.
+ * @brief Represents the ASN.1 class of an object.
+ *
+ * This type shall take one of values in @ref n20_asn1_classes.
  */
 typedef uint8_t n20_asn1_class_t;
 
