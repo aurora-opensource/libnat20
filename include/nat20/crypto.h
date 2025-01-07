@@ -41,41 +41,241 @@ typedef enum n20_crypto_error_s {
      */
     n20_crypto_error_invalid_context_e = 1,
     /**
-     * @brief
+     * @brief Indicates that an input key argument was NULL.
      *
+     * Interface function implementations that expect an `key_in`
+     * parameter return this error said parameter receives a NULL
+     * argument.
+     *
+     * @sa n20_crypto_context_t.kdf
+     * @sa n20_crypto_context_t.sign
      */
-    n20_crypto_error_unexpected_null_e = 2,
-    n20_crypto_error_unexpected_null_key_in_e = 3,
-    n20_crypto_error_unexpected_null_key_out_e = 4,
-    n20_crypto_error_unexpected_null_size_e = 5,
-    n20_crypto_error_unexpected_null_data_e = 6,
-    n20_crypto_error_unexpected_null_list_e = 7,
-    n20_crypto_error_unexpected_null_slice_e = 8,
-    n20_crypto_error_not_implemented_e = 9,
-    n20_crypto_error_incompatible_algorithm_e = 10,
-    n20_crypto_error_unkown_algorithm_e = 11,
-    n20_crypto_error_invalid_key_e = 12,
-    n20_crypto_error_invalid_key_type_e = 13,
+    n20_crypto_error_unexpected_null_key_in_e = 2,
+    /**
+     * @brief Indicates that an output key argument was NULL.
+     *
+     * Interface function implementations that expect an `key_out`
+     * parameter return this error said parameter receives a NULL
+     * argument.
+     *
+     * @sa n20_crypto_context_t.kdf
+     * @sa n20_crypto_context_t.get_cdi
+     */
+    n20_crypto_error_unexpected_null_key_out_e = 3,
+    /**
+     * @brief Indicates that a size output argument was NULL.
+     *
+     * Interface function implementations that expect an `*_size_in_out`
+     * parameter return this error said parameter receives a NULL
+     * argument.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.key_public_key
+     */
+    n20_crypto_error_unexpected_null_size_e = 4,
+    /**
+     * @brief Indicates that the user data input argument was NULL.
+     *
+     * Functions that receive unformatted user data, like
+     * the message for `sign` and `digest` or the
+     * the key derivation context of `kdf` return this
+     * error if the data parameter receives a NULL argument.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.kdf
+     */
+    n20_crypto_error_unexpected_null_data_e = 5,
+    /**
+     * @brief Indicates that the user data input argument was NULL.
+     *
+     * Functions that receive unformatted user data, like
+     * the message for `sign` and `digest` or the
+     * the key derivation context of `kdf` return this
+     * error if the if @ref n20_crypto_gather_list_t.count is
+     * non zero but @ref n20_crypto_gather_list_t.list is NULL.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.kdf
+     */
+    n20_crypto_error_unexpected_null_list_e = 6,
+    /**
+     * @brief Indicates that the user data input argument was NULL.
+     *
+     * Functions that receive unformatted user data, like
+     * the message for `sign` and `digest` or the
+     * the key derivation context of `kdf` return this
+     * error the gather list contains a slice
+     * with @ref n20_crypto_slice_t.size non zero but
+     * @ref n20_crypto_slice_t.buffer is NULL.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.kdf
+     * @sa n20_crypto_context_t.sign
+     */
+    n20_crypto_error_unexpected_null_slice_e = 7,
+    /**
+     * @brief This should not be used outside of development.
+     *
+     * During development of a new crypto interface implementation
+     * this error can be returned by yet unimplemented functions.
+     * It may never be returned in complete implementations.
+     *
+     * It may be used in the future to toggle tests depending
+     * unimplemented functions in debug builds. Release builds
+     * must never tolerate unimplemented errors however.
+     */
+    n20_crypto_error_not_implemented_e = 8,
+    /**
+     * @brief Indicates that an unkown algorithm was selected.
+     *
+     * Interface functions that expect an algorithm selector
+     * return this error if the selected algorithm is
+     * outside of the selected range.
+     *
+     * @sa n20_crypto_context_t.digest
+     */
+    n20_crypto_error_unkown_algorithm_e = 9,
+    /**
+     * @brief Indicates that the key input argument unsuitable for the requested operation.
+     *
+     * Interface functions that expect a `key_in` argument
+     * must check if the given key is suitable for the requested
+     * operation and return this error if it is not.
+     *
+     * @sa n20_crypto_context_t.kdf
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.key_public_key
+     */
+    n20_crypto_error_invalid_key_e = 10,
+    /**
+     * @brief Indicates that the requested key type is out of range.
+     *
+     * Interface functions that expect a `key_type_in` argument
+     * return this error if the selected key type is outside of
+     * defined range.
+     *
+     * @sa n20_crypto_context_t.kdf
+     */
+    n20_crypto_error_invalid_key_type_e = 11,
+    /**
+     * @brief Indicates that the user supplied buffer is insufficient.
+     *
+     * Interface functions that require the user to allocate an output buffer
+     * return this error if the supplied buffer size it to small or
+     * if the output buffer argument was NULL.
+     *
+     * Important: If this error is returned, the corresponding `*_size_in_out`
+     * parameter must be set to the maximal required buffer size required by
+     * the implementation to successfully complete the function call.
+     * This must always be possible because if the `*_size_in_out` argument was
+     * NULL, the function must have returned
+     * @ref n20_crypto_error_unexpected_null_size_e.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.key_public_key
+     */
+    n20_crypto_error_insufficient_buffer_size_e = 12,
+    /**
+     * @brief Indicates that an unexpected null pointer was received as argument.
+     *
+     * This generic variant of the error should not be used
+     * implementations of any of the interface functions, rather it is returned
+     * by implementation specific factory functions indicating that
+     * one of their implementation specific arguments was unexpectedly
+     * NULL.
+     */
+    n20_crypto_error_unexpected_null_e = 13,
+    /**
+     * @brief Indicates that the implementation ran out of a critical resource.
+     *
+     * Interface functions may return this error if they failed to
+     * perform an operation due to a lack of physical resources.
+     * This need not be limited to memory.
+     */
     n20_crypto_error_no_memory_e = 14,
-    n20_crypto_error_insufficient_buffer_size_e = 15,
-    n20_crypto_error_implementation_specific_e = 16,
+    /**
+     * @brief Indicates that an implementation specific error has occurred.
+     *
+     * This is a catch all for unexpected errors that can be encountered
+     * by an implementation.
+     */
+    n20_crypto_error_implementation_specific_e = 15,
 } n20_crypto_error_t;
 
+/**
+ * @brief Enumeration of supported digest algorithms.
+ *
+ * Implementations of this interface must provide
+ * all of these algorithms.
+ */
 typedef enum n20_crypto_digest_algorithm_s {
+    /**
+     * @brief SHA 2 224.
+     */
     n20_crypto_digest_algorithm_sha2_224_e,
+    /**
+     * @brief SHA 2 256.
+     */
     n20_crypto_digest_algorithm_sha2_256_e,
+    /**
+     * @brief SHA 2 384.
+     */
     n20_crypto_digest_algorithm_sha2_384_e,
+    /**
+     * @brief SHA 2 512.
+     */
     n20_crypto_digest_algorithm_sha2_512_e,
 } n20_crypto_digest_algorithm_t;
 
+/**
+ * @brief Enumerations of supported key types.
+ *
+ * Implementations of this interface must provide
+ * the following cryptographic algorithms.
+ */
 typedef enum n20_crypto_key_type_s {
+    /**
+     * @brief Secp256r1.
+     *
+     * Select the NIST curve P-256 also known as Secp256r1 or prime245v1.
+     */
     n20_crypto_key_type_secp256r1_e,
+    /**
+     * @brief Secp384r1.
+     *
+     * Select the NIST curve P-384.
+     */
     n20_crypto_key_type_secp384r1_e,
+    /**
+     * @brief Select ed25519.
+     *
+     * Select the ED25519 curve with EDDSA signing scheme.
+     */
     n20_crypto_key_type_ed25519_e,
+    /**
+     * @brief Select CDI.
+     *
+     * This key type revers to a compound device identifier. A derived
+     * secret that can be used to derive other secrets and key pairs.
+     */
     n20_crypto_key_type_cdi_e,
 } n20_crypto_key_type_t;
 
-// Opaque key handle.
+/**
+ * @brief Opaque key handle.
+ *
+ * This handle is used to refer to a key that can be used by the
+ * crypto implementation. The nature of the key is completely
+ * opaque to the caller.
+ *
+ * The lifecycle begins with a call to @ref n20_crypto_context_t.kdf
+ * or @ref n20_crypto_context_t.get_cdi and ends with a call to
+ * @ref n20_crypto_context_t.key_free.
+ */
 typedef void* n20_crypto_key_t;
 
 /**
@@ -120,10 +320,18 @@ typedef struct n20_crypto_slice_s {
  */
 typedef struct n20_crypto_gather_list_s {
     /**
-     * @brief Number of slices in the buffer
-     *
+     * @brief Number of slices in the gather list.
      */
     size_t count;
+    /**
+     * @brief Points to an array of @ref n20_crypto_slice_t.
+     *
+     * The array pointed to must accommodate at leaset @ref count
+     * elements of @ref n20_crypto_slice_t.
+     *
+     * This structure does not take ownership of the array.
+     *
+     */
     n20_crypto_slice_t* list;
 } n20_crypto_gather_list_t;
 
@@ -307,10 +515,17 @@ typedef struct n20_crypto_context_s {
     /**
      * @brief Sign a message using an opaque key handle.
      *
-     * Sign a message using an @p key_in - an opaque key handle
+     * Sign a message using @p key_in - an opaque key handle
      * created using @ref kdf.
      *
-     * (TODO describe the signature format for the different algorithms)
+     * The the signature format depends on the signature algorithm used.
+     * - ed25519: The signature is a 64 octet string that is the
+     *   concatenation of R and S as described in RFC8032 5.1.6.
+     * - ECDSA: The signature is the concatenation of the bigendian
+     *   encoded unsigned integers R and S. Both integers always
+     *   have the same size as the signing key in octets, i.e.,
+     *   32 for P-256 and 48 for P-384, and they are padded with
+     *   leading zeroes if necessary.
      *
      * ## Errors
      * - @ref n20_crypto_error_invalid_context_e must be returned
@@ -343,8 +558,6 @@ typedef struct n20_crypto_context_s {
      * - @ref n20_crypto_error_unexpected_null_slice_e must be returned if
      *   the @p msg_in gather list contains a buffer that has non zero
      *   size but a buffer that is NULL.
-     * - @ref n20_crypto_error_invalid_key_type_e must be returned
-     *   if @p key_type_in is not in the range given by @ref n20_crypto_key_type_t.
      *
      * @param ctx The crypto context.
      * @param key_in The opaque key handle denoting the private signing key.
