@@ -352,20 +352,6 @@ INSTANTIATE_TEST_CASE_P(
         std::tuple(BYTES_MINUS_129_BIG_ENDIAN, true, ENCODED_MINUS_129),
         std::tuple(BYTES_MINUS_129_BIG_ENDIAN_PADDED, true, ENCODED_MINUS_129)));
 
-auto patch_encoded = [](n20_asn1_tag_info_t *tag_info, std::vector<uint8_t> expected) {
-    if (tag_info == nullptr || expected[0] == 0x05) {
-        return expected;
-    } else if (tag_info->implicit) {
-        expected[0] = (expected[0] & 0x30) | tag_info->tag | 0x80;
-        return expected;
-    }
-    std::vector<uint8_t> v;
-    v.push_back(0xa0 | tag_info->tag);
-    v.push_back(expected.size());
-    v.insert(v.end(), expected.begin(), expected.end());
-    return v;
-};
-
 /*
  * This function patches the an encoded ASN.1 structure such that it
  * adds an explicit tag header or changes the header to replace the tag.

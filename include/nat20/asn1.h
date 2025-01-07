@@ -501,7 +501,7 @@ extern void n20_asn1_header(
  *
  * The asn1 module implements a set of convenience
  * functions to render various universal ASN.1 data types.
- * In some specifications the same format used for as these types
+ * In some specifications the same format used for these types
  * is used with context specific tags expressing an implicit data
  * type. Other specification require context specific tagging with
  * explicit data type.
@@ -524,15 +524,15 @@ typedef struct n20_asn1_tag_info_s {
      * @brief The override tag value.
      *
      * This value is used as replacement tag value if
-     * @ref implicit is true, and as explicit tag value
-     * if @ref implicit is false.
+     * @ref implicit is true, and as tag value in
+     * an additional tag header if @ref implicit is false.
      */
     uint32_t tag;
     /**
      * @brief Indicates if implicit tagging is to be used.
      *
-     * - If `true` implicit tagging is used.
-     * - If `false` explicit tagging is used.
+     * - If `true` implicit typing is used.
+     * - If `false` explicit typing is used.
      */
     bool implicit;
 } n20_asn1_tag_info_t;
@@ -540,8 +540,8 @@ typedef struct n20_asn1_tag_info_s {
 /**
  * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
  *
- * Create a tag info structure indicating that explicit
- * context specific tagging is desired.
+ * Create a tag info structure indicating context specific
+ * tagging with explicit typing is desired.
  *
  * The two following code snippets are semantically equivalent.
  * @code{.c}
@@ -559,8 +559,8 @@ extern n20_asn1_tag_info_t n20_asn1_explicit_tag(int tag);
 /**
  * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
  *
- * Create a tag info structure indicating that implicit
- * context specific tagging is desired.
+ * Create a tag info structure indicating that
+ * context specific taging with implicit typing is desired.
  *
  * The two following code snippets are semantically equivalent.
  * @code{.c}
@@ -576,13 +576,10 @@ extern n20_asn1_tag_info_t n20_asn1_explicit_tag(int tag);
  */
 extern n20_asn1_tag_info_t n20_asn1_implicit_tag(int tag);
 
-#define N20_ASN1_IMPLICIT_TAG(value) \
-    { .tag = value, .implicit = true }
-
 /**
  * @brief Refers to a constant buffer of the specified size.
  *
- * This is used to refer to foreign buffers non mutable buffers
+ * This is used to refer to foreign non-mutable buffers
  * of a given size. The user has to assure buffer outlives
  * the instance of the slice and that the buffer is
  * sufficiently large to accommodate @ref size bytes of data.

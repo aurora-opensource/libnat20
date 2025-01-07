@@ -178,7 +178,7 @@ void n20_asn1_null(n20_asn1_stream_t *const s, n20_asn1_tag_info_t const *const 
         class_ = N20_ASN1_CLASS_CONTEXT_SPECIFIC;
     }
     size_t mark = n20_asn1_stream_data_written(s);
-    n20_asn1_header(s, class_, /*constructed=*/false, tag, 0);
+    n20_asn1_header(s, class_, /*constructed=*/false, tag, /*len=*/0);
 
     if (tag_info != NULL && !tag_info->implicit) {
         n20_asn1_header(s,
@@ -190,6 +190,9 @@ void n20_asn1_null(n20_asn1_stream_t *const s, n20_asn1_tag_info_t const *const 
 }
 
 static void n20_asn1_object_identifier_content(n20_asn1_stream_t *const s, void *ctx) {
+    /* ctx must not be NULL. Since this function is static
+       all call sites are in this compilation unit and must
+       not call this function with a NULL argument. */
     n20_asn1_object_identifier_t const *oid = ctx;
 
     size_t e = oid->elem_count;
@@ -323,7 +326,7 @@ void n20_asn1_uint64(n20_asn1_stream_t *const s,
                      (uint8_t *)&n,
                      sizeof(n),
                      LITTLE_ENDIAN == BYTE_ORDER,
-                     false /* two_complement */,
+                     /*two_complement=*/false,
                      tag_info);
 }
 
@@ -334,7 +337,7 @@ void n20_asn1_int64(n20_asn1_stream_t *const s,
                      (uint8_t *)&n,
                      sizeof(n),
                      LITTLE_ENDIAN == BYTE_ORDER,
-                     true /* two_complement */,
+                     /*two_complement=*/true,
                      tag_info);
 }
 
