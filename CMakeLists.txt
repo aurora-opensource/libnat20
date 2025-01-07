@@ -143,7 +143,7 @@ if (NAT20_WITH_TESTS)
         target_sources(nat20_crypto_boringssl_test_bin
             PRIVATE ${LIBNAT20_CRYPTO_BSSL_TEST_SOURCES}
         )
-        target_link_libraries(nat20_crypto_boringssl_test_bin gtest_main nat20_crypto_boringssl crypto pki)
+        target_link_libraries(nat20_crypto_boringssl_test_bin gtest_main nat20 nat20_crypto_boringssl crypto pki)
         add_test(NAME nat20_crypto_boringssl_test COMMAND nat20_crypto_boringssl_test_bin)
     endif()
 
