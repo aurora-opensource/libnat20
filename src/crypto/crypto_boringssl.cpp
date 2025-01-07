@@ -303,21 +303,35 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
         return n20_crypto_error_no_memory_e;
     }
 
+    constexpr size_t ed25519_signature_size = 64;
+    constexpr size_t secp256r1_signature_size = 64;
+    constexpr size_t secp384r1_signature_size = 96;
+    size_t signature_size = 0;
+    switch (bssl_base_key->type) {
+        case n20_crypto_key_type_ed25519_e:
+            signature_size = ed25519_signature_size;
+            break;
+        case n20_crypto_key_type_secp256r1_e:
+            signature_size = secp256r1_signature_size;
+            break;
+        case n20_crypto_key_type_secp384r1_e:
+            signature_size = secp384r1_signature_size;
+            break;
+        case n20_crypto_key_type_cdi_e:
+        default:
+            return n20_crypto_error_invalid_key_e;
+    }
+
+    if (*signature_size_in_out < signature_size || signature_out == nullptr) {
+        *signature_size_in_out = signature_size;
+        return n20_crypto_error_insufficient_buffer_size_e;
+    }
+
     switch (bssl_base_key->type) {
         case n20_crypto_key_type_ed25519_e: {
             EVP_MD const* md = nullptr;
             if (1 != EVP_DigestSignInit(md_ctx.get(), NULL, md, NULL, bssl_evp_key->key.get())) {
                 return n20_crypto_error_implementation_specific_e;
-            }
-
-            size_t given_sig_size = *signature_size_in_out;
-            *signature_size_in_out = 0;
-            if (1 != EVP_DigestSign(md_ctx.get(), nullptr, signature_size_in_out, nullptr, 0)) {
-                return n20_crypto_error_implementation_specific_e;
-            }
-
-            if (given_sig_size < *signature_size_in_out || signature_out == nullptr) {
-                return n20_crypto_error_insufficient_buffer_size_e;
             }
 
             auto const msg_error = gather_list_to_vector(msg_in);
@@ -337,25 +351,16 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
         }
         case n20_crypto_key_type_secp256r1_e:
         case n20_crypto_key_type_secp384r1_e: {
-            EVP_MD const* md = EVP_sha256();
-            if (1 != EVP_DigestSignInit(md_ctx.get(), NULL, md, NULL, bssl_evp_key->key.get())) {
-                return n20_crypto_error_implementation_specific_e;
-            }
-
-            size_t given_sig_size = *signature_size_in_out;
-            if (1 != EVP_DigestSignFinal(md_ctx.get(), nullptr, signature_size_in_out)) {
-                return n20_crypto_error_implementation_specific_e;
-            }
-
-            if (given_sig_size < *signature_size_in_out || signature_out == nullptr) {
-                return n20_crypto_error_insufficient_buffer_size_e;
-            }
-
             if (msg_in == NULL) {
                 return n20_crypto_error_unexpected_null_data_e;
             }
             if (msg_in->count != 0 && msg_in->list == nullptr) {
                 return n20_crypto_error_unexpected_null_list_e;
+            }
+
+            EVP_MD const* md = EVP_sha256();
+            if (1 != EVP_DigestSignInit(md_ctx.get(), NULL, md, NULL, bssl_evp_key->key.get())) {
+                return n20_crypto_error_implementation_specific_e;
             }
 
             for (size_t i = 0; i < msg_in->count; ++i) {
@@ -372,9 +377,61 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
                 }
             }
 
-            if (1 != EVP_DigestSignFinal(md_ctx.get(), signature_out, signature_size_in_out)) {
+            // 104 is the maximum size for an ASN.1 encoded signature
+            // using ECDSA with P-384.
+            uint8_t signature_buffer[104];
+            *signature_size_in_out = sizeof(signature_buffer);
+            if (1 != EVP_DigestSignFinal(md_ctx.get(), signature_buffer, signature_size_in_out)) {
                 return n20_crypto_error_implementation_specific_e;
             }
+
+            // EVP_DigestSignFinal returned the signature as ASN.1 sequence
+            // containing two integers.
+            // The following code unwraps the integers and stores them
+            // in the format as specified by the n20 crypto interface.
+
+            // The size of a single integer is halve of the signature
+            // size, i.e, 32 for P-256 and 48 for P-384.
+            size_t const integer_size = signature_size / 2;
+            // The first two bytes are the sequence header.
+            // No need to look at those.
+            // The size of R is at index 3.
+            size_t r_size = signature_buffer[3];
+            // To get the size of S skip the the sequence header (2 octets),
+            // skip the integer header of R (2 octets) skip R (r_size octets),
+            // skip the integer header but not the size (1 octet).
+            // So the resulting offset is 2 + 2 + rsize + 1 = 5 + r_size.
+            size_t s_size = signature_buffer[5 + r_size];
+            // R starts at offset 4, i.e., skip the sequence header and the
+            // integer header.
+            size_t r_offset = 4;
+            // S starts at offset 6 + r_size, i.e., skip the sequence header
+            // both integer headers and the content of R.
+            size_t s_offset = 6 + r_size;
+            // Due to ASN.1 encoding the integers may be padded with a leading
+            // zero octet if the msb of the following octet is 1.
+            // This can bring the total size of the integer to integer_size + 1
+            // without adding significant bits. The following line cuts this
+            // leading zero octet off by moving the offset by one and reducing
+            // the respective size by one.
+            if (r_size == integer_size + 1) {
+                r_offset += 1;
+                r_size -= 1;
+            }
+            if (s_size == integer_size + 1) {
+                s_offset += 1;
+                s_size -= 1;
+            }
+            // However unlikely, r_size and s_size can be smaller than integer_size.
+            // In that case the write position must be adjusted by the difference
+            // integer_size - r_size. To assure that leading octets will be zero
+            // the output buffer is be zeroed.
+            memset(signature_out, 0, signature_size);
+            memcpy(signature_out + integer_size - r_size, &signature_buffer[r_offset], r_size);
+            memcpy(signature_out + integer_size + integer_size - s_size,
+                   &signature_buffer[s_offset],
+                   s_size);
+            *signature_size_in_out = signature_size;
 
             return n20_crypto_error_ok_e;
         }
