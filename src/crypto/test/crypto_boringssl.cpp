@@ -355,6 +355,31 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
     }
 }
 
+static std::vector<uint8_t> signature_2_asn1_sequence(std::vector<uint8_t> const& sig) {
+    size_t integer_size = sig.size() / 2;
+
+    uint8_t buffer[104];
+    n20_asn1_stream_t s;
+    n20_asn1_stream_init(&s, &buffer[0], 104);
+
+    auto mark = n20_asn1_stream_data_written(&s);
+    // Write S
+    n20_asn1_integer(&s, sig.data() + integer_size, integer_size, false, false);
+    // Write R
+    n20_asn1_integer(&s, sig.data(), integer_size, false, false);
+
+    n20_asn1_header(&s,
+                    N20_ASN1_CLASS_UNIVERSAL,
+                    /*constructed=*/true,
+                    N20_ASN1_TAG_SEQUENCE,
+                    n20_asn1_stream_data_written(&s) - mark);
+
+    EXPECT_TRUE(n20_asn1_stream_is_data_good(&s));
+    return std::vector<uint8_t>(n20_asn1_stream_data(&s),
+                                n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+}
+
+
 bool verify(EVP_PKEY_PTR_t const& key,
             std::vector<uint8_t> const& message,
             std::vector<uint8_t> const& signature) {
@@ -377,7 +402,9 @@ bool verify(EVP_PKEY_PTR_t const& key,
             return false;
         }
 
-        if (1 != EVP_DigestVerifyFinal(md_ctx.get(), signature.data(), signature.size())) {
+        auto sig = signature_2_asn1_sequence(signature);
+
+        if (1 != EVP_DigestVerifyFinal(md_ctx.get(), sig.data(), sig.size())) {
             return false;
         }
 
@@ -468,9 +495,9 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_other));
 
-        // 104 is large enough for all implemented algorithms. So
+        // 96 is large enough for all implemented algorithms. So
         // no need to do the query dance again.
-        sig_size = 104;
+        sig_size = 96;
         std::vector<uint8_t> other_signature(sig_size);
         N20_ASSERT_EQ(
             n20_crypto_error_ok_e,
@@ -648,8 +675,8 @@ TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
     using tc = std::tuple<std::string, n20_crypto_key_type_t, size_t>;
     for (auto [n20_test_name, key_type, want_signature_size] : {
              tc{"ed25519", n20_crypto_key_type_ed25519_e, 64},
-             tc{"secp256r1", n20_crypto_key_type_secp256r1_e, 72},
-             tc{"secp384r1", n20_crypto_key_type_secp384r1_e, 104},
+             tc{"secp256r1", n20_crypto_key_type_secp256r1_e, 64},
+             tc{"secp384r1", n20_crypto_key_type_secp384r1_e, 96},
          }) {
 
         n20_crypto_slice_t context_buffers[] = {
