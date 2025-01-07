@@ -169,7 +169,7 @@ class HeaderWithContentTest
     : public testing::TestWithParam<std::tuple<void (*)(n20_asn1_stream_t *, void *),
                                                void *,
                                                std::vector<uint8_t>,
-                                               std::optional<n20_asn1_tag_info_t>>> {};
+                                               n20_asn1_tag_info_t>> {};
 
 void noop(n20_asn1_stream_t *s, void *cb_context) {}
 
@@ -201,32 +201,33 @@ std::vector<uint8_t> const ENCODED_HEADER_WITH_CONTENT_EIGHT_ZEROS_WITH_EXPLICIT
 INSTANTIATE_TEST_CASE_P(
     Asn1HeaderWithContentTest,
     HeaderWithContentTest,
-    testing::Values(std::tuple(nullptr, nullptr, ENCODED_HEADER_WITH_CONTENT_NOOP, std::nullopt),
-                    std::tuple(&noop, nullptr, ENCODED_HEADER_WITH_CONTENT_NOOP, std::nullopt),
+    testing::Values(std::tuple(nullptr,
+                               nullptr,
+                               ENCODED_HEADER_WITH_CONTENT_NOOP,
+                               n20_asn1_tag_info_no_override()),
+                    std::tuple(&noop,
+                               nullptr,
+                               ENCODED_HEADER_WITH_CONTENT_NOOP,
+                               n20_asn1_tag_info_no_override()),
                     std::tuple(&prepend_five_zeros,
                                nullptr,
                                ENCODED_HEADER_WITH_CONTENT_FIVE_ZEROS,
-                               std::nullopt),
+                               n20_asn1_tag_info_no_override()),
                     std::tuple(&prepend_zeros,
                                (void *)&EIGHT,
                                ENCODED_HEADER_WITH_CONTENT_EIGHT_ZEROS,
-                               std::nullopt),
+                               n20_asn1_tag_info_no_override()),
                     std::tuple(&prepend_zeros,
                                (void *)&EIGHT,
                                ENCODED_HEADER_WITH_CONTENT_EIGHT_ZEROS_WITH_IMPLICIT_TAG,
-                               n20_asn1_implicit_tag(0x555555)),
+                               n20_asn1_tag_info_implicit(0x555555)),
                     std::tuple(&prepend_zeros,
                                (void *)&EIGHT,
                                ENCODED_HEADER_WITH_CONTENT_EIGHT_ZEROS_WITH_EXPLICIT_TAG,
-                               n20_asn1_explicit_tag(0x555555))));
+                               n20_asn1_tag_info_explicit(0x555555))));
 
 TEST_P(HeaderWithContentTest, HeaderWithContentEncoding) {
-    auto [content_cb, cb_context, expected, tag_info_opt] = GetParam();
-
-    n20_asn1_tag_info_t *tag_info = nullptr;
-    if (tag_info_opt) {
-        tag_info = &*tag_info_opt;
-    }
+    auto [content_cb, cb_context, expected, tag_info] = GetParam();
 
     n20_asn1_stream_t s;
     uint8_t buffer[128];
@@ -249,7 +250,7 @@ TEST(NullTest, NullEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_null(&s, /*tag_info=*/nullptr);
+    n20_asn1_null(&s, n20_asn1_tag_info_no_override());
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_NULL.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -261,8 +262,7 @@ TEST(NullTest, NullEncodingImplicitTag) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_tag_info_t tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_null(&s, &tag_info);
+    n20_asn1_null(&s, n20_asn1_tag_info_implicit(7));
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_NULL_IMPLICIT_TAG.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -274,8 +274,7 @@ TEST(NullTest, NullEncodingExplicitTag) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_tag_info_t tag_info = n20_asn1_explicit_tag(7);
-    n20_asn1_null(&s, &tag_info);
+    n20_asn1_null(&s, n20_asn1_tag_info_explicit(7));
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_NULL_EXPLICIT_TAG.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -299,7 +298,7 @@ TEST_P(BooleanTest, BooleanEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    n20_asn1_boolean(&s, v, /*tag_info=*/nullptr);
+    n20_asn1_boolean(&s, v, n20_asn1_tag_info_no_override());
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -362,16 +361,16 @@ INSTANTIATE_TEST_CASE_P(
  * If the function gets an encoded ASN.1 NULL or if tag_info is NULL
  * this function forwards the input unchanged.
  */
-static std::vector<uint8_t> tag_patch_encoded(n20_asn1_tag_info_t const *tag_info,
+static std::vector<uint8_t> tag_patch_encoded(n20_asn1_tag_info_t const tag_info,
                                               std::vector<uint8_t> encoded) {
-    if (tag_info == nullptr || encoded[0] == 0x05) {
+    if (tag_info.type == n20_asn1_tag_info_no_override_e || encoded[0] == 0x05) {
         return encoded;
-    } else if (tag_info->implicit) {
-        encoded[0] = (encoded[0] & 0x20) | tag_info->tag | 0x80;
+    } else if (tag_info.type == n20_asn1_tag_info_implicit_e) {
+        encoded[0] = (encoded[0] & 0x20) | tag_info.tag | 0x80;
         return encoded;
     }
     std::vector<uint8_t> v;
-    v.push_back(0xa0 | tag_info->tag);
+    v.push_back(0xa0 | tag_info.tag);
     v.push_back(encoded.size());
     v.insert(v.end(), encoded.begin(), encoded.end());
     return v;
@@ -380,11 +379,9 @@ static std::vector<uint8_t> tag_patch_encoded(n20_asn1_tag_info_t const *tag_inf
 TEST_P(IntegerTest, IntegerEncodingBigEndian) {
     auto [bytes, two_complement, expected] = GetParam();
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
 
         n20_asn1_stream_t s;
@@ -403,11 +400,9 @@ TEST_P(IntegerTest, IntegerEncodingLittleEndian) {
     auto [bytes, two_complement, expected] = GetParam();
     std::vector<uint8_t> bytes_reversed(bytes.rbegin(), bytes.rend());
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
 
         n20_asn1_stream_t s;
@@ -441,11 +436,9 @@ INSTANTIATE_TEST_CASE_P(Asn1Int64Test,
 TEST_P(Int64Test, Int64Encoding) {
     auto [n, expected] = GetParam();
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
 
         n20_asn1_stream_t s;
@@ -491,11 +484,9 @@ INSTANTIATE_TEST_CASE_P(Asn1BitStringTest,
 TEST_P(BitStringTest, BitStringEncoding) {
     auto [bits, bits_size, expected] = GetParam();
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
 
         n20_asn1_stream_t s;
@@ -533,11 +524,9 @@ INSTANTIATE_TEST_CASE_P(Asn1OctetStringTest,
 TEST_P(OctetStringTest, OctetStringEncoding) {
     auto [bytes, expected] = GetParam();
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
 
         n20_asn1_stream_t s;
@@ -582,11 +571,9 @@ INSTANTIATE_TEST_CASE_P(
 TEST_P(PrintableStringTest, PrintableStringEncoding) {
     auto [optional_string, expected] = GetParam();
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
 
         n20_asn1_stream_t s;
@@ -653,11 +640,9 @@ INSTANTIATE_TEST_CASE_P(Asn1GeneralizedTimeTest,
 TEST_P(GeneralizedTimeTest, GeneralizedTimeEncoding) {
     auto [optional_string, expected] = GetParam();
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
 
         n20_asn1_stream_t s;
@@ -681,13 +666,13 @@ class SequenceTest
           std::tuple<void (*)(n20_asn1_stream_t *, void *), void *, std::vector<uint8_t>>> {};
 
 void flat(n20_asn1_stream_t *s, void *cb_context) {
-    n20_asn1_printablestring(s, "flat", /*tag_info=*/nullptr);
-    n20_asn1_boolean(s, true, /*tag_info=*/nullptr);
+    n20_asn1_printablestring(s, "flat", n20_asn1_tag_info_no_override());
+    n20_asn1_boolean(s, true, n20_asn1_tag_info_no_override());
 }
 
 void nested(n20_asn1_stream_t *s, void *cb_context) {
-    n20_asn1_printablestring(s, "nested", /*tag_info=*/nullptr);
-    n20_asn1_sequence(s, &flat, cb_context, /*tag_info=*/nullptr);
+    n20_asn1_printablestring(s, "nested", n20_asn1_tag_info_no_override());
+    n20_asn1_sequence(s, &flat, cb_context, n20_asn1_tag_info_no_override());
 }
 
 std::vector<uint8_t> const ENCODED_SEQUENCE_NULL = {0x30, 0x00};
@@ -708,13 +693,10 @@ INSTANTIATE_TEST_CASE_P(Asn1SequenceTest,
 TEST_P(SequenceTest, SequenceEncoding) {
     auto [content_cb, cb_context, expected] = GetParam();
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
-
         n20_asn1_stream_t s;
         uint8_t buffer[128];
         n20_asn1_stream_init(&s, buffer, sizeof(buffer));
@@ -751,11 +733,9 @@ INSTANTIATE_TEST_CASE_P(
 TEST_P(ObjectIdentifierTest, ObjectIdentifierEncoding) {
     auto [optional_oid, expected] = GetParam();
 
-    n20_asn1_tag_info_t implicit_tag_info = n20_asn1_implicit_tag(7);
-    n20_asn1_tag_info_t explicit_tag_info = n20_asn1_explicit_tag(7);
-
-    for (n20_asn1_tag_info_t *tag_info :
-         {(n20_asn1_tag_info_t *)(nullptr), &implicit_tag_info, &explicit_tag_info}) {
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
         auto expected_patched = tag_patch_encoded(tag_info, expected);
 
         n20_asn1_stream_t s;
