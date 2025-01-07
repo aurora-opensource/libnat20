@@ -379,7 +379,6 @@ static std::vector<uint8_t> signature_2_asn1_sequence(std::vector<uint8_t> const
                                 n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
 }
 
-
 bool verify(EVP_PKEY_PTR_t const& key,
             std::vector<uint8_t> const& message,
             std::vector<uint8_t> const& signature) {
