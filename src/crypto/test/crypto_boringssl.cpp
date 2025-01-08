@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Aurora Operations, Inc.
+ * Copyright 2025 Aurora Operations, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,6 @@ class CryptoTestFixture : public ::testing::Test {
 TYPED_TEST_SUITE_P(CryptoTestFixture);
 
 TYPED_TEST_P(CryptoTestFixture, OpenClose) {
-
     // If this point is reached the fixture has already successfully
     // Opened the implementation. So let's close it.
     ASSERT_EQ(n20_crypto_error_ok_e, TypeParam::close(this->ctx));
@@ -182,7 +181,6 @@ TYPED_TEST_P(CryptoTestFixture, DigestTestVectorTest) {
 }
 
 TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
-
     size_t got_size = 0;
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t, size_t>;
 
@@ -228,7 +226,6 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
 }
 
 TYPED_TEST_P(CryptoTestFixture, InvalidContext) {
-
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
     for (auto [n20_test_name, alg] : {
              tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
@@ -261,7 +258,6 @@ TYPED_TEST_P(CryptoTestFixture, InvalidContext) {
 }
 
 TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
-
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
     for (auto [n20_test_name, alg] : {
              tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
@@ -297,7 +293,6 @@ TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
 }
 
 TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
-
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t, size_t>;
     for (auto [n20_test_name, alg, want_size] : {
              tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e, 28},
@@ -320,7 +315,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
 
-        // Safe the first result to compare it with the following computations.
+        // Save the first result to compare it with the following computations.
         auto want_digest = got_digest;
 
         // Change the message gather list to {"foo", "", "bar"}.
@@ -390,7 +385,6 @@ bool verify(EVP_PKEY_PTR_t const& key,
     }
 
     if (EVP_PKEY_id(key.get()) != EVP_PKEY_ED25519) {
-
         if (1 != EVP_DigestVerifyInit(md_ctx.get(), NULL, EVP_sha256(), NULL, key.get())) {
             ADD_FAILURE();
             return false;
@@ -406,7 +400,6 @@ bool verify(EVP_PKEY_PTR_t const& key,
         if (1 != EVP_DigestVerifyFinal(md_ctx.get(), sig.data(), sig.size())) {
             return false;
         }
-
     } else {
         if (1 != EVP_DigestVerifyInit(md_ctx.get(), NULL, NULL, NULL, key.get())) {
             ADD_FAILURE();
@@ -426,7 +419,7 @@ bool verify(EVP_PKEY_PTR_t const& key,
 // It derives multiple keys which are used for signing. It then gets the public key
 // of one of the derived keys for signature verification.
 // The test tries to establish, indirectly, that the key derivation is deterministic.
-// For each key type it performs tree key derivations. The first two are
+// For each key type it performs three key derivations. The first two are
 // derived using the same context. These keys are used for signing and
 // verification respectively. If the key derivation is in deed deterministic.
 // signatures issued with the first key must verify against the public key of
@@ -453,7 +446,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
 
         n20_crypto_gather_list_t context = {3, context_buffers};
 
-        // Derive two keys with using the same context.
+        // Derive two keys using the same context.
         // The implementation must generate the same key.
         // So we use one for signing and the other for verification.
         // If the signature verifies successfully we can be reasonably
@@ -568,7 +561,6 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
 }
 
 TYPED_TEST_P(CryptoTestFixture, GetCDIErrorsTest) {
-
     ASSERT_EQ(n20_crypto_error_invalid_context_e, this->ctx->get_cdi(nullptr, nullptr));
 
     ASSERT_EQ(n20_crypto_error_unexpected_null_key_out_e, this->ctx->get_cdi(this->ctx, nullptr));
@@ -594,7 +586,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
                       this->ctx->kdf(this->ctx, nullptr, key_type, nullptr, nullptr));
 
         // Derive each key type that would be ineligible to derive a key from
-        // and use it as in key for the KDF. The kdf must diagnose it
+        // and use it as `key_in` for the KDF. The kdf must diagnose it
         // as n20_crypto_error_invalid_key_e.
         n20_crypto_slice_t context_buffers[] = {
             {3, (uint8_t*)"foo"},
@@ -718,13 +710,11 @@ TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
             n20_crypto_error_unexpected_null_list_e,
             this->ctx->sign(this->ctx, signing_key, &message, signature_buffer, &signature_size));
 
-        char const* msg = "my message";
-        n20_crypto_slice_t msg_buffers[] = {{strlen(msg), nullptr}};
+        n20_crypto_slice_t msg_buffers[] = {{5, nullptr}};
         message.list = msg_buffers;
         N20_ASSERT_EQ(
             n20_crypto_error_unexpected_null_slice_e,
             this->ctx->sign(this->ctx, signing_key, &message, signature_buffer, &signature_size));
-        msg_buffers[0].buffer = (uint8_t const*)msg;
     }
 
     ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, cdi));
