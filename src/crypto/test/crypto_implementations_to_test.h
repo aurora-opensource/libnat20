@@ -18,11 +18,11 @@
 #endif
 
 using CryptoImplementationsToTest = ::testing::Types<
-// Add crypto implementations to the list in order to run
-// the crypto test against them.
-#ifdef N20_CONFIG_WITH_BSSL
+    // Add crypto implementations to the list in order to run
+    // the crypto test against them.
+    #ifdef N20_CONFIG_WITH_BSSL
     CryptoImplBSSL
-#endif
+    #endif
     // End of list.
     >;
 
