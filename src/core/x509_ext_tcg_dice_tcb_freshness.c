@@ -25,10 +25,6 @@ static void n20_x509_ext_tcg_dice_tcb_freshness_sequence_content(n20_asn1_stream
 
     // tcg_dice_tcb_freshness is never NULL since it's checked by
     // n20_x509_ext_tcg_dice_tcb_freshness_content.
-
-    if (NULL == tcg_dice_tcb_freshness->nonce.buffer) {
-        return;
-    }
     n20_asn1_octetstring(s, &tcg_dice_tcb_freshness->nonce, n20_asn1_tag_info_no_override());
 }
 
