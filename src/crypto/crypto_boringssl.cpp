@@ -129,7 +129,7 @@ static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_
     auto md_ctx = EVP_MD_CTX_PTR_t(EVP_MD_CTX_new());
 
     if (!EVP_DigestInit(md_ctx.get(), md)) {
-        return n20_crypto_error_no_memory_e;
+        return n20_crypto_error_no_resources_e;
     }
 
     for (size_t i = 0; i < msg_in->count; ++i) {
@@ -225,7 +225,7 @@ static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* 
             }
             auto bssl_out = new n20_bssl_evp_pkey();
             if (bssl_out == NULL) {
-                return n20_crypto_error_no_memory_e;
+                return n20_crypto_error_no_resources_e;
             }
             bssl_out->type = key_type_in;
             bssl_out->key = std::move(key);
@@ -257,7 +257,7 @@ static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* 
 
             auto key = EVP_PKEY_PTR_t(EVP_PKEY_new());
             if (!key) {
-                return n20_crypto_error_no_memory_e;
+                return n20_crypto_error_no_resources_e;
             }
 
             EVP_PKEY_assign_EC_KEY(key.get(), ec_key.release());
@@ -300,7 +300,7 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
 
     auto md_ctx = EVP_MD_CTX_PTR_t(EVP_MD_CTX_new());
     if (!md_ctx) {
-        return n20_crypto_error_no_memory_e;
+        return n20_crypto_error_no_resources_e;
     }
 
     constexpr size_t ed25519_signature_size = 64;
@@ -515,7 +515,7 @@ static n20_crypto_error_t n20_crypto_boringssl_key_get_public_key(struct n20_cry
             uint8_t* x962_key_info = NULL;
             int rc_der_len = i2d_PublicKey(key.get(), &x962_key_info);
             if (rc_der_len <= 0) {
-                return n20_crypto_error_no_memory_e;
+                return n20_crypto_error_no_resources_e;
             }
             auto x962_key_info_guard = std::unique_ptr<uint8_t, BoringsslDeleter>(x962_key_info);
 
@@ -595,7 +595,7 @@ extern "C" n20_crypto_error_t n20_crypto_open_boringssl(n20_crypto_context_t** c
 
     auto new_ctx = std::make_unique<n20_bssl_context>();
     if (!new_ctx) {
-        return n20_crypto_error_no_memory_e;
+        return n20_crypto_error_no_resources_e;
     }
 
     new_ctx->cdi.type = n20_crypto_key_type_cdi_e;
