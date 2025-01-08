@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Aurora Operations, Inc.
+ * Copyright 2025 Aurora Operations, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,16 +34,18 @@ typedef enum n20_crypto_error_s {
      */
     n20_crypto_error_ok_e = 0,
     /**
-     * @brief The crypto context given to an interface function was NULL.
+     * @brief The crypto context given to an interface was invalid.
      *
+     * Implementations must return this error if the context given is
+     * NULL.
      * Implementation may deploy additional techniques to determine
-     * if the context was valid.
+     * if the context given is valid valid.
      */
     n20_crypto_error_invalid_context_e = 1,
     /**
      * @brief Indicates that an input key argument was NULL.
      *
-     * Interface function implementations that expect an `key_in`
+     * Interface function implementations that expect a `key_in`
      * parameter return this error said parameter receives a NULL
      * argument.
      *
@@ -54,7 +56,7 @@ typedef enum n20_crypto_error_s {
     /**
      * @brief Indicates that an output key argument was NULL.
      *
-     * Interface function implementations that expect an `key_out`
+     * Interface function implementations that expect a `key_out`
      * parameter return this error said parameter receives a NULL
      * argument.
      *
@@ -65,7 +67,7 @@ typedef enum n20_crypto_error_s {
     /**
      * @brief Indicates that a size output argument was NULL.
      *
-     * Interface function implementations that expect an `*_size_in_out`
+     * Interface function implementations that expect a `*_size_in_out`
      * parameter return this error said parameter receives a NULL
      * argument.
      *
@@ -123,7 +125,7 @@ typedef enum n20_crypto_error_s {
      * this error can be returned by yet unimplemented functions.
      * It may never be returned in complete implementations.
      *
-     * It may be used in the future to toggle tests depending
+     * It may be used in the future to toggle tests depending on
      * unimplemented functions in debug builds. Release builds
      * must never tolerate unimplemented errors however.
      */
@@ -139,7 +141,7 @@ typedef enum n20_crypto_error_s {
      */
     n20_crypto_error_unkown_algorithm_e = 9,
     /**
-     * @brief Indicates that the key input argument unsuitable for the requested operation.
+     * @brief Indicates that the key input argument is unsuitable for the requested operation.
      *
      * Interface functions that expect a `key_in` argument
      * must check if the given key is suitable for the requested
@@ -164,7 +166,7 @@ typedef enum n20_crypto_error_s {
      * @brief Indicates that the user supplied buffer is insufficient.
      *
      * Interface functions that require the user to allocate an output buffer
-     * return this error if the supplied buffer size it to small or
+     * return this error if the supplied buffer size is to small or
      * if the output buffer argument was NULL.
      *
      * Important: If this error is returned, the corresponding `*_size_in_out`
@@ -182,7 +184,7 @@ typedef enum n20_crypto_error_s {
     /**
      * @brief Indicates that an unexpected null pointer was received as argument.
      *
-     * This generic variant of the error should not be used
+     * This generic variant of the error should not be used by
      * implementations of any of the interface functions, rather it is returned
      * by implementation specific factory functions indicating that
      * one of their implementation specific arguments was unexpectedly
@@ -194,9 +196,9 @@ typedef enum n20_crypto_error_s {
      *
      * Interface functions may return this error if they failed to
      * perform an operation due to a lack of physical resources.
-     * This need not be limited to memory.
+     * This this includes memory allocation errors.
      */
-    n20_crypto_error_no_memory_e = 14,
+    n20_crypto_error_no_resources_e = 14,
     /**
      * @brief Indicates that an implementation specific error has occurred.
      *
@@ -235,13 +237,13 @@ typedef enum n20_crypto_digest_algorithm_s {
  * @brief Enumerations of supported key types.
  *
  * Implementations of this interface must provide
- * the following cryptographic algorithms.
+ * the following cryptographic key types.
  */
 typedef enum n20_crypto_key_type_s {
     /**
      * @brief Secp256r1.
      *
-     * Select the NIST curve P-256 also known as Secp256r1 or prime245v1.
+     * Select the NIST curve P-256 also known as Secp256r1 or prime256v1.
      */
     n20_crypto_key_type_secp256r1_e,
     /**
@@ -259,7 +261,7 @@ typedef enum n20_crypto_key_type_s {
     /**
      * @brief Select CDI.
      *
-     * This key type revers to a compound device identifier. A derived
+     * This key type refers to a compound device identifier. A derived
      * secret that can be used to derive other secrets and key pairs.
      */
     n20_crypto_key_type_cdi_e,
@@ -279,9 +281,9 @@ typedef enum n20_crypto_key_type_s {
 typedef void* n20_crypto_key_t;
 
 /**
- * @brief A single consecutive non mutable buffer slice.
+ * @brief A single consecutive immutable buffer slice.
  *
- * A slice refers to a non mutable (const) buffer.
+ * A slice refers to a immutable (const) buffer.
  *
  * A slice never owns this buffer, i.e., the user must
  * assure that the buffer outlives this structure as
@@ -306,7 +308,7 @@ typedef struct n20_crypto_slice_s {
 } n20_crypto_slice_t;
 
 /**
- * @brief A list of non mutable buffer slices.
+ * @brief A list of immutable buffer slices.
  *
  * This structure must be initialized such that @ref list points
  * to a buffer of sizeof( @ref n20_crypto_slice_t ) * @ref count,
@@ -344,7 +346,7 @@ typedef struct n20_crypto_context_s {
      * Each buffer in the gather list is concatenated in the order they
      * appear in the list.
      *
-     * Buffers of zero @ref n20_crypto_slice_s.size are allowed and treated
+     * Buffers with zero @ref n20_crypto_slice_s.size are allowed and treated
      * as empty. In this case the @ref n20_crypto_slice_s.buffer is ignored.
      *
      *
@@ -373,7 +375,7 @@ typedef struct n20_crypto_context_s {
      *   @p digest_size_in_out to the size required by the algorithm
      *   selected in @p alg_in.
      * - @ref n20_crypto_error_unexpected_null_data_e must be returned
-     *   if non of the above conditions were met AND @p msg_in is NULL.
+     *   if none of the above conditions were met AND @p msg_in is NULL.
      *   This means that `msg_in == NULL` MUST be tolerated when
      *   querying the output buffer size.
      * - @ref n20_crypto_error_unexpected_null_list_e must be returned
@@ -383,7 +385,7 @@ typedef struct n20_crypto_context_s {
      *   the @p msg_in gather list contains a buffer that has non zero
      *   size but a buffer that is NULL.
      *
-     * Implementations may return @ref n20_crypto_error_no_memory_e if
+     * Implementations may return @ref n20_crypto_error_no_resources_e if
      * any kind of internal resource allocation failed.
      *
      * Implementations may return @ref n20_crypto_error_implementation_specific_e.
@@ -521,7 +523,7 @@ typedef struct n20_crypto_context_s {
      * The signature format depends on the signature algorithm used.
      * - ed25519: The signature is a 64 octet string that is the
      *   concatenation of R and S as described in RFC8032 5.1.6.
-     * - ECDSA: The signature is the concatenation of the bigendian
+     * - ECDSA: The signature is the concatenation of the big-endian
      *   encoded unsigned integers R and S. Both integers always
      *   have the same size as the signing key in octets, i.e.,
      *   32 for P-256 and 48 for P-384, and they are padded with
@@ -600,10 +602,10 @@ typedef struct n20_crypto_context_s {
     /**
      * @brief Export the public key of an asymmetric key.
      *
-     * The public key format depends on the signature key algorithms used.
+     * The public key format depends on the signature key algorithm used.
      * - ED25519: The 32 byte compressed point format as described in
      *   RFC8032 Section 5.1.5.
-     * - ECDSA: The public key is the concatenation of the bigendian
+     * - ECDSA: The public key is the concatenation of the big-endian
      *   representation of the x and y coordinates. Both integers always
      *   have the same size as the signing key in octets, i.e.,
      *   32 for P-256 and 48 for P-384, and they are padded with

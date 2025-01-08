@@ -26,12 +26,6 @@ option(NAT20_WITH_TESTS "Build the test suite." OFF)
 # Build the docs by building the target `make nat20_docs`.
 option(NAT20_WITH_DOCS "Create the documentation target." OFF)
 
-# Enable building the boringssl based reference implementation
-# for the nat20 crypto interface.
-# -DNAT20_WITH_CRYPTO_BSSL=ON on the `cmake -B` command line.
-# Build the docs by building the target `make nat20_docs`.
-option(NAT20_WITH_CRYPTO_BSSL "Build the boringssl based crypto reference implementation." OFF)
-
 # The C standard shall be C11.
 set(CMAKE_C_STANDARD 11)
 
@@ -80,9 +74,9 @@ set(LIBNAT20_CRYPTO_BSSL_SOURCES
     src/crypto/crypto_boringssl.cpp
 )
 
-set(LIBNAT20_CRYPTO_BSSL_TEST_SOURCES
+set(LIBNAT20_CRYPTO_TEST_SOURCES
     src/crypto/test/test.cpp
-    src/crypto/test/crypto_boringssl.cpp
+    src/crypto/test/crypto.cpp
 )
 
 ###################################################################################################
@@ -183,14 +177,12 @@ if (NAT20_WITH_TESTS)
     target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki)
     add_test(NAME nat20_test COMMAND nat20_test_bin)
 
-    if (NAT20_WITH_CRYPTO_BSSL)
-        add_executable(nat20_crypto_boringssl_test_bin)
-        target_sources(nat20_crypto_boringssl_test_bin
-            PRIVATE ${LIBNAT20_CRYPTO_BSSL_TEST_SOURCES}
-        )
-        target_link_libraries(nat20_crypto_boringssl_test_bin gtest_main nat20 nat20_crypto_boringssl crypto pki)
-        add_test(NAME nat20_crypto_boringssl_test COMMAND nat20_crypto_boringssl_test_bin)
-    endif()
+    add_executable(nat20_crypto_test_bin)
+    target_sources(nat20_crypto_test_bin
+        PRIVATE ${LIBNAT20_CRYPTO_TEST_SOURCES}
+    )
+    target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki)
+    add_test(NAME nat20_crypto_test COMMAND nat20_crypto_test_bin)
 
 endif() # NAT20_WITH_TESTS
 
