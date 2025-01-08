@@ -478,21 +478,31 @@ static n20_crypto_error_t n20_crypto_boringssl_key_get_public_key(struct n20_cry
     }
 
     auto bssl_base_key = reinterpret_cast<n20_bssl_key_base*>(key_in);
+    size_t public_key_size = 0;
     switch (bssl_base_key->type) {
         case n20_crypto_key_type_ed25519_e:
+            public_key_size = 32;
+            break;
         case n20_crypto_key_type_secp256r1_e:
+            public_key_size = 64;
+            break;
         case n20_crypto_key_type_secp384r1_e:
+            public_key_size = 96;
             break;
         case n20_crypto_key_type_cdi_e:
         default:
             return n20_crypto_error_invalid_key_e;
     }
 
+    if (*public_key_size_in_out < public_key_size || public_key_out == nullptr) {
+        *public_key_size_in_out = public_key_size;
+        return n20_crypto_error_insufficient_buffer_size_e;
+    }
+
     auto bssl_evp_key = static_cast<n20_bssl_evp_pkey*>(bssl_base_key);
 
     auto evp_key_type = EVP_PKEY_id(bssl_evp_key->key.get());
     auto const& key = bssl_evp_key->key;
-
     switch (evp_key_type) {
         case EVP_PKEY_EC: {
             if (bssl_evp_key->type != n20_crypto_key_type_secp256r1_e &&
@@ -502,20 +512,22 @@ static n20_crypto_error_t n20_crypto_boringssl_key_get_public_key(struct n20_cry
                 return n20_crypto_error_implementation_specific_e;
             }
 
-            uint8_t* der_key_info = NULL;
-            int rc_der_len = i2d_PublicKey(key.get(), &der_key_info);
+            uint8_t* x962_key_info = NULL;
+            int rc_der_len = i2d_PublicKey(key.get(), &x962_key_info);
             if (rc_der_len <= 0) {
                 return n20_crypto_error_no_memory_e;
             }
-            auto der_key_info_guard = std::unique_ptr<uint8_t, BoringsslDeleter>(der_key_info);
+            auto x962_key_info_guard = std::unique_ptr<uint8_t, BoringsslDeleter>(x962_key_info);
 
-            if (*public_key_size_in_out < (size_t)rc_der_len || public_key_out == nullptr) {
-                *public_key_size_in_out = (size_t)rc_der_len;
-                return n20_crypto_error_insufficient_buffer_size_e;
+            // The key size should be exactly twice the key size + one byte for
+            // the compression header, which must be 0x04 indication no compression.
+            if ((size_t)rc_der_len != *public_key_size_in_out + 1 || x962_key_info[0] != 0x04) {
+                return n20_crypto_error_implementation_specific_e;
             }
 
-            *public_key_size_in_out = (size_t)rc_der_len;
-            memcpy(public_key_out, der_key_info_guard.get(), *public_key_size_in_out);
+            // Cut off the compression header, because the nat20 crypto interface requires
+            // that the public key is always an uncompressed point.
+            memcpy(public_key_out, x962_key_info_guard.get() + 1, *public_key_size_in_out);
 
             return n20_crypto_error_ok_e;
         }
