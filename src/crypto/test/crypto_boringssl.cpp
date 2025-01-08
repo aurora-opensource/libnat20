@@ -523,6 +523,10 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
                 EVP_PKEY_ED25519, nullptr, pub_key.data(), pub_key.size()));
             N20_ASSERT_TRUE(!!evp_pub_key);
         } else {
+            // The nat20 crypto library always returns an uncompressed point
+            // as public key. But boringssl expects the uncompressed header byte
+            // 0x04 to be prefixed to this point representation.
+            pub_key.insert(pub_key.begin(), 0x04);
             uint8_t const* p = pub_key.data();
 
             int ec_curve;
