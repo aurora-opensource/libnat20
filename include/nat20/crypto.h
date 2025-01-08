@@ -518,7 +518,7 @@ typedef struct n20_crypto_context_s {
      * Sign a message using @p key_in - an opaque key handle
      * created using @ref kdf.
      *
-     * The the signature format depends on the signature algorithm used.
+     * The signature format depends on the signature algorithm used.
      * - ed25519: The signature is a 64 octet string that is the
      *   concatenation of R and S as described in RFC8032 5.1.6.
      * - ECDSA: The signature is the concatenation of the bigendian
@@ -598,9 +598,47 @@ typedef struct n20_crypto_context_s {
      */
     n20_crypto_error_t (*get_cdi)(struct n20_crypto_context_s* ctx, n20_crypto_key_t* key_out);
     /**
-     * @brief Export the public key.
+     * @brief Export the public key of an asymmetric key.
      *
-     * (TODO) Describe the public key format.
+     * The public key format depends on the signature key algorithms used.
+     * - ED25519: The 32 byte compressed point format as described in
+     *   RFC8032 Section 5.1.5.
+     * - ECDSA: The public key is the concatenation of the bigendian
+     *   representation of the x and y coordinates. Both integers always
+     *   have the same size as the signing key in octets, i.e.,
+     *   32 for P-256 and 48 for P-384, and they are padded with
+     *   leading zeroes if necessary. This corresponds to the uncompressed
+     *   point encoding as specified in X9.62 without the leading 0x04
+     *   header.
+     *
+     * The caller must provide a sufficiently sized buffer as @p public_key_out
+     * setting @p *public_key_size_in_out to the correct buffer size.
+     * The required buffer size can be queried by setting @p public_key_out
+     * to NULL. In that case @ref n20_crypto_error_insufficient_buffer_size_e
+     * is returned and @p *public_key_size_in_out is set to the required buffer
+     * size.
+     *
+     * ## Errors
+     * - @ref n20_crypto_error_invalid_context_e must be returned
+     *   if ctx is NULL.
+     *   Additional mechanisms may be implemented to determine
+     *   if the context is valid, but an implementation must
+     *   accept an instance if it was created with the implementation
+     *   specific factory and not freed.
+     * - @ref n20_crypto_error_unexpected_null_key_in_e must be returned
+     *   if the @p key_in is NULL.
+     * - @ref n20_crypto_error_unexpected_null_size_e must be returned if
+     *   @p public_key_size_in_out is NULL.
+     * - @ref n20_crypto_error_invalid_key_e must be returned
+     *   if @p key_in is not of the types @ref n20_crypto_key_type_ed25519,
+     *   @ref n20_crypto_key_type_secp256r1_e, or
+     *   @ref n20_crypto_key_type_secp384r1_e.
+     * - @ref n20_crypto_error_insufficient_buffer_size_e if
+     *   @p public_key_out is NULL or if @p *public_key_size_in_out indicates
+     *   that the given buffer is too small.
+     *   If @ref n20_crypto_error_insufficient_buffer_size_e is returned
+     *   the implementation must set @p *public_key_size_in_out to the maximum
+     *   required buffer size for the signature algorithm requested.
      *
      * @param ctx The crypto context.
      * @param key_in The opaque key handle denoting the key pair of which the public key

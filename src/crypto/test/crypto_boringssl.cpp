@@ -734,13 +734,13 @@ TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
     ASSERT_EQ(n20_crypto_error_invalid_context_e,
               this->ctx->key_get_public_key(nullptr, nullptr, nullptr, nullptr));
 
-    ASSERT_EQ(n20_crypto_error_unexpected_null_size_e,
+    ASSERT_EQ(n20_crypto_error_unexpected_null_key_in_e,
               this->ctx->key_get_public_key(this->ctx, nullptr, nullptr, nullptr));
 
-    size_t public_key_size = 0;
-    ASSERT_EQ(n20_crypto_error_unexpected_null_key_in_e,
-              this->ctx->key_get_public_key(this->ctx, nullptr, nullptr, &public_key_size));
+    ASSERT_EQ(n20_crypto_error_unexpected_null_size_e,
+              this->ctx->key_get_public_key(this->ctx, cdi, nullptr, nullptr));
 
+    size_t public_key_size = 0;
     ASSERT_EQ(n20_crypto_error_invalid_key_e,
               this->ctx->key_get_public_key(this->ctx, cdi, nullptr, &public_key_size));
 
