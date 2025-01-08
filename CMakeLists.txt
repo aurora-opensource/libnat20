@@ -119,37 +119,6 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
 endif()
 
 ###################################################################################################
-
-###################################################################################################
-# The nat20_crypto_boringssl library is a reference implementation
-# the libnat20 crypto interface using boring ssl.
-# It will be compiled when selected by setting `-DNAT20_WITH_CRYPTO_BSSL` on
-# the `cmake -B` command line.
-if (NAT20_WITH_CRYPTO_BSSL)
-    add_library(nat20_crypto_boringssl)
-
-    target_sources(nat20_crypto_boringssl
-        PRIVATE ${LIBNAT20_CRYPTO_BSSL_SOURCES}
-        INTERFACE ${LIBNAT20_PUB_CRYPTO_BSSL_HEADERS}
-    )
-
-    target_compile_options(nat20_crypto_boringssl
-        PRIVATE -pedantic
-        PRIVATE -Wall
-        PRIVATE -Wextra
-        PRIVATE -Werror
-    )
-
-    target_include_directories(nat20_crypto_boringssl
-        PUBLIC include
-    )
-
-    target_link_libraries(nat20_crypto_boringssl crypto)
-
-endif()
-
-###################################################################################################
-
 ###################################################################################################
 # The libnat20 test suite. It, along with its additional dependencies is only compiled
 # when selected by setting `-DNAT20_WITH_TESTS=ON` on the `cmake -B` command line.
@@ -187,6 +156,47 @@ if (NAT20_WITH_TESTS)
 endif() # NAT20_WITH_TESTS
 
 ###################################################################################################
+
+###################################################################################################
+# The nat20_crypto_boringssl library is a reference implementation
+# of the libnat20 crypto interface using boring ssl.
+# It will be compiled when selected by setting `-DNAT20_WITH_CRYPTO_BSSL` on
+# the `cmake -B` command line.
+if (NAT20_WITH_CRYPTO_BSSL)
+    add_library(nat20_crypto_boringssl)
+
+    target_sources(nat20_crypto_boringssl
+        PRIVATE ${LIBNAT20_CRYPTO_BSSL_SOURCES}
+        INTERFACE ${LIBNAT20_PUB_CRYPTO_BSSL_HEADERS}
+    )
+
+    target_compile_options(nat20_crypto_boringssl
+        PRIVATE -pedantic
+        PRIVATE -Wall
+        PRIVATE -Wextra
+        PRIVATE -Werror
+    )
+
+    target_include_directories(nat20_crypto_boringssl
+        PUBLIC include
+    )
+
+    target_link_libraries(nat20_crypto_boringssl crypto)
+
+    add_definitions(-DN20_CONFIG_WITH_BSSL=1)
+
+    if (NAT20_WITH_TESTS)
+        target_sources(nat20_crypto_test_bin
+            PRIVATE src/crypto/test/crypto_boringssl.cpp
+        )
+        target_link_libraries(nat20_crypto_test_bin nat20_crypto_boringssl)
+        add_definitions(-DN20_CONFIG_ENABLE_CRYPTO_TEST_IMPL=1)
+    endif()
+
+endif()
+
+###################################################################################################
+
 
 
 ###################################################################################################
