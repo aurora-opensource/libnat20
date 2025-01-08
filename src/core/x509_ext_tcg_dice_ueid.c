@@ -23,10 +23,6 @@ static void n20_x509_ext_tcg_dice_ueid_sequence_content(n20_asn1_stream_t *const
         (n20_x509_ext_tcg_dice_ueid_t const *)context;
 
     // tcg_dice_ueid is never NULL since it's checked by n20_x509_ext_tcg_dice_ueid_content.
-
-    if (NULL == tcg_dice_ueid->ueid.buffer) {
-        return;
-    }
     n20_asn1_octetstring(s, &tcg_dice_ueid->ueid, n20_asn1_tag_info_no_override());
 }
 
