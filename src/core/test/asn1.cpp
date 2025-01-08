@@ -592,6 +592,53 @@ TEST_P(PrintableStringTest, PrintableStringEncoding) {
     }
 }
 
+class Utf8StringTest
+    : public testing::TestWithParam<std::tuple<std::optional<std::string>, std::vector<uint8_t>>> {
+};
+
+std::vector<uint8_t> const ENCODED_UTF8_STRING_EMPTY = {0x0C, 0x00};
+std::vector<uint8_t> const ENCODED_UTF8_STRING_NOT_EMPTY = {0x0C, 0x01, 0x7e};
+std::vector<uint8_t> const ENCODED_UTF8_FULL_CHARSET = {
+    0x0C, 0x4a, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e,
+    0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x61, 0x62, 0x63, 0x64,
+    0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73, 0x74,
+    0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,
+    0x20, 0x27, 0x28, 0x29, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x3a, 0x3d, 0x3f};
+
+INSTANTIATE_TEST_CASE_P(
+    Asn1Utf8StringTest,
+    Utf8StringTest,
+    testing::Values(
+        std::tuple(std::nullopt, ENCODED_UTF8_STRING_EMPTY),
+        std::tuple("", ENCODED_UTF8_STRING_EMPTY),
+        std::tuple("~", ENCODED_UTF8_STRING_NOT_EMPTY),
+        std::tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '()+,-./:=?",
+                   ENCODED_UTF8_FULL_CHARSET)));
+
+TEST_P(Utf8StringTest, Utf8StringEncoding) {
+    auto [optional_string, expected] = GetParam();
+
+    for (n20_asn1_tag_info_t tag_info : {n20_asn1_tag_info_no_override(),
+                                         n20_asn1_tag_info_explicit(7),
+                                         n20_asn1_tag_info_implicit(7)}) {
+        auto expected_patched = tag_patch_encoded(tag_info, expected);
+
+        n20_asn1_stream_t s;
+        uint8_t buffer[128];
+        n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+        if (optional_string.has_value()) {
+            n20_asn1_utf8_string(&s, optional_string.value().c_str(), tag_info);
+        } else {
+            n20_asn1_utf8_string(&s, nullptr, tag_info);
+        }
+        ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+        ASSERT_EQ(n20_asn1_stream_data_written(&s), expected_patched.size());
+        std::vector<uint8_t> got = std::vector<uint8_t>(
+            n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        ASSERT_EQ(expected_patched, got);
+    }
+}
+
 class GeneralizedTimeTest
     : public testing::TestWithParam<std::tuple<std::optional<std::string>, std::vector<uint8_t>>> {
 };
