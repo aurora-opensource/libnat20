@@ -511,7 +511,7 @@ typedef enum n20_asn1_tag_info_type_s {
      */
     n20_asn1_tag_info_implicit_e = 1,
     /**
-     * @brief Context specific tagging with explicit typing typing.
+     * @brief Context specific tagging with explicit typing.
      */
     n20_asn1_tag_info_explicit_e = 2,
 } n20_asn1_tag_info_type_t;
@@ -542,7 +542,7 @@ typedef enum n20_asn1_tag_info_type_s {
  */
 typedef struct n20_asn1_tag_info_s {
     /**
-     * @brief Indicates if type of the tag info override.
+     * @brief Indicates the type of the tag info override.
      *
      * @sa n20_asn1_tag_info_type_t
      */
@@ -573,7 +573,6 @@ typedef struct n20_asn1_tag_info_s {
  * n20_asn1_tag_info_t tag_info = { .type = n20_asn1_tag_info_no_override_e };
  * @endcode
  *
- * @param tag The desired explicit tag number.
  * @return n20_asn1_tag_info_t
  */
 extern n20_asn1_tag_info_t n20_asn1_tag_info_no_override();
@@ -592,7 +591,7 @@ extern n20_asn1_tag_info_t n20_asn1_tag_info_no_override();
  * n20_asn1_tag_info_t tag_info = { .type = n20_asn1_tag_info_explicit_e, tag = 7 };
  * @endcode
  *
- * @param tag The desired explicit tag number.
+ * @param tag The desired tag number.
  * @return n20_asn1_tag_info_t
  */
 extern n20_asn1_tag_info_t n20_asn1_tag_info_explicit(int tag);
@@ -611,7 +610,7 @@ extern n20_asn1_tag_info_t n20_asn1_tag_info_explicit(int tag);
  * n20_asn1_tag_info_t tag_info = { .type = n20_asn1_tag_info_implicit_e, tag = 7 };
  * @endcode
  *
- * @param tag The desired explicit tag number.
+ * @param tag The desired tag number.
  * @return n20_asn1_tag_info_t
  */
 extern n20_asn1_tag_info_t n20_asn1_tag_info_implicit(int tag);
