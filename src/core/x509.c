@@ -21,13 +21,13 @@
 void n20_x509_rdn_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_rdn_t const *rdn = (n20_x509_rdn_t const *)context;
 
-    n20_asn1_printablestring(s, rdn->value);
-    n20_asn1_object_identifier(s, rdn->type);
+    n20_asn1_printablestring(s, rdn->value, n20_asn1_tag_info_no_override());
+    n20_asn1_object_identifier(s, rdn->type, n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_rdn(n20_asn1_stream_t *const s, n20_x509_rdn_t const *rdn) {
     size_t mark = n20_asn1_stream_data_written(s);
-    n20_asn1_sequence(s, n20_x509_rdn_content, (void *)rdn);
+    n20_asn1_sequence(s, n20_x509_rdn_content, (void *)rdn, n20_asn1_tag_info_no_override());
     n20_asn1_header(s,
                     N20_ASN1_CLASS_UNIVERSAL,
                     /*constructed=*/true,
@@ -38,7 +38,7 @@ void n20_x509_rdn(n20_asn1_stream_t *const s, n20_x509_rdn_t const *rdn) {
 void n20_x509_name_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_name_t const *name = context;
     if (name == NULL || name->element_count > N20_X509_NAME_MAX_NAME_ELEMENTS) {
-        n20_asn1_null(s);
+        n20_asn1_null(s, n20_asn1_tag_info_no_override());
         return;
     }
 
@@ -48,7 +48,7 @@ void n20_x509_name_content(n20_asn1_stream_t *const s, void *context) {
 }
 
 void n20_x509_name(n20_asn1_stream_t *const s, n20_x509_name_t const *name) {
-    n20_asn1_sequence(s, n20_x509_name_content, (void *)name);
+    n20_asn1_sequence(s, n20_x509_name_content, (void *)name, n20_asn1_tag_info_no_override());
 }
 
 static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context) {
@@ -74,14 +74,14 @@ static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context
                         n20_asn1_stream_data_written(s) - mark);
 
         if (ext->critical) {
-            n20_asn1_boolean(s, 1);
+            n20_asn1_boolean(s, 1, n20_asn1_tag_info_no_override());
         }
 
         // ext->oid does not need to be checked for NULL.
         // n20_asn1_object_identifier will render an
         // ASN1 NULL which is nonsensical at this point
         // but safe.
-        n20_asn1_object_identifier(s, ext->oid);
+        n20_asn1_object_identifier(s, ext->oid, n20_asn1_tag_info_no_override());
 
         n20_asn1_header(s,
                         N20_ASN1_CLASS_UNIVERSAL,
@@ -96,16 +96,7 @@ void n20_x509_extension(n20_asn1_stream_t *const s, n20_x509_extensions_t const 
         return;
     }
 
-    size_t mark = n20_asn1_stream_data_written(s);
-
-    n20_asn1_sequence(s, n20_x509_extension_content, (void *)exts);
-
-    // Extensions have an explicit context specific tag of 3.
-    n20_asn1_header(s,
-                    N20_ASN1_CLASS_CONTEXT_SPECIFIC,
-                    /*constructed=*/true,
-                    /*tag=*/3,
-                    n20_asn1_stream_data_written(s) - mark);
+    n20_asn1_sequence(s, n20_x509_extension_content, (void *)exts, n20_asn1_tag_info_explicit(3));
 }
 
 void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, void *context) {
@@ -117,9 +108,9 @@ void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, void *co
     size_t mark = n20_asn1_stream_data_written(s);
     if (basic_constraints->is_ca) {
         if (basic_constraints->has_path_length) {
-            n20_asn1_uint64(s, basic_constraints->path_length);
+            n20_asn1_uint64(s, basic_constraints->path_length, n20_asn1_tag_info_no_override());
         }
-        n20_asn1_boolean(s, true);
+        n20_asn1_boolean(s, true, n20_asn1_tag_info_no_override());
     }
     n20_asn1_header(s,
                     N20_ASN1_CLASS_UNIVERSAL,
@@ -155,7 +146,7 @@ void n20_x509_ext_key_usage_content(n20_asn1_stream_t *const s, void *context) {
         }
     }
 
-    n20_asn1_bitstring(s, key_usage->key_usage_mask, bits);
+    n20_asn1_bitstring(s, key_usage->key_usage_mask, bits, n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_algorithm_identifier_content(n20_asn1_stream_t *const s, void *context) {
@@ -168,44 +159,58 @@ void n20_x509_algorithm_identifier_content(n20_asn1_stream_t *const s, void *con
         case n20_x509_pv_none_e:
             break;
         case n20_x509_pv_null_e:
-            n20_asn1_null(s);
+            n20_asn1_null(s, n20_asn1_tag_info_no_override());
             break;
         case n20_x509_pv_ec_curve_e:
-            n20_asn1_object_identifier(s, alg_id->params.ec_curve);
+            n20_asn1_object_identifier(s, alg_id->params.ec_curve, n20_asn1_tag_info_no_override());
             break;
     }
 
-    n20_asn1_object_identifier(s, alg_id->oid);
+    n20_asn1_object_identifier(s, alg_id->oid, n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_algorithm_identifier(
     n20_asn1_stream_t *const s, n20_x509_algorithm_identifier_t const *const algorithm_identifier) {
-    n20_asn1_sequence(s, n20_x509_algorithm_identifier_content, (void *)algorithm_identifier);
+    n20_asn1_sequence(s,
+                      n20_x509_algorithm_identifier_content,
+                      (void *)algorithm_identifier,
+                      n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_public_key_info_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_public_key_info_t const *pub_key_info = context;
-    n20_asn1_bitstring(s, pub_key_info->public_key, pub_key_info->public_key_bits);
+    n20_asn1_bitstring(s,
+                       pub_key_info->public_key,
+                       pub_key_info->public_key_bits,
+                       n20_asn1_tag_info_no_override());
     n20_x509_algorithm_identifier(s, &pub_key_info->algorithm_identifier);
 }
 
 void n20_x509_public_key_info(n20_asn1_stream_t *const s,
                               n20_x509_public_key_info_t const *const public_key_info) {
-    n20_asn1_sequence(s, n20_x509_public_key_info_content, (void *)public_key_info);
+    n20_asn1_sequence(s,
+                      n20_x509_public_key_info_content,
+                      (void *)public_key_info,
+                      n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_validity_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_validity_t const *const validity = context;
     // not after
     n20_asn1_generalized_time(
-        s, validity->not_after != NULL ? validity->not_after : n20_x509_no_expiration);
+        s,
+        validity->not_after != NULL ? validity->not_after : n20_x509_no_expiration,
+        n20_asn1_tag_info_no_override());
     // not before
     n20_asn1_generalized_time(
-        s, validity->not_before != NULL ? validity->not_before : n20_x509_unix_epoch);
+        s,
+        validity->not_before != NULL ? validity->not_before : n20_x509_unix_epoch,
+        n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_validity(n20_asn1_stream_t *const s, n20_x509_validity_t const *const validity) {
-    n20_asn1_sequence(s, n20_x509_validity_content, (void *)validity);
+    n20_asn1_sequence(
+        s, n20_x509_validity_content, (void *)validity, n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_version_3(n20_asn1_stream_t *const s) {
@@ -244,14 +249,14 @@ void n20_x509_cert_tbs_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_algorithm_identifier(s, &tbs->signature_algorithm);
 
     // Serial number
-    n20_asn1_uint64(s, tbs->serial_number);
+    n20_asn1_uint64(s, tbs->serial_number, n20_asn1_tag_info_no_override());
 
     // Version 3 (value 2) with explicit tag 0
     n20_x509_version_3(s);
 }
 
 void n20_x509_cert_tbs(n20_asn1_stream_t *const s, n20_x509_tbs_t const *const tbs) {
-    n20_asn1_sequence(s, n20_x509_cert_tbs_content, (void *)tbs);
+    n20_asn1_sequence(s, n20_x509_cert_tbs_content, (void *)tbs, n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_cert_content(n20_asn1_stream_t *const s, void *context) {
@@ -259,11 +264,11 @@ void n20_x509_cert_content(n20_asn1_stream_t *const s, void *context) {
     if (x509 == NULL) {
         return;
     }
-    n20_asn1_bitstring(s, x509->signature, x509->signature_bits);
+    n20_asn1_bitstring(s, x509->signature, x509->signature_bits, n20_asn1_tag_info_no_override());
     n20_x509_algorithm_identifier(s, &x509->signature_algorithm);
     n20_x509_cert_tbs(s, x509->tbs);
 }
 
 void n20_x509_cert(n20_asn1_stream_t *const s, n20_x509_t const *const x509) {
-    n20_asn1_sequence(s, n20_x509_cert_content, (void *)x509);
+    n20_asn1_sequence(s, n20_x509_cert_content, (void *)x509, n20_asn1_tag_info_no_override());
 }
