@@ -65,9 +65,9 @@ set(LIBNAT20_DOC_PAGES
     CONTRIBUTING.md
 )
 
-set(LIBNAT20_CRYPTO_BSSL_TEST_SOURCES
+set(LIBNAT20_CRYPTO_TEST_SOURCES
     src/crypto/test/test.cpp
-    src/crypto/test/crypto_boringssl.cpp
+    src/crypto/test/crypto.cpp
 )
 
 ###################################################################################################
@@ -138,14 +138,12 @@ if (NAT20_WITH_TESTS)
     target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki)
     add_test(NAME nat20_test COMMAND nat20_test_bin)
 
-    if (NAT20_WITH_CRYPTO_BSSL)
-        add_executable(nat20_crypto_boringssl_test_bin)
-        target_sources(nat20_crypto_boringssl_test_bin
-            PRIVATE ${LIBNAT20_CRYPTO_BSSL_TEST_SOURCES}
-        )
-        target_link_libraries(nat20_crypto_boringssl_test_bin gtest_main nat20 nat20_crypto_boringssl crypto pki)
-        add_test(NAME nat20_crypto_boringssl_test COMMAND nat20_crypto_boringssl_test_bin)
-    endif()
+    add_executable(nat20_crypto_test_bin)
+    target_sources(nat20_crypto_test_bin
+        PRIVATE ${LIBNAT20_CRYPTO_TEST_SOURCES}
+    )
+    target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki)
+    add_test(NAME nat20_crypto_test COMMAND nat20_crypto_test_bin)
 
 endif() # NAT20_WITH_TESTS
 
