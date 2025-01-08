@@ -751,8 +751,8 @@ TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
     using tc = std::tuple<std::string, n20_crypto_key_type_t, size_t>;
     for (auto [n20_test_name, key_type, want_key_size] : {
              tc{"ed25519", n20_crypto_key_type_ed25519_e, 32},
-             tc{"secp256r1", n20_crypto_key_type_secp256r1_e, 65},
-             tc{"secp384r1", n20_crypto_key_type_secp384r1_e, 97},
+             tc{"secp256r1", n20_crypto_key_type_secp256r1_e, 64},
+             tc{"secp384r1", n20_crypto_key_type_secp384r1_e, 96},
          }) {
 
         n20_crypto_key_t key = nullptr;
