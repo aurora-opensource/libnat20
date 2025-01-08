@@ -469,12 +469,12 @@ static n20_crypto_error_t n20_crypto_boringssl_key_get_public_key(struct n20_cry
         return n20_crypto_error_invalid_context_e;
     }
 
-    if (public_key_size_in_out == nullptr) {
-        return n20_crypto_error_unexpected_null_size_e;
-    }
-
     if (key_in == nullptr) {
         return n20_crypto_error_unexpected_null_key_in_e;
+    }
+
+    if (public_key_size_in_out == nullptr) {
+        return n20_crypto_error_unexpected_null_size_e;
     }
 
     auto bssl_base_key = reinterpret_cast<n20_bssl_key_base*>(key_in);
