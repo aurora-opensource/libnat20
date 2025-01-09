@@ -97,19 +97,19 @@ static void n20_x509_ext_tcg_dice_tcb_info_sequence_content(n20_asn1_stream_t *c
     // version [2] IMPLICIT UTF8String OPTIONAL
     // TODO(rseidel): Change this to UTF-8 string after it's implemented.
     if (NULL != tcg_dice_tcb_info->version) {
-        n20_asn1_printablestring(s, tcg_dice_tcb_info->version, n20_asn1_tag_info_implicit(2));
+        n20_asn1_utf8_string(s, tcg_dice_tcb_info->version, n20_asn1_tag_info_implicit(2));
     }
 
     // model [1] IMPLICIT UTF8String OPTIONAL
     // TODO(rseidel): Change this to UTF-8 string after it's implemented.
     if (NULL != tcg_dice_tcb_info->model) {
-        n20_asn1_printablestring(s, tcg_dice_tcb_info->model, n20_asn1_tag_info_implicit(1));
+        n20_asn1_utf8_string(s, tcg_dice_tcb_info->model, n20_asn1_tag_info_implicit(1));
     }
 
     // vendor [0] IMPLICIT UTF8String OPTIONAL
     // TODO(rseidel): Change this to UTF-8 string after it's implemented.
     if (NULL != tcg_dice_tcb_info->vendor) {
-        n20_asn1_printablestring(s, tcg_dice_tcb_info->vendor, n20_asn1_tag_info_implicit(0));
+        n20_asn1_utf8_string(s, tcg_dice_tcb_info->vendor, n20_asn1_tag_info_implicit(0));
     }
 }
 
