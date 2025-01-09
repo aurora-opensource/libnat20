@@ -190,17 +190,23 @@ typedef struct n20_x509_ext_tcg_dice_tcb_info_s {
     /**
      * @brief The entity that created the measurement of the Target Environment.
      *
+     * Must be a nul terminated UTF-8 encoded string.
+     *
      * If NULL, vendor is not included in the generated extension.
      */
     char const *vendor;
     /**
      * @brief The product name associated with the measurement of the Target Environment.
      *
+     * Must be a nul terminated UTF-8 encoded string.
+     *
      * If NULL, model is not included in the generated extension.
      */
     char const *model;
     /**
      * @brief The revision string associated with the Target Environment.
+     *
+     * Must be a nul terminated UTF-8 encoded string.
      *
      * If NULL, version is not included in the generated extension.
      */
