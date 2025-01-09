@@ -27,7 +27,7 @@ static void n20_x509_ext_open_dice_input_sequence_content(n20_asn1_stream_t *con
 
     // profileName [7] EXPLICIT UTF8String OPTIONAL
     if (open_dice_input->profile_name != NULL) {
-        n20_asn1_printablestring(s, open_dice_input->profile_name, n20_asn1_tag_info_explicit(7));
+        n20_asn1_utf8_string(s, open_dice_input->profile_name, n20_asn1_tag_info_explicit(7));
     }
 
     // Mode ::= INTEGER (0..3)
