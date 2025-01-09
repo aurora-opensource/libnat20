@@ -434,6 +434,16 @@ void n20_asn1_printablestring(n20_asn1_stream_t *const s,
     n20_asn1_stringish(s, N20_ASN1_TAG_PRINTABLE_STRING, &slice, tag_info);
 }
 
+void n20_asn1_utf8_string(n20_asn1_stream_t *const s,
+                          char const *const str,
+                          n20_asn1_tag_info_t const tag_info) {
+    n20_asn1_slice_t const slice = {
+        .buffer = (uint8_t *)str,
+        .size = str == NULL ? 0 : strlen(str),
+    };
+    n20_asn1_stringish(s, N20_ASN1_TAG_UTF8_STRING, &slice, tag_info);
+}
+
 void n20_asn1_generalized_time(n20_asn1_stream_t *const s,
                                char const *const time_str,
                                n20_asn1_tag_info_t const tag_info) {
