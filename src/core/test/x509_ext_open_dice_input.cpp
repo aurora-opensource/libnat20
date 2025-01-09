@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Aurora Operations, Inc.
+ * Copyright 2025 Aurora Operations, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,28 +20,27 @@
 #include <nat20/x509.h>
 #include <nat20/x509_ext_open_dice_input.h>
 
-#include <array>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
 
 class X509ExtOpenDiceInputTest
-    : public testing::TestWithParam<
-          std::tuple<std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const,
-                     std::vector<uint8_t> const,
-                     n20_x509_ext_open_dice_configuration_format_t const,
-                     std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const,
-                     std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const,
-                     std::vector<uint8_t> const,
-                     std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const,
-                     std::vector<uint8_t> const,
-                     n20_x509_ext_open_dice_modes_t const,
-                     std::string const,
-                     std::vector<uint8_t> const>> {};
+    : public testing::TestWithParam<std::tuple<std::optional<std::vector<uint8_t>>,
+                                               std::optional<std::vector<uint8_t>>,
+                                               n20_x509_ext_open_dice_configuration_format_t const,
+                                               std::optional<std::vector<uint8_t>>,
+                                               std::optional<std::vector<uint8_t>>,
+                                               std::optional<std::vector<uint8_t>>,
+                                               std::optional<std::vector<uint8_t>>,
+                                               std::optional<std::vector<uint8_t>>,
+                                               n20_x509_ext_open_dice_modes_t const,
+                                               std::optional<std::string>,
+                                               std::vector<uint8_t> const>> {};
 
-std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const CODE_HASH = {
+std::vector<uint8_t> const CODE_HASH = {
     0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
     0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
     0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
@@ -50,16 +49,14 @@ std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const CODE_HASH = {
 
 std::vector<uint8_t> const CODE_DESCRIPTOR = {0x63, 0x6f, 0x64, 0x65};
 
-std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const CONFIGURATION_INLINE =
-    {
-        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-        0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+std::vector<uint8_t> const CONFIGURATION_INLINE = {
+    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
+    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
 };
 
-std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const CONFIGURATION_HASH = {
+std::vector<uint8_t> const CONFIGURATION_HASH = {
     0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65,
     0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65,
     0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65,
@@ -68,7 +65,7 @@ std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const CO
 
 std::vector<uint8_t> const CONFIGURATION_DESCRIPTOR = {0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67};
 
-std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const AUTHORITY_HASH = {
+std::vector<uint8_t> const AUTHORITY_HASH = {
     0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
     0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
     0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
@@ -76,24 +73,6 @@ std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const AUTHORITY_HASH = {
 };
 
 std::vector<uint8_t> const AUTHORITY_DESCRIPTOR = {0x61, 0x75, 0x74, 0x68};
-
-std::array<uint8_t, N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH> const
-    EMPTY_CONFIGURATION_INLINE = {
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
-
-std::array<uint8_t, N20_X509_EXT_OPEN_DICE_HASH_LENGTH> const EMPTY_CONFIGURATION_HASH = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
-
-std::vector<uint8_t> const EMPTY_FIELD;
 
 // clang-format off
 std::vector<uint8_t> const EXTENSION_WITH_INLINE_CONFIGURATION = {
@@ -214,43 +193,22 @@ std::vector<uint8_t> const EXTENSION_WITH_CONFIGURATION_DESCRIPTOR = {
 
 std::vector<uint8_t> const EXTENSION_WITHOUT_OPTIONALS = {
     // Extension header
-    0xA3, 0x81, 0xEC,
+    0xA3, 0x1C,
     // Extensions sequence header
-    0x30, 0x81, 0xE9,
+    0x30, 0x1A,
     // OpenDICEInputs extension sequence header
-    0x30, 0x81, 0xE6,
+    0x30, 0x18,
     // OpenDICEInputs OID
     0x06, 0x0A, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xD6, 0x79, 0x02, 0x01, 0x18,
     // Critical = True
     0x01, 0x01, 0xFF,
     // OpenDICEInputs Extension Octet String
-    0x04, 0x81, 0xD4,
+    0x04, 0x07,
     // OpenDICEInputs Extension Sequence header
-    0x30, 0x81, 0xD1,
-    // Code Hash
-    0xA0, 0x42,
-    0x04, 0x40,
-    0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
-    0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
-    0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
-    0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
-    // Inline Configuration
-    0xA3, 0x42,
-    0x04, 0x40,
-    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-    0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
-    // Authority Hash
-    0xA4, 0x42,
-    0x04, 0x40,
-    0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
-    0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
-    0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
-    0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61,
+    0x30, 0x05,
     // Mode
     0xA6, 0x03,
-    0x02, 0x01, 0x01,
+    0x02, 0x01, 0x00,
 };
 // clang-format on
 
@@ -263,8 +221,8 @@ INSTANTIATE_TEST_CASE_P(
                                CODE_DESCRIPTOR,
                                n20_x509_ext_open_dice_configuration_format_inline_e,
                                CONFIGURATION_INLINE,
-                               EMPTY_CONFIGURATION_HASH,
-                               EMPTY_FIELD,
+                               std::nullopt,
+                               std::nullopt,
                                AUTHORITY_HASH,
                                AUTHORITY_DESCRIPTOR,
                                n20_x509_ext_open_dice_normal_e,
@@ -273,7 +231,7 @@ INSTANTIATE_TEST_CASE_P(
                     std::tuple(CODE_HASH,
                                CODE_DESCRIPTOR,
                                n20_x509_ext_open_dice_configuration_format_descriptor_e,
-                               EMPTY_CONFIGURATION_INLINE,
+                               std::nullopt,
                                CONFIGURATION_HASH,
                                CONFIGURATION_DESCRIPTOR,
                                AUTHORITY_HASH,
@@ -281,75 +239,70 @@ INSTANTIATE_TEST_CASE_P(
                                n20_x509_ext_open_dice_normal_e,
                                AURORA_OPEN_DICE_PROFILE,
                                EXTENSION_WITH_CONFIGURATION_DESCRIPTOR),
-                    std::tuple(CODE_HASH,
-                               EMPTY_FIELD,
+                    std::tuple(std::nullopt,
+                               std::nullopt,
                                n20_x509_ext_open_dice_configuration_format_inline_e,
-                               CONFIGURATION_INLINE,
-                               EMPTY_CONFIGURATION_HASH,
-                               EMPTY_FIELD,
-                               AUTHORITY_HASH,
-                               EMPTY_FIELD,
-                               n20_x509_ext_open_dice_normal_e,
-                               "",
+                               std::nullopt,
+                               std::nullopt,
+                               std::nullopt,
+                               std::nullopt,
+                               std::nullopt,
+                               n20_x509_ext_open_dice_not_configured_e,
+                               std::nullopt,
                                EXTENSION_WITHOUT_OPTIONALS)));
 
 template <typename T>
 inline static n20_asn1_slice_t v2slice(T const& v) {
-    return n20_asn1_slice_t{v.data(), v.size()};
+    if (v.has_value()) {
+        return n20_asn1_slice_t{v->data(), v->size()};
+    }
+    return n20_asn1_slice_t{nullptr, 0};
 }
 
 TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
-    auto [code_hash,
-          code_descriptor,
+    auto [optional_code_hash,
+          optional_code_descriptor,
           configuration_format,
-          configuration_inline,
-          configuration_hash,
-          configuration_descriptor,
-          authority_hash,
-          authority_descriptor,
+          optional_configuration_inline,
+          optional_configuration_hash,
+          optional_configuration_descriptor,
+          optional_authority_hash,
+          optional_authority_descriptor,
           mode,
-          profile,
+          optional_profile,
           expected] = GetParam();
 
-    n20_x509_ext_open_dice_inputs_t inputs;
-    std::memset(&inputs, 0, sizeof(n20_x509_ext_open_dice_inputs_t));
+    n20_x509_ext_open_dice_input_t inputs;
+    std::memset(&inputs, 0, sizeof(n20_x509_ext_open_dice_input_t));
 
-    inputs.code_hash = v2slice(code_hash);
-    if (0 != code_descriptor.size()) {
-        inputs.code_descriptor = v2slice(code_descriptor);
-    }
+    inputs.code_hash = v2slice(optional_code_hash);
+    inputs.code_descriptor = v2slice(optional_code_descriptor);
 
     inputs.configuration_format = configuration_format;
     switch (inputs.configuration_format) {
         case n20_x509_ext_open_dice_configuration_format_inline_e:
-            inputs.configuration_inline = v2slice(configuration_inline);
+            inputs.configuration_inline = v2slice(optional_configuration_inline);
             break;
         case n20_x509_ext_open_dice_configuration_format_descriptor_e:
-            inputs.configuration_hash = v2slice(configuration_hash);
-            if (0 != configuration_descriptor.size()) {
-                inputs.configuration_descriptor = v2slice(configuration_descriptor);
-            }
+            inputs.configuration_hash = v2slice(optional_configuration_hash);
+            inputs.configuration_descriptor = v2slice(optional_configuration_descriptor);
             break;
     }
 
-    inputs.authority_hash = v2slice(authority_hash);
-    if (0 != authority_descriptor.size()) {
-        inputs.authority_descriptor = v2slice(authority_descriptor);
-    }
-
+    inputs.authority_hash = v2slice(optional_authority_hash);
+    inputs.authority_descriptor = v2slice(optional_authority_descriptor);
     inputs.mode = mode;
 
-    n20_x509_ext_open_dice_input_t open_dice_inputs = {
-        &inputs,
-        profile.size() ? profile.c_str() : nullptr,
-    };
+    if (optional_profile.has_value()) {
+        inputs.profile_name = optional_profile.value().c_str();
+    }
 
     n20_x509_extension_t extensions[] = {
         {
             .oid = &OID_OPEN_DICE_INPUT,
             .critical = true,
             .content_cb = n20_x509_ext_open_dice_input_content,
-            .context = &open_dice_inputs,
+            .context = &inputs,
         },
     };
 
@@ -390,17 +343,4 @@ TEST(X509ExtOpenDiceInputTest, NullPointers) {
     ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
     ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
     ASSERT_EQ(0, bytes_written);
-
-    n20_x509_ext_open_dice_input_t open_dice_inputs = {
-        nullptr,
-        nullptr,
-    };
-
-    bytes_written = 0;
-    n20_x509_ext_open_dice_input_content(&s, &open_dice_inputs);
-    bytes_written = n20_asn1_stream_data_written(&s);
-    ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
-    // If no inputs are given, so an empty sequence will be rendered.
-    ASSERT_EQ(2, bytes_written);
 }

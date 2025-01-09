@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Aurora Operations, Inc.
+ * Copyright 2025 Aurora Operations, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,21 +23,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief Length of the digests used in OpenDICE.
- */
-#define N20_X509_EXT_OPEN_DICE_HASH_LENGTH 64
-
-/**
- * @brief Length of the inline configuration used in OpenDICE.
- */
-#define N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH 64
-
-/**
- * @brief Length of the hidden input used in OpenDICE.
- */
-#define N20_X509_EXT_OPEN_DICE_HIDDEN_LENGTH 64
 
 /**
  * @brief Mode inputs to the DICE.
@@ -78,14 +63,27 @@ typedef enum n20_x509_ext_open_dice_configuration_format_s {
 } n20_x509_ext_open_dice_configuration_format_t;
 
 /**
- * @brief Inputs to the DICE.
+ * @brief OpenDICE input content context.
  *
- * This structure represents all the security-relevant properties to calculate the CDI values
- * for the next layer.
+ * This is the context expected by
+ * @ref n20_x509_ext_open_dice_input_content.
+ * An instance of this object must be passed to the callback.
+ * This is typically done using @ref n20_x509_extension by
+ * initializing @ref n20_x509_extension_t.content_cb with
+ * @ref n20_x509_ext_open_dice_input_content and setting
+ * @ref n20_x509_extension_t.context to an instance of this
+ * struct.
+ *
+ * (See Open Profile for DICE, Section X.509 CDI Certificates)
+ * @sa OID_OPEN_DICE_INPUT
  */
-typedef struct n20_x509_ext_open_dice_inputs_s {
+typedef struct n20_x509_ext_open_dice_input_s {
     /**
      * @brief Digest of the code used as input to the DICE.
+     *
+     * No ownerships is taken. The user has to
+     * assure that the buffer outlives the instance
+     * of this structure.
      */
     n20_asn1_slice_t code_hash;
 
@@ -123,8 +121,9 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
      * Only valid if @ref configuration_format is set to @ref
      * n20_x509_ext_open_dice_configuration_format_inline_e.
      *
-     * (TODO): This will be defined in detail in a later PR. Per the OpenDICE profile,
-     * it is @ref N20_X509_EXT_OPEN_DICE_CONFIGURATION_INLINE_LENGTH bytes in length.
+     * No ownerships is taken. The user has to
+     * assure that the buffer outlives the instance
+     * of this structure.
      */
     n20_asn1_slice_t configuration_inline;
     /**
@@ -132,6 +131,10 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
      *
      * Only valid if @ref configuration_format is set to @ref
      * n20_x509_ext_open_dice_configuration_format_descriptor_e.
+     *
+     * No ownerships is taken. The user has to
+     * assure that the buffer outlives the instance
+     * of this structure.
      */
     n20_asn1_slice_t configuration_hash;
     /**
@@ -150,6 +153,10 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
     n20_asn1_slice_t configuration_descriptor;
     /**
      * @brief Digest of the authority used as input to the DICE.
+     *
+     * No ownerships is taken. The user has to
+     * assure that the buffer outlives the instance
+     * of this structure.
      */
     n20_asn1_slice_t authority_hash;
     /**
@@ -170,48 +177,17 @@ typedef struct n20_x509_ext_open_dice_inputs_s {
      * @sa n20_x509_ext_open_dice_modes_t
      */
     n20_x509_ext_open_dice_modes_t mode;
-    /**
-     * @brief The hidden input to the DICE.
-     *
-     * This value does not appear in certificates.
-     */
-    n20_asn1_slice_t hidden;
-} n20_x509_ext_open_dice_inputs_t;
-
-/**
- * @brief OpenDICE input content context.
- *
- * This is the context expected by
- * @ref n20_x509_ext_open_dice_input_content.
- * An instance of this object must be passed to the callback.
- * This is typically done using @ref n20_x509_extension by
- * initializing @ref n20_x509_extension_t.content_cb with
- * @ref n20_x509_ext_open_dice_input_content and setting
- * @ref n20_x509_extension_t.context to an instance of this
- * struct.
- *
- * (See Open Profile for DICE, Section X.509 CDI Certificates)
- * @sa OID_OPEN_DICE_INPUT
- */
-typedef struct n20_x509_ext_open_dice_input_s {
-    /**
-     * @brief The DICE inputs to include in the certificate extension.
-     *
-     * @sa n20_x509_ext_open_dice_inputs_t
-     */
-    n20_x509_ext_open_dice_inputs_t const *inputs;
 
     /**
      * @brief The DICE profile that defines the contents of this certificate.
      *
-     * Must be a nul terminated string of characters of the
-     * following set; `[A..Z][a..z][0..9][ '()+,-./:=?]`.
+     * Must be a nul terminated UTF-8 encoded string.
      *
      * No ownerships is taken. The user has to
      * assure that the buffer outlives the instance
      * of this structure.
      *
-     * @sa n20_asn1_printablestring
+     * @sa n20_asn1_utf8_string
      */
     char const *profile_name;
 } n20_x509_ext_open_dice_input_t;
