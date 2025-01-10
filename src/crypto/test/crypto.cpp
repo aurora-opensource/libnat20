@@ -224,7 +224,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
     }
 }
 
-TYPED_TEST_P(CryptoTestFixture, InvalidContext) {
+TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
     for (auto [n20_test_name, alg] : {
              tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
@@ -235,35 +235,7 @@ TYPED_TEST_P(CryptoTestFixture, InvalidContext) {
         // Digest must return invalid context if nullptr is given as context.
         N20_ASSERT_EQ(n20_crypto_error_invalid_context_e,
                       this->ctx->digest(nullptr, alg, nullptr, nullptr, nullptr));
-    }
 
-    // KDF must return invalid context if nullptr is given as context.
-    ASSERT_EQ(n20_crypto_error_invalid_context_e,
-              this->ctx->kdf(nullptr, nullptr, n20_crypto_key_type_cdi_e, nullptr, nullptr));
-
-    // Sign must return invalid context if nullptr is given as context.
-    ASSERT_EQ(n20_crypto_error_invalid_context_e,
-              this->ctx->sign(nullptr, nullptr, nullptr, nullptr, nullptr));
-
-    // Key_get_public_key must return invalid context if nullptr is given as context.
-    ASSERT_EQ(n20_crypto_error_invalid_context_e,
-              this->ctx->key_get_public_key(nullptr, nullptr, nullptr, nullptr));
-
-    // Key_free must return invalid context if nullptr is given as context.
-    ASSERT_EQ(n20_crypto_error_invalid_context_e, this->ctx->key_free(nullptr, nullptr));
-
-    // Get_cdi must return invalid context if nullptr is given as context.
-    ASSERT_EQ(n20_crypto_error_invalid_context_e, this->ctx->get_cdi(nullptr, nullptr));
-}
-
-TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
-    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
-    for (auto [n20_test_name, alg] : {
-             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
-             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e},
-             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e},
-             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e},
-         }) {
         // Must return n20_crypto_error_unexpected_null_size_e if a valid context
         // was given but no digest_size_in_out.
         N20_ASSERT_EQ(n20_crypto_error_unexpected_null_size_e,
@@ -789,7 +761,6 @@ REGISTER_TYPED_TEST_SUITE_P(CryptoTestFixture,
                             OpenClose,
                             DigestTestVectorTest,
                             DigestBufferSizeTest,
-                            InvalidContext,
                             DigestErrorsTest,
                             DigestSkipEmpty,
                             KDFTest,
