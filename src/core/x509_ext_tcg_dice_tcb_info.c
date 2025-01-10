@@ -37,10 +37,10 @@ static void n20_x509_tcg_dice_tcb_info_fwid_list_content(n20_asn1_stream_t *cons
     n20_x509_ext_tcg_dice_tcb_info_fwid_list_t const *const fwid_list =
         (n20_x509_ext_tcg_dice_tcb_info_fwid_list_t const *)context;
 
-    // fwid_list is never NULL since it's always called from n20_x509_ext_tcg_dice_tcbinfo_content
-    // with a valid pointer.
-    // Additionally, fwid_list->fwids isn't NULL since it was checked in
-    // n20_x509_ext_tcg_dice_tcbinfo_content.
+    // fwid_list is never NULL since it's always called from
+    // n20_x509_ext_tcg_dice_tcb_info_sequence_content with a valid pointer. Additionally,
+    // fwid_list->list isn't NULL since it was checked in
+    // n20_x509_ext_tcg_dice_tcb_info_sequence_content.
     for (size_t count = fwid_list->count; count != 0; --count) {
         n20_asn1_sequence(s,
                           n20_x509_tcg_dice_tcb_info_fwid_content,
@@ -95,19 +95,16 @@ static void n20_x509_ext_tcg_dice_tcb_info_sequence_content(n20_asn1_stream_t *c
     n20_asn1_int64(s, tcg_dice_tcb_info->svn, n20_asn1_tag_info_implicit(3));
 
     // version [2] IMPLICIT UTF8String OPTIONAL
-    // TODO(rseidel): Change this to UTF-8 string after it's implemented.
     if (NULL != tcg_dice_tcb_info->version) {
         n20_asn1_utf8_string(s, tcg_dice_tcb_info->version, n20_asn1_tag_info_implicit(2));
     }
 
     // model [1] IMPLICIT UTF8String OPTIONAL
-    // TODO(rseidel): Change this to UTF-8 string after it's implemented.
     if (NULL != tcg_dice_tcb_info->model) {
         n20_asn1_utf8_string(s, tcg_dice_tcb_info->model, n20_asn1_tag_info_implicit(1));
     }
 
     // vendor [0] IMPLICIT UTF8String OPTIONAL
-    // TODO(rseidel): Change this to UTF-8 string after it's implemented.
     if (NULL != tcg_dice_tcb_info->vendor) {
         n20_asn1_utf8_string(s, tcg_dice_tcb_info->vendor, n20_asn1_tag_info_implicit(0));
     }
