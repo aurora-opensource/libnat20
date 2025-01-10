@@ -39,7 +39,7 @@ typedef enum n20_crypto_error_s {
      * Implementations must return this error if the context given is
      * NULL.
      * Implementation may deploy additional techniques to determine
-     * if the context given is valid valid.
+     * if the context given is valid.
      */
     n20_crypto_error_invalid_context_e = 1,
     /**
@@ -196,7 +196,7 @@ typedef enum n20_crypto_error_s {
      *
      * Interface functions may return this error if they failed to
      * perform an operation due to a lack of physical resources.
-     * This this includes memory allocation errors.
+     * This includes memory allocation errors.
      */
     n20_crypto_error_no_resources_e = 14,
     /**
