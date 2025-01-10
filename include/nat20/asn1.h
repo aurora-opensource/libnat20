@@ -133,6 +133,12 @@
  */
 #define N20_ASN1_TAG_OBJECT_IDENTIFIER 0x6
 /**
+ * @brief The UTF-8 string type.
+ *
+ * A UTF8String is a string of unicode characters.
+ */
+#define N20_ASN1_TAG_UTF8_STRING 0xC
+/**
  * @brief The sequence type.
  *
  * A sequence is an ordered collection of zero or more
@@ -163,7 +169,7 @@
 /**
  * @brief The printable string type.
  *
- * A PrintableString is an string of printable characters
+ * A PrintableString is a string of printable characters
  * from a limited set of characters.
  */
 #define N20_ASN1_TAG_PRINTABLE_STRING 0x13
@@ -768,6 +774,28 @@ extern void n20_asn1_bitstring(n20_asn1_stream_t *s,
  */
 extern void n20_asn1_octetstring(n20_asn1_stream_t *s,
                                  n20_asn1_slice_t const *slice,
+                                 n20_asn1_tag_info_t tag_info);
+
+/**
+ * @brief Write an UTF-8 string complete with ASN.1 header to the given stream.
+ *
+ * This function assumes that `str` is `'\0'` terminated and uses
+ * `strlen` to determine the size of the string.
+ * It writes the string without the terminating character to the
+ * stream. This function assumes the string pointed to by @ref str is
+ * a valid UTF-8 encoding.
+ * It is up to the caller to uphold this invariant. This function does
+ * not perform any compliance checks.
+ *
+ * If @ref str is NULL, an empty string is written.
+ *
+ * @param s The stream that is to be updated.
+ * @param str Buffer holding the string.
+ * @param tag_info Tag info override.
+ * @sa N20_ASN1_TAG_UTF8_STRING
+ */
+extern void n20_asn1_utf8_string(n20_asn1_stream_t *s,
+                                 char const *str,
                                  n20_asn1_tag_info_t tag_info);
 
 /**
