@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Aurora Operations, Inc.
+ * Copyright 2025 Aurora Operations, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,10 +43,10 @@ MAKE_PTR(BIO);
 MAKE_PTR(X509);
 MAKE_PTR(EC_KEY);
 
-#define N2_BSSL_SHA2_224_OCTETS 28
-#define N2_BSSL_SHA2_256_OCTETS 32
-#define N2_BSSL_SHA2_384_OCTETS 48
-#define N2_BSSL_SHA2_512_OCTETS 64
+#define N20_BSSL_SHA2_224_OCTETS 28
+#define N20_BSSL_SHA2_256_OCTETS 32
+#define N20_BSSL_SHA2_384_OCTETS 48
+#define N20_BSSL_SHA2_512_OCTETS 64
 
 struct n20_bssl_key_base {
     n20_crypto_key_type_t type;
@@ -88,19 +88,19 @@ static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_
     size_t digest_size = 0;
     switch (alg_in) {
         case n20_crypto_digest_algorithm_sha2_224_e:
-            digest_size = N2_BSSL_SHA2_224_OCTETS;
+            digest_size = N20_BSSL_SHA2_224_OCTETS;
             md = EVP_sha224();
             break;
         case n20_crypto_digest_algorithm_sha2_256_e:
-            digest_size = N2_BSSL_SHA2_256_OCTETS;
+            digest_size = N20_BSSL_SHA2_256_OCTETS;
             md = EVP_sha256();
             break;
         case n20_crypto_digest_algorithm_sha2_384_e:
-            digest_size = N2_BSSL_SHA2_384_OCTETS;
+            digest_size = N20_BSSL_SHA2_384_OCTETS;
             md = EVP_sha384();
             break;
         case n20_crypto_digest_algorithm_sha2_512_e:
-            digest_size = N2_BSSL_SHA2_512_OCTETS;
+            digest_size = N20_BSSL_SHA2_512_OCTETS;
             md = EVP_sha512();
             break;
         default:
@@ -241,7 +241,6 @@ static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* 
         }
         case n20_crypto_key_type_secp256r1_e:
         case n20_crypto_key_type_secp384r1_e: {
-
             EC_GROUP const* ec_group = nullptr;
             if (key_type_in == n20_crypto_key_type_secp256r1_e) {
                 ec_group = EC_group_p256();
@@ -395,7 +394,8 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
             size_t const integer_size = signature_size / 2;
             // The first two bytes are the sequence header.
             // No need to look at those.
-            // The size of R is at index 3.
+            // The size of R is at index 3 (the first byte of the integer
+            // header at index 2 is ignored).
             size_t r_size = signature_buffer[3];
             // To get the size of S skip the the sequence header (2 octets),
             // skip the integer header of R (2 octets) skip R (r_size octets),
