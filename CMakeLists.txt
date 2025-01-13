@@ -42,6 +42,7 @@ set(LIBNAT20_SOURCES
     src/core/asn1.c
     src/core/oid.c
     src/core/x509_ext_tcg_dice_tcb_info.c
+    src/core/x509_ext_tcg_dice_ueid.c
     src/core/x509.c
 )
 
@@ -52,6 +53,7 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/crypto.h
     include/nat20/oid.h
     include/nat20/x509_ext_tcg_dice_tcb_info.h
+    include/nat20/x509_ext_tcg_dice_ueid.h
     include/nat20/x509.h
 )
 
@@ -60,6 +62,7 @@ set(LIBNAT20_TEST_SOURCES
     src/core/test/test.cpp
     src/core/test/asn1.cpp
     src/core/test/x509_ext_tcg_dice_tcb_info.cpp
+    src/core/test/x509_ext_tcg_dice_ueid.cpp
 )
 
 set(LIBNAT20_DOC_PAGES
