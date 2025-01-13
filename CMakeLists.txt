@@ -50,6 +50,7 @@ set(LIBNAT20_PUB_HEADERS
     # Add the public headers here.
     # These files will be included in the generation of the API documentation.
     include/nat20/asn1.h
+    include/nat20/crypto.h
     include/nat20/oid.h
     include/nat20/x509_ext_tcg_dice_tcb_info.h
     include/nat20/x509_ext_tcg_dice_ueid.h
