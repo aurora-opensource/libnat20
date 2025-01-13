@@ -41,11 +41,11 @@ set(LIBNAT20_SOURCES
     # Add the core library source files here.
     src/core/asn1.c
     src/core/oid.c
+    src/core/x509_ext_open_dice_input.c
     src/core/x509_ext_tcg_dice_tcb_freshness.c
     src/core/x509_ext_tcg_dice_tcb_info.c
     src/core/x509_ext_tcg_dice_ueid.c
     src/core/x509.c
-    src/core/x509_ext_open_dice_input.c
 )
 
 set(LIBNAT20_PUB_HEADERS
