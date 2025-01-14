@@ -166,7 +166,7 @@ typedef enum n20_crypto_error_s {
      * @brief Indicates that the user supplied buffer is insufficient.
      *
      * Interface functions that require the user to allocate an output buffer
-     * return this error if the supplied buffer size is to small or
+     * return this error if the supplied buffer size is too small or
      * if the output buffer argument was NULL.
      *
      * Important: If this error is returned, the corresponding `*_size_in_out`

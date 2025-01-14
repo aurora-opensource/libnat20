@@ -17,12 +17,12 @@ cmake_minimum_required(VERSION 3.22)
 project(LibNat20 VERSION 0.0.1)
 
 # Enable the libnat20 test suite by specifying
-# -DNAT20_WITH_TESTS=ON on the `cmake --build` command line.
+# -DNAT20_WITH_TESTS=ON on the `cmake -B` command line.
 # The test can be run with `make test` or `ctest`.
 option(NAT20_WITH_TESTS "Build the test suite." OFF)
 
 # Enable libnat20 documentation generation by specifying
-# -DNAT20_WITH_DOCS=ON on the `cmake --build` command line.
+# -DNAT20_WITH_DOCS=ON on the `cmake -B` command line.
 # Build the docs by building the target `make nat20_docs`.
 option(NAT20_WITH_DOCS "Create the documentation target." OFF)
 
@@ -77,10 +77,15 @@ set(LIBNAT20_DOC_PAGES
     CONTRIBUTING.md
 )
 
+set(LIBNAT20_CRYPTO_TEST_SOURCES
+    src/crypto/test/test.cpp
+    src/crypto/test/crypto.cpp
+)
+
 ###################################################################################################
 
 ###################################################################################################
-# The nat20 libarary is the core product of this project.
+# The nat20 library is the core product of this project.
 # It will always be compiled.
 add_library(nat20 STATIC)
 
@@ -103,13 +108,9 @@ target_include_directories(nat20
 ###################################################################################################
 
 ###################################################################################################
-# The libnat20 test suite. It, along with its additional dependencies is only compiled
-# when selected by setting `-DNAT20_WITH_TESTS=ON` on the `cmake --build` command line.
-if (NAT20_WITH_TESTS)
+# Import boringssl when building the test.
 
-    # Print test details if tests fail.
-    set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
-
+if(NAT20_WITH_TESTS)
     include(FetchContent)
 
     FetchContent_Declare(
@@ -118,6 +119,19 @@ if (NAT20_WITH_TESTS)
         GIT_TAG        dc65229e58a98c0768d017d0c9bbe376f20c2577 # tag 0.20241024.0
     )
     FetchContent_MakeAvailable(crypto)
+endif()
+
+###################################################################################################
+
+###################################################################################################
+# The libnat20 test suite. It, along with its additional dependencies is only compiled
+# when selected by setting `-DNAT20_WITH_TESTS=ON` on the `cmake -B` command line.
+if (NAT20_WITH_TESTS)
+
+    # Print test details if tests fail.
+    set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
+
+    include(FetchContent)
 
     FetchContent_Declare(
     googletest
@@ -129,12 +143,19 @@ if (NAT20_WITH_TESTS)
 
     enable_testing()
 
-    add_executable(nat20test)
-    target_sources(nat20test
+    add_executable(nat20_test_bin)
+    target_sources(nat20_test_bin
         PRIVATE ${LIBNAT20_TEST_SOURCES}
     )
-    target_link_libraries(nat20test gtest_main nat20 crypto)
-    add_test(NAME nat20_test COMMAND nat20test)
+    target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki)
+    add_test(NAME nat20_test COMMAND nat20_test_bin)
+
+    add_executable(nat20_crypto_test_bin)
+    target_sources(nat20_crypto_test_bin
+        PRIVATE ${LIBNAT20_CRYPTO_TEST_SOURCES}
+    )
+    target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki)
+    add_test(NAME nat20_crypto_test COMMAND nat20_crypto_test_bin)
 
 endif() # NAT20_WITH_TESTS
 
