@@ -131,6 +131,7 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
 endif()
 
 ###################################################################################################
+
 ###################################################################################################
 # The libnat20 test suite. It, along with its additional dependencies is only compiled
 # when selected by setting `-DNAT20_WITH_TESTS=ON` on the `cmake -B` command line.
