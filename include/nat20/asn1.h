@@ -46,7 +46,7 @@
  */
 #define N20_ASN1_CLASS_APPLICATION 1
 /**
- * @brief The universal class.
+ * @brief The context specific class.
  *
  * Indicates that the tag in the corresponding ASN.1 header
  * is context specific.
@@ -54,7 +54,7 @@
  */
 #define N20_ASN1_CLASS_CONTEXT_SPECIFIC 2
 /**
- * @brief The universal class.
+ * @brief The private class.
  *
  * Indicates that the tag in the corresponding ASN.1 header
  * is private.
@@ -133,6 +133,12 @@
  */
 #define N20_ASN1_TAG_OBJECT_IDENTIFIER 0x6
 /**
+ * @brief The UTF-8 string type.
+ *
+ * A UTF8String is a string of unicode characters.
+ */
+#define N20_ASN1_TAG_UTF8_STRING 0xC
+/**
  * @brief The sequence type.
  *
  * A sequence is an ordered collection of zero or more
@@ -163,7 +169,7 @@
 /**
  * @brief The printable string type.
  *
- * A PrintableString is an string of printable characters
+ * A PrintableString is a string of printable characters
  * from a limited set of characters.
  */
 #define N20_ASN1_TAG_PRINTABLE_STRING 0x13
@@ -216,6 +222,11 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Represents the ASN.1 class of an object.
+ *
+ * This type shall take one of values in @ref n20_asn1_classes.
+ */
 typedef uint8_t n20_asn1_class_t;
 
 /**
@@ -492,12 +503,163 @@ extern void n20_asn1_header(
     n20_asn1_stream_t *s, n20_asn1_class_t class_, bool constructed, uint32_t tag, size_t len);
 
 /**
+ * @brief Qualifies the tag info override type.
+ */
+typedef enum n20_asn1_tag_info_type_s {
+    /**
+     * @brief No override.
+     *
+     * The tag info override is ignored.
+     */
+    n20_asn1_tag_info_no_override_e = 0,
+    /**
+     * @brief Context specific tagging with implicit typing.
+     */
+    n20_asn1_tag_info_implicit_e = 1,
+    /**
+     * @brief Context specific tagging with explicit typing.
+     */
+    n20_asn1_tag_info_explicit_e = 2,
+} n20_asn1_tag_info_type_t;
+
+/**
+ * @brief The tag info override.
+ *
+ * The asn1 module implements a set of convenience
+ * functions to render various universal ASN.1 data types.
+ * In some specifications the same format used for these types
+ * is used with context specific tags expressing an implicit data
+ * type. Other specification require context specific tagging with
+ * explicit data type.
+ *
+ * To accommodate this need, the functions in this library accept
+ * an optional tag info override parameter.
+ * These functions must adhere to the following behavior depending
+ * on the value of @ref type (Except when the default fallback value
+ * is rendered).
+ *
+ * - @ref n20_asn1_tag_info_no_override_e: The override is ignored.
+ * - @ref n20_asn1_tag_info_implicit_e: The class of the ASN.1 item
+ *   is set to @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC, and the tag is
+ *   replaced with the value of @ref tag.
+ * - @ref n20_asn1_tag_info_explicit_e: The header of the ASN.1 item
+ *   is unchanged, but a second header is rendered with a class of
+ *   @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC, and a value of @ref tag.
+ */
+typedef struct n20_asn1_tag_info_s {
+    /**
+     * @brief Indicates the type of the tag info override.
+     *
+     * @sa n20_asn1_tag_info_type_t
+     */
+    n20_asn1_tag_info_type_t type;
+    /**
+     * @brief The override tag value.
+     *
+     * This value is used as replacement tag value if
+     * implicit typing is requested, and as tag value in
+     * an additional tag header if explicit typing is
+     * requested.
+     */
+    uint32_t tag;
+} n20_asn1_tag_info_t;
+
+/**
+ * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
+ *
+ * Create a tag info structure indicating no deviance from the default
+ * behavior.
+ *
+ * The two following code snippets are semantically equivalent.
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = n20_asn1_tag_info_no_override();
+ * @endcode
+ *
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = { .type = n20_asn1_tag_info_no_override_e };
+ * @endcode
+ *
+ * @return n20_asn1_tag_info_t
+ */
+extern n20_asn1_tag_info_t n20_asn1_tag_info_no_override();
+/**
+ * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
+ *
+ * Create a tag info structure indicating context specific
+ * tagging with explicit typing is desired.
+ *
+ * The two following code snippets are semantically equivalent.
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = n20_asn1_tag_info_explicit(7);
+ * @endcode
+ *
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = { .type = n20_asn1_tag_info_explicit_e, tag = 7 };
+ * @endcode
+ *
+ * @param tag The desired tag number.
+ * @return n20_asn1_tag_info_t
+ */
+extern n20_asn1_tag_info_t n20_asn1_tag_info_explicit(int tag);
+/**
+ * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
+ *
+ * Create a tag info structure indicating that
+ * context specific taging with implicit typing is desired.
+ *
+ * The two following code snippets are semantically equivalent.
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = n20_asn1_tag_info_implicit(7);
+ * @endcode
+ *
+ * @code{.c}
+ * n20_asn1_tag_info_t tag_info = { .type = n20_asn1_tag_info_implicit_e, tag = 7 };
+ * @endcode
+ *
+ * @param tag The desired tag number.
+ * @return n20_asn1_tag_info_t
+ */
+extern n20_asn1_tag_info_t n20_asn1_tag_info_implicit(int tag);
+
+/**
+ * @brief Refers to a constant buffer of the specified size.
+ *
+ * This is used to refer to foreign non-mutable buffers
+ * of a given size. The user has to assure buffer outlives
+ * the instance of the slice and that the buffer is
+ * sufficiently large to accommodate @ref size bytes of data.
+ *
+ * No ownership is implied.
+ *
+ * Implementations must handle the cases where @ref buffer
+ * is NULL gracefully, and must not dereference the pointer
+ * even if @ref size is not 0.
+ *
+ * If @ref size is 0, implementation may use the value of buffer
+ * to distinguish between an empty buffer and an optional
+ * field that is not present.
+ */
+typedef struct n20_asn1_slice_s {
+    /**
+     * @brief Pointer to the buffer.
+     *
+     * A buffer with a capacity of at least @ref size bytes or NULL.
+     */
+    uint8_t const *buffer;
+    /**
+     * @brief The guaranteed capacity of the buffer.
+     */
+    size_t size;
+} n20_asn1_slice_t;
+
+/**
  * @brief Write an ASN1 NULL to the given stream.
  *
  * @param s The stream that is to be updated.
+ * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_NULL
  */
-extern void n20_asn1_null(n20_asn1_stream_t *const s);
+extern void n20_asn1_null(n20_asn1_stream_t *const s, n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write an object identifier complete with ASN.1 header to the given stream.
@@ -511,10 +673,12 @@ extern void n20_asn1_null(n20_asn1_stream_t *const s);
  *
  * @param s The stream that is to be updated.
  * @param oid The object identifier to be written to the stream.
+ * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_OBJECT_IDENTIFIER
  */
 extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
-                                       n20_asn1_object_identifier_t const *oid);
+                                       n20_asn1_object_identifier_t const *oid,
+                                       n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write an integer complete with ASN.1 header to the given stream.
@@ -532,10 +696,15 @@ extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
  * @param len The size of the buffer in bytes.
  * @param little_endian Indicates if the byteorder of the integer in the given buffer.
  * @param two_complement If `true` the buffer is interpreted as signed 2-complement integer.
+ * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_INTEGER
  */
-extern void n20_asn1_integer(
-    n20_asn1_stream_t *s, uint8_t const *n, size_t len, bool little_endian, bool two_complement);
+extern void n20_asn1_integer(n20_asn1_stream_t *s,
+                             uint8_t const *n,
+                             size_t len,
+                             bool little_endian,
+                             bool two_complement,
+                             n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Convenience function to write an unsigned C integer as ASN.1 INTEGER.
@@ -549,8 +718,9 @@ extern void n20_asn1_integer(
  *
  * @param s The stream that is to be updated.
  * @param n An unsigned integer.
+ * @param tag_info Tag info override.
  */
-extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n);
+extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n, n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Convenience function to write a signed C integer as ASN.1 INTEGER.
@@ -564,8 +734,9 @@ extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n);
  *
  * @param s The stream that is to be updated.
  * @param n A signed integer.
+ * @param tag_info Tag info override.
  */
-extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n);
+extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n, n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write a bit string complete with ASN.1 header to the given stream.
@@ -583,8 +754,12 @@ extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n);
  * @param s The stream that is to be updated.
  * @param b Buffer holding the bitstring.
  * @param bits Number of bits represented by the bitstring.
+ * @param tag_info Tag info override.
  */
-extern void n20_asn1_bitstring(n20_asn1_stream_t *s, uint8_t const *b, size_t bits);
+extern void n20_asn1_bitstring(n20_asn1_stream_t *s,
+                               uint8_t const *b,
+                               size_t bits,
+                               n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write an octet string complete with ASN.1 header to the given stream.
@@ -594,10 +769,34 @@ extern void n20_asn1_bitstring(n20_asn1_stream_t *s, uint8_t const *b, size_t bi
  * If @ref str is NULL an empty octetstring is written.
  *
  * @param s The stream that is to be updated.
- * @param str Buffer holding the octet string.
- * @param len Number of octets in the octet string.
+ * @param slice Buffer holding the octet string.
+ * @param tag_info Tag info override.
  */
-extern void n20_asn1_octetstring(n20_asn1_stream_t *s, uint8_t const *str, size_t len);
+extern void n20_asn1_octetstring(n20_asn1_stream_t *s,
+                                 n20_asn1_slice_t const *slice,
+                                 n20_asn1_tag_info_t tag_info);
+
+/**
+ * @brief Write an UTF-8 string complete with ASN.1 header to the given stream.
+ *
+ * This function assumes that `str` is `'\0'` terminated and uses
+ * `strlen` to determine the size of the string.
+ * It writes the string without the terminating character to the
+ * stream. This function assumes the string pointed to by @ref str is
+ * a valid UTF-8 encoding.
+ * It is up to the caller to uphold this invariant. This function does
+ * not perform any compliance checks.
+ *
+ * If @ref str is NULL, an empty string is written.
+ *
+ * @param s The stream that is to be updated.
+ * @param str Buffer holding the string.
+ * @param tag_info Tag info override.
+ * @sa N20_ASN1_TAG_UTF8_STRING
+ */
+extern void n20_asn1_utf8_string(n20_asn1_stream_t *s,
+                                 char const *str,
+                                 n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write an printable string complete with ASN.1 header to the given stream.
@@ -614,9 +813,12 @@ extern void n20_asn1_octetstring(n20_asn1_stream_t *s, uint8_t const *str, size_
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the string.
+ * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_PRINTABLE_STRING
  */
-extern void n20_asn1_printablestring(n20_asn1_stream_t *s, char const *str);
+extern void n20_asn1_printablestring(n20_asn1_stream_t *s,
+                                     char const *str,
+                                     n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write a generalized time string complete with ASN.1 header to the given stream.
@@ -632,9 +834,12 @@ extern void n20_asn1_printablestring(n20_asn1_stream_t *s, char const *str);
  *
  * @param s The stream that is to be updated.
  * @param time_str Buffer holding the string.
+ * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_GENERALIZED_TIME
  */
-extern void n20_asn1_generalized_time(n20_asn1_stream_t *s, char const *time_str);
+extern void n20_asn1_generalized_time(n20_asn1_stream_t *s,
+                                      char const *time_str,
+                                      n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief The callback function prototype formating constructed content.
@@ -663,6 +868,7 @@ typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *, void *);
  * @param content_cb The callback function rendering the content. A null function pointer will be
  * treated as a no-op function.
  * @param cb_context This opaque pointer is passed to the content callback as-is.
+ * @param tag_info Tag info override.
  * @sa n20_asn1_header
  * @sa n20_asn1_content_cb_t
  */
@@ -671,7 +877,8 @@ extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
                                          bool constructed,
                                          uint32_t tag,
                                          n20_asn1_content_cb_t content_cb,
-                                         void *cb_context);
+                                         void *cb_context,
+                                         n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Convenience function to write an ASN.1 sequence complete with header to the given stream.
@@ -692,6 +899,7 @@ extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
  * @param content_cb The callback function rendering the content. A null function pointer will be
  * treated as a no-op function.
  * @param cb_context This opaque pointer is passed to the content callback as-is.
+ * @param tag_info Tag info override.
  * @sa n20_asn1_header
  * @sa n20_asn1_content_cb_t
  * @sa n20_asn1_header_with_content
@@ -700,7 +908,8 @@ extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
  */
 extern void n20_asn1_sequence(n20_asn1_stream_t *s,
                               n20_asn1_content_cb_t content_cb,
-                              void *cb_context);
+                              void *cb_context,
+                              n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write an ASN.1 (DER) boolean to the given stream.
@@ -712,9 +921,10 @@ extern void n20_asn1_sequence(n20_asn1_stream_t *s,
  *
  * @param s The stream that is to be updated.
  * @param v The boolean value that is to be written.
+ * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_BOOLEAN
  */
-extern void n20_asn1_boolean(n20_asn1_stream_t *s, bool v);
+extern void n20_asn1_boolean(n20_asn1_stream_t *s, bool v, n20_asn1_tag_info_t tag_info);
 
 #ifdef __cplusplus
 }
