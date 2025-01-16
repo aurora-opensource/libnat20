@@ -207,7 +207,7 @@ static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* 
 
     int rc = HKDF_expand(derived.data(),
                          derived.size(),
-                         EVP_sha256(),
+                         EVP_sha512(),
                          bssl_cdi_key->bits.data(),
                          bssl_cdi_key->bits.size(),
                          context.data(),
@@ -305,6 +305,7 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
     constexpr size_t ed25519_signature_size = 64;
     constexpr size_t secp256r1_signature_size = 64;
     constexpr size_t secp384r1_signature_size = 96;
+    EVP_MD const* md = nullptr;
     size_t signature_size = 0;
     switch (bssl_base_key->type) {
         case n20_crypto_key_type_ed25519_e:
@@ -312,9 +313,11 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
             break;
         case n20_crypto_key_type_secp256r1_e:
             signature_size = secp256r1_signature_size;
+            md = EVP_sha256();
             break;
         case n20_crypto_key_type_secp384r1_e:
             signature_size = secp384r1_signature_size;
+            md = EVP_sha384();
             break;
         case n20_crypto_key_type_cdi_e:
         default:
@@ -328,7 +331,6 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
 
     switch (bssl_base_key->type) {
         case n20_crypto_key_type_ed25519_e: {
-            EVP_MD const* md = nullptr;
             if (1 != EVP_DigestSignInit(md_ctx.get(), NULL, md, NULL, bssl_evp_key->key.get())) {
                 return n20_crypto_error_implementation_specific_e;
             }
@@ -357,7 +359,6 @@ static n20_crypto_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s*
                 return n20_crypto_error_unexpected_null_list_e;
             }
 
-            EVP_MD const* md = EVP_sha256();
             if (1 != EVP_DigestSignInit(md_ctx.get(), NULL, md, NULL, bssl_evp_key->key.get())) {
                 return n20_crypto_error_implementation_specific_e;
             }

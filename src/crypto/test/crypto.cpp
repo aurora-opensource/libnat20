@@ -357,7 +357,26 @@ bool verify(EVP_PKEY_PTR_t const& key,
     }
 
     if (EVP_PKEY_id(key.get()) != EVP_PKEY_ED25519) {
-        if (1 != EVP_DigestVerifyInit(md_ctx.get(), NULL, EVP_sha256(), NULL, key.get())) {
+        auto ec_key = EVP_PKEY_get0_EC_KEY(key.get());
+        if (ec_key == nullptr) {
+            ADD_FAILURE();
+            return false;
+        }
+        auto ec_group = EC_KEY_get0_group(ec_key);
+        if (ec_group == nullptr) {
+            ADD_FAILURE();
+            return false;
+        }
+        auto ec_curve_nid = EC_GROUP_get_curve_name(ec_group);
+
+        EVP_MD const* md = nullptr;
+        if (ec_curve_nid == NID_X9_62_prime256v1) {
+            md = EVP_sha256();
+        } else {
+            md = EVP_sha384();
+        }
+
+        if (1 != EVP_DigestVerifyInit(md_ctx.get(), NULL, md, NULL, key.get())) {
             ADD_FAILURE();
             return false;
         }

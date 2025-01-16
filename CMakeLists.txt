@@ -26,6 +26,11 @@ option(NAT20_WITH_TESTS "Build the test suite." OFF)
 # Build the docs by building the target `make nat20_docs`.
 option(NAT20_WITH_DOCS "Create the documentation target." OFF)
 
+# Enable the libnat20 reference implementation for the
+# libnat20 crypto interface by specifying -DNAT20_WITH_CRYPTO_BSSL=ON
+# on the `cmake -B` command line.
+option(NAT20_WITH_CRYPTO_BSSL "Compile the crypto reference implementation." OFF)
+
 # The C standard shall be C11.
 set(CMAKE_C_STANDARD 11)
 
@@ -80,7 +85,6 @@ set(LIBNAT20_DOC_PAGES
 set(LIBNAT20_PUB_BSSL_HEADERS
     include/nat20/crypto_bssl/crypto.h
 )
-
 
 set(LIBNAT20_CRYPTO_BSSL_SOURCES
     src/crypto/crypto_boringssl.cpp
