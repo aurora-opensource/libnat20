@@ -29,9 +29,17 @@
 
 #ifdef N20_CONFIG_ENABLE_CRYPTO_TEST_IMPL
 
+#ifdef N20_CONFIG_WITH_BSSL
+#include "crypto_boringssl.h"
+#endif
+
 using CryptoImplementationsToTest = ::testing::Types<
-    // Add crypto implementations to the list in order to run
-    // the crypto test against them.
+// Add crypto implementations to the list in order to run
+// the crypto test against them.
+
+#ifdef N20_CONFIG_WITH_BSSL
+    CryptoImplBSSL
+#endif
 
     // End of list.
     >;

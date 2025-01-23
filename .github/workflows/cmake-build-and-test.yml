@@ -25,8 +25,8 @@ jobs:
     strategy:
       matrix:
         options: [
-          { extra_cmake_args: ' -DNAT20_WITH_TESTS=OFF', extra_targets: '' },
-          { extra_cmake_args: ' -DNAT20_WITH_TESTS=ON', extra_targets: 'test' }
+          { extra_cmake_args: ' -DNAT20_WITH_TESTS=OFF -DNAT20_WITH_CRYPTO_BSSL=ON', extra_targets: '' },
+          { extra_cmake_args: ' -DNAT20_WITH_TESTS=ON -DNAT20_WITH_CRYPTO_BSSL=ON', extra_targets: 'test' }
         ]
     runs-on: ubuntu-22.04
 
