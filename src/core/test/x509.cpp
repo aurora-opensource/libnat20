@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <nat20/asn1.h>
+#include <nat20/crypto.h>
+#include <nat20/crypto_bssl/crypto.h>
 #include <nat20/oid.h>
 #include <nat20/x509.h>
 #include <openssl/base.h>
@@ -73,6 +75,12 @@ std::string BsslError() {
 }
 
 uint8_t const test_uds[] = {
+    0xa4, 0x32, 0xb4, 0x34, 0x94, 0x4f, 0x59, 0xcf, 0xdb, 0xf7, 0x04, 0x46, 0x95, 0x9c, 0xee, 0x08,
+    0x7f, 0x6b, 0x87, 0x60, 0xd8, 0xef, 0xb4, 0xcf, 0xed, 0xf2, 0xf6, 0x29, 0x33, 0x88, 0xf0, 0x64,
+    0xbb, 0xe0, 0x21, 0xf5, 0x87, 0x1c, 0x6c, 0x0c, 0x30, 0x2b, 0x32, 0x4f, 0x4c, 0x44, 0xd1, 0x26,
+    0xca, 0x35, 0x6b, 0xc3, 0xc5, 0x0e, 0x17, 0xc6, 0x21, 0xad, 0x1d, 0x32, 0xbd, 0x6e, 0x35, 0x08};
+
+uint8_t const test_cdi[] = {
     0xa4, 0x32, 0xb4, 0x34, 0x94, 0x4f, 0x59, 0xcf, 0xdb, 0xf7, 0x04, 0x46, 0x95, 0x9c, 0xee, 0x08,
     0x7f, 0x6b, 0x87, 0x60, 0xd8, 0xef, 0xb4, 0xcf, 0xed, 0xf2, 0xf6, 0x29, 0x33, 0x88, 0xf0, 0x64,
     0xbb, 0xe0, 0x21, 0xf5, 0x87, 0x1c, 0x6c, 0x0c, 0x30, 0x2b, 0x32, 0x4f, 0x4c, 0x44, 0xd1, 0x26,
@@ -271,29 +279,58 @@ bool verify(EVP_PKEY_PTR_t const& key,
     return true;
 }
 
-class CryptoTest : public testing::TestWithParam<std::tuple<int>> {};
+class CryptoTest : public testing::TestWithParam<std::tuple<n20_crypto_key_type_s, int>> {};
 
 INSTANTIATE_TEST_CASE_P(CryptoTestInstance,
                         CryptoTest,
-                        testing::Values(std::tuple(EVP_PKEY_RSA),
-                                        std::tuple(EVP_PKEY_EC),
-                                        std::tuple(EVP_PKEY_ED25519)));
+                        testing::Values(std::tuple(n20_crypto_key_type_secp256r1_e, EVP_PKEY_EC),
+                                        std::tuple(n20_crypto_key_type_secp384r1_e, EVP_PKEY_EC),
+                                        std::tuple(n20_crypto_key_type_ed25519_e,
+                                                   EVP_PKEY_ED25519)));
 
 TEST_P(CryptoTest, KeyGenSignVerify) {
-    auto [key_type] = GetParam();
+    auto [sign_key_type, verify_key_type] = GetParam();
+
+    n20_crypto_context_t* ctx = nullptr;
+    n20_crypto_slice_t cdi_slice{.size = sizeof(test_cdi), .buffer = test_cdi};
+    n20_crypto_error_t err = n20_crypto_open_boringssl(&ctx, &cdi_slice);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
+
+    n20_crypto_key_t cdi_key = nullptr;
+    err = ctx->get_cdi(ctx, &cdi_key);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
+
+    n20_crypto_gather_list_t empty_context{.count = 0, .list = nullptr};
+
+    n20_crypto_key_t signing_key = nullptr;
+    err = ctx->kdf(ctx, cdi_key, sign_key_type, &empty_context, &signing_key);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
+
+    uint8_t public_key[128];
+    size_t public_key_size = sizeof(public_key);
+    err = ctx->key_get_public_key(ctx, signing_key, public_key, &public_key_size);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
 
     std::string message("the message");
-    auto message_v =
-        std::vector<uint8_t>(reinterpret_cast<uint8_t const*>(message.c_str()),
+    std::vector<uint8_t> message_v(reinterpret_cast<uint8_t const*>(message.c_str()),
                              reinterpret_cast<uint8_t const*>(message.c_str() + message.size()));
+    n20_crypto_slice_t msg_slice{.size = message_v.size(),
+                                 .buffer = message_v.data()};
+    n20_crypto_gather_list_t msg_gather{.count = 1, .list = &msg_slice};
+    
+    uint8_t signature[128];
+    size_t signature_size = sizeof(signature);
+    err = ctx->sign(ctx, signing_key, &msg_gather, signature, &signature_size);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
 
-    auto key = generate_key(key_type, 2048, "KeyGenSignVerify");
-    ASSERT_TRUE(!!key);
+    ctx->key_free(ctx, signing_key);
 
-    auto signature = sign(key, message_v);
-    ASSERT_TRUE(!!signature);
+    n20_crypto_close_boringssl(ctx);
 
-    ASSERT_TRUE(verify(key, message_v, *signature));
+    EVP_PKEY_PTR_t key(
+        EVP_PKEY_new_raw_public_key(verify_key_type, nullptr, public_key, public_key_size));
+    std::vector<uint8_t> signature_v(signature, signature + signature_size);
+    ASSERT_TRUE(verify(key, message_v, signature_v));
 }
 
 class X509Test : public testing::Test {};
