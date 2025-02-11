@@ -280,9 +280,9 @@ bool verify(EVP_PKEY_PTR_t const& key,
 }
 
 bool n20_verify(n20_crypto_key_type_s key_type,
-            std::vector<uint8_t> const& public_key,
-            std::vector<uint8_t> const& message,
-            std::vector<uint8_t> const& signature) {
+                std::vector<uint8_t> const& public_key,
+                std::vector<uint8_t> const& message,
+                std::vector<uint8_t> const& signature) {
     auto md_ctx = EVP_MD_CTX_PTR_t(EVP_MD_CTX_new());
     if (!md_ctx) {
         ADD_FAILURE();
@@ -399,6 +399,110 @@ bool n20_verify(n20_crypto_key_type_s key_type,
             ADD_FAILURE();
             return false;
     }
+}
+
+class NameTest
+    : public testing::TestWithParam<std::tuple<n20_x509_name_t const*, std::vector<uint8_t>>> {};
+
+n20_x509_name_t NAME_EMPTY = {.element_count = 0, .elements = nullptr};
+n20_x509_name_t NAME_ONE = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"));
+n20_x509_name_t NAME_TWO = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
+                                         N20_X509_RDN(&OID_LOCALITY_NAME, "Pittsburgh"));
+n20_x509_name_t NAME_NINE = {.element_count = 9, .elements = nullptr};
+
+std::vector<uint8_t> const ENCODED_NAME_NULL = {0x30, 0x02, 0x05, 0x00};
+std::vector<uint8_t> const ENCODED_NAME_EMPTY = {0x30, 0x00};
+std::vector<uint8_t> const ENCODED_NAME_ONE = {
+    0x30, 0x0d, 0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13, 0x02, 0x55, 0x53};
+std::vector<uint8_t> const ENCODED_NAME_TWO = {
+    0x30, 0x22, 0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13,
+    0x02, 0x55, 0x53, 0x31, 0x13, 0x30, 0x11, 0x06, 0x03, 0x55, 0x04, 0x07,
+    0x13, 0x0a, 0x50, 0x69, 0x74, 0x74, 0x73, 0x62, 0x75, 0x72, 0x67, 0x68};
+
+INSTANTIATE_TEST_CASE_P(X509NameTest,
+                        NameTest,
+                        testing::Values(std::tuple(nullptr, ENCODED_NAME_NULL),
+                                        std::tuple(&NAME_EMPTY, ENCODED_NAME_EMPTY),
+                                        std::tuple(&NAME_ONE, ENCODED_NAME_ONE),
+                                        std::tuple(&NAME_TWO, ENCODED_NAME_TWO),
+                                        std::tuple(&NAME_NINE, ENCODED_NAME_NULL)));
+
+TEST_P(NameTest, NameEncoding) {
+    auto [p, expected] = GetParam();
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_name(&s, p);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(expected, got);
+}
+class ExtensionTest
+    : public testing::TestWithParam<
+          std::tuple<std::variant<n20_x509_extensions_t const*, std::vector<n20_x509_extension_t>>,
+                     std::vector<uint8_t>>> {};
+
+void key_usage_content_cb(n20_asn1_stream_t* s, void* cb_context) {
+    uint8_t n = 0x05;
+
+    n20_asn1_bitstring(s, &n, 3, n20_asn1_tag_info_no_override());
+}
+
+void basic_constraints_content_cb(n20_asn1_stream_t* s, void* cb_context) {
+    n20_asn1_sequence(s, nullptr, nullptr, n20_asn1_tag_info_no_override());
+}
+
+n20_x509_extensions_t EXTENSIONS_EMPTY = {};
+std::vector<n20_x509_extension_t> EXTENSIONS_ONE_EMPTY_EXTN_VALUE = {
+    {.oid = &OID_KEY_USAGE, .critical = false, .content_cb = nullptr}};
+std::vector<n20_x509_extension_t> EXTENSIONS_ONE = {
+    {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb}};
+std::vector<n20_x509_extension_t> EXTENSIONS_TWO = {
+    {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb},
+    {.oid = &OID_BASIC_CONSTRAINTS, .critical = true, .content_cb = &basic_constraints_content_cb}};
+
+std::vector<uint8_t> const ENCODED_EXTENSIONS_EMPTY = {};
+std::vector<uint8_t> const ENCODED_EXTENSIONS_ONE_EMPTY_EXTN_VALUE = {
+    0xa3, 0x0b, 0x30, 0x09, 0x30, 0x07, 0x06, 0x03, 0x55, 0x1d, 0x0f, 0x04, 0x00};
+std::vector<uint8_t> const ENCODED_EXTENSIONS_ONE = {0xa3, 0x12, 0x30, 0x10, 0x30, 0x0e, 0x06,
+                                                     0x03, 0x55, 0x1d, 0x0f, 0x01, 0x01, 0xff,
+                                                     0x04, 0x04, 0x03, 0x02, 0x05, 0x00};
+std::vector<uint8_t> const ENCODED_EXTENSIONS_TWO = {
+    0xa3, 0x20, 0x30, 0x1e, 0x30, 0x0e, 0x06, 0x03, 0x55, 0x1d, 0x0f, 0x01,
+    0x01, 0xff, 0x04, 0x04, 0x03, 0x02, 0x05, 0x00, 0x30, 0x0c, 0x06, 0x03,
+    0x55, 0x1d, 0x13, 0x01, 0x01, 0xff, 0x04, 0x02, 0x30, 0x00};
+
+INSTANTIATE_TEST_CASE_P(X509ExtensionTest,
+                        ExtensionTest,
+                        testing::Values(std::tuple(nullptr, ENCODED_EXTENSIONS_EMPTY),
+                                        std::tuple(&EXTENSIONS_EMPTY, ENCODED_EXTENSIONS_EMPTY),
+                                        std::tuple(EXTENSIONS_ONE_EMPTY_EXTN_VALUE,
+                                                   ENCODED_EXTENSIONS_ONE_EMPTY_EXTN_VALUE),
+                                        std::tuple(EXTENSIONS_ONE, ENCODED_EXTENSIONS_ONE),
+                                        std::tuple(EXTENSIONS_TWO, ENCODED_EXTENSIONS_TWO)));
+
+TEST_P(ExtensionTest, ExtensionEncoding) {
+    auto [p, expected] = GetParam();
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    if (auto extensions = std::get_if<n20_x509_extensions_t const*>(&p)) {
+        n20_x509_extension(&s, *extensions);
+    }
+    if (auto extensions_vector = std::get_if<std::vector<n20_x509_extension_t>>(&p)) {
+        n20_x509_extensions_t extensions = {.extensions_count = extensions_vector->size(),
+                                            .extensions = extensions_vector->data()};
+        n20_x509_extension(&s, &extensions);
+    }
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(expected, got);
 }
 
 class CryptoTest : public testing::TestWithParam<std::tuple<n20_crypto_key_type_s>> {};
