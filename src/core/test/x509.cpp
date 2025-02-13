@@ -401,8 +401,8 @@ bool n20_verify(n20_crypto_key_type_s key_type,
     }
 }
 
-class NameTest
-    : public testing::TestWithParam<std::tuple<n20_x509_name_t const*, std::vector<uint8_t>>> {};
+class NameTest : public testing::TestWithParam<std::tuple<n20_x509_name_t*, std::vector<uint8_t>>> {
+};
 
 n20_x509_name_t NAME_EMPTY = {.element_count = 0, .elements = nullptr};
 n20_x509_name_t NAME_ONE = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"));
@@ -442,7 +442,7 @@ TEST_P(NameTest, NameEncoding) {
 }
 class ExtensionTest
     : public testing::TestWithParam<
-          std::tuple<std::variant<n20_x509_extensions_t const*, std::vector<n20_x509_extension_t>>,
+          std::tuple<std::variant<n20_x509_extensions_t*, std::vector<n20_x509_extension_t>>,
                      std::vector<uint8_t>>> {};
 
 void key_usage_content_cb(n20_asn1_stream_t* s, void* cb_context) {
@@ -490,7 +490,7 @@ TEST_P(ExtensionTest, ExtensionEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
     n20_asn1_stream_init(&s, buffer, sizeof(buffer));
-    if (auto extensions = std::get_if<n20_x509_extensions_t const*>(&p)) {
+    if (auto extensions = std::get_if<n20_x509_extensions_t*>(&p)) {
         n20_x509_extension(&s, *extensions);
     }
     if (auto extensions_vector = std::get_if<std::vector<n20_x509_extension_t>>(&p)) {
@@ -503,6 +503,139 @@ TEST_P(ExtensionTest, ExtensionEncoding) {
     std::vector<uint8_t> got = std::vector<uint8_t>(
         n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
     ASSERT_EQ(expected, got);
+}
+
+class BasicConstraintsTest
+    : public testing::TestWithParam<std::tuple<bool, bool, uint32_t, std::vector<uint8_t>>> {};
+
+std::vector<uint8_t> const ENCODED_BASIC_CONSTRAINTS_NOT_CA_NO_PATH_LENGTH = {0x30, 0x00};
+std::vector<uint8_t> const ENCODED_BASIC_CONSTRAINTS_NOT_CA_HAS_PATH_LENGTH =
+    ENCODED_BASIC_CONSTRAINTS_NOT_CA_NO_PATH_LENGTH;
+std::vector<uint8_t> const ENCODED_BASIC_CONSTRAINTS_IS_CA_NO_PATH_LENGTH = {
+    0x30, 0x03, 0x01, 0x01, 0xff};
+std::vector<uint8_t> const ENCODED_BASIC_CONSTRAINTS_IS_CA_HAS_PATH_LENGTH = {
+    0x30, 0x06, 0x01, 0x01, 0xff, 0x02, 0x01, 0x00};
+std::vector<uint8_t> const ENCODED_BASIC_CONSTRAINTS_IS_CA_HAS_PATH_LENGTH_ONE = {
+    0x30, 0x06, 0x01, 0x01, 0xff, 0x02, 0x01, 0x01};
+
+INSTANTIATE_TEST_CASE_P(
+    X509BasicConstraintsTest,
+    BasicConstraintsTest,
+    testing::Values(
+        std::tuple(false, false, 0, ENCODED_BASIC_CONSTRAINTS_NOT_CA_NO_PATH_LENGTH),
+        std::tuple(false, true, 0, ENCODED_BASIC_CONSTRAINTS_NOT_CA_HAS_PATH_LENGTH),
+        std::tuple(true, false, 0, ENCODED_BASIC_CONSTRAINTS_IS_CA_NO_PATH_LENGTH),
+        std::tuple(true, true, 0, ENCODED_BASIC_CONSTRAINTS_IS_CA_HAS_PATH_LENGTH),
+        std::tuple(true, true, 1, ENCODED_BASIC_CONSTRAINTS_IS_CA_HAS_PATH_LENGTH_ONE)));
+
+TEST_P(BasicConstraintsTest, BasicConstraintsEncoding) {
+    auto [is_ca, has_path_length, path_length, expected] = GetParam();
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_ext_basic_constraints_t context = {
+        .is_ca = is_ca, .has_path_length = has_path_length, .path_length = path_length};
+    n20_x509_ext_basic_constraints_content(&s, &context);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(expected, got);
+}
+
+class KeyUsageTest : public testing::Test {};
+
+std::vector<uint8_t> const ENCODED_KEY_USAGE_ZERO_BITS = {0x03, 0x01, 0x00};
+
+TEST(KeyUsageTest, KeyUsageZeroBitsEncoding) {
+    n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_ext_key_usage_content(&s, &key_usage);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_ZERO_BITS.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(ENCODED_KEY_USAGE_ZERO_BITS, got);
+}
+
+std::vector<uint8_t> const ENCODED_KEY_USAGE_SIX_BITS = {0x03, 0x02, 0x02, 0x84};
+
+TEST(KeyUsageTest, KeyUsageSixBitsEncoding) {
+    n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
+    N20_X509_KEY_USAGE_SET_DIGITAL_SIGNATURE(&key_usage);
+    N20_X509_KEY_USAGE_SET_KEY_CERT_SIGN(&key_usage);
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_ext_key_usage_content(&s, &key_usage);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_SIX_BITS.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(ENCODED_KEY_USAGE_SIX_BITS, got);
+}
+
+std::vector<uint8_t> const ENCODED_KEY_USAGE_NINE_BITS = {0x03, 0x03, 0x07, 0x84, 0x80};
+
+TEST(KeyUsageTest, KeyUsageNineBitsEncoding) {
+    n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
+    N20_X509_KEY_USAGE_SET_DIGITAL_SIGNATURE(&key_usage);
+    N20_X509_KEY_USAGE_SET_KEY_CERT_SIGN(&key_usage);
+    N20_X509_KEY_USAGE_SET_DECIPHER_ONLY(&key_usage);
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_ext_key_usage_content(&s, &key_usage);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_NINE_BITS.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS, got);
+}
+
+std::vector<uint8_t> const ENCODED_KEY_USAGE_NINE_BITS_ALL_SET = {0x03, 0x03, 0x07, 0xff, 0x80};
+
+TEST(KeyUsageTest, KeyUsageNineBitsAllSetEncoding) {
+    n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
+    N20_X509_KEY_USAGE_SET_DIGITAL_SIGNATURE(&key_usage);
+    N20_X509_KEY_USAGE_SET_CONTENT_COMMITMENT(&key_usage);
+    N20_X509_KEY_USAGE_SET_KEY_ENCIPHERMENT(&key_usage);
+    N20_X509_KEY_USAGE_SET_DATA_ENCIPHERMENT(&key_usage);
+    N20_X509_KEY_USAGE_SET_KEY_AGREEMENT(&key_usage);
+    N20_X509_KEY_USAGE_SET_KEY_CERT_SIGN(&key_usage);
+    N20_X509_KEY_USAGE_SET_CRL_SIGN(&key_usage);
+    N20_X509_KEY_USAGE_SET_ENCIPHER_ONLY(&key_usage);
+    N20_X509_KEY_USAGE_SET_DECIPHER_ONLY(&key_usage);
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_ext_key_usage_content(&s, &key_usage);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_NINE_BITS_ALL_SET.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS_ALL_SET, got);
+}
+
+TEST(KeyUsageTest, KeyUsageSixteenBitsAllSetEncoding) {
+    n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0xff, 0xff}};
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_ext_key_usage_content(&s, &key_usage);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_NINE_BITS_ALL_SET.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS_ALL_SET, got);
 }
 
 class CryptoTest : public testing::TestWithParam<std::tuple<n20_crypto_key_type_s>> {};
