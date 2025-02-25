@@ -456,11 +456,11 @@ void basic_constraints_content_cb(n20_asn1_stream_t* s, void* cb_context) {
 }
 
 n20_x509_extensions_t EXTENSIONS_EMPTY = {};
-std::vector<n20_x509_extension_t> EXTENSIONS_ONE_EMPTY_EXTN_VALUE = {
+std::vector<n20_x509_extension_t> const EXTENSIONS_ONE_EMPTY_EXTN_VALUE = {
     {.oid = &OID_KEY_USAGE, .critical = false, .content_cb = nullptr}};
-std::vector<n20_x509_extension_t> EXTENSIONS_ONE = {
+std::vector<n20_x509_extension_t> const EXTENSIONS_ONE = {
     {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb}};
-std::vector<n20_x509_extension_t> EXTENSIONS_TWO = {
+std::vector<n20_x509_extension_t> const EXTENSIONS_TWO = {
     {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb},
     {.oid = &OID_BASIC_CONSTRAINTS, .critical = true, .content_cb = &basic_constraints_content_cb}};
 
@@ -636,6 +636,391 @@ TEST(KeyUsageTest, KeyUsageSixteenBitsAllSetEncoding) {
     std::vector<uint8_t> got = std::vector<uint8_t>(
         n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS_ALL_SET, got);
+}
+
+class CertTBSTest : public testing::Test {};
+
+std::vector<uint8_t> const ENCODED_CERT_TBS_NULL = {0x30, 0x00};
+
+TEST(CertTBSTest, CertTBSNullEncoding) {
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_cert_tbs(&s, nullptr);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_CERT_TBS_NULL.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(ENCODED_CERT_TBS_NULL, got);
+}
+
+std::vector<uint8_t> const ENCODED_CERT_TBS_ZERO = {
+    0x30,
+    0x3d,
+    // version
+    0xa0,
+    0x03,
+    0x02,
+    0x01,
+    0x02,
+    // serialNumber
+    0x02,
+    0x01,
+    0x00,
+    // signature
+    0x30,
+    0x02,
+    0x05,
+    0x00,
+    // issuer
+    0x30,
+    0x00,
+    // validity
+    0x30,
+    0x22,
+    0x18,
+    0x0f,
+    0x31,
+    0x39,
+    0x37,
+    0x30,
+    0x30,
+    0x31,
+    0x30,
+    0x31,
+    0x30,
+    0x30,
+    0x30,
+    0x30,
+    0x30,
+    0x30,
+    0x5a,
+    0x18,
+    0x0f,
+    0x39,
+    0x39,
+    0x39,
+    0x39,
+    0x31,
+    0x32,
+    0x33,
+    0x31,
+    0x32,
+    0x33,
+    0x35,
+    0x39,
+    0x35,
+    0x39,
+    0x5a,
+    // subject
+    0x30,
+    0x00,
+    // subjectPublicKeyInfo,
+    0x30,
+    0x07,
+    0x30,
+    0x02,
+    0x05,
+    0x00,
+    0x03,
+    0x01,
+    0x00,
+};
+
+TEST(CertTBSTest, CertTBSZeroEncoding) {
+    n20_x509_tbs_t tbs = {0};
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[128];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_cert_tbs(&s, &tbs);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_CERT_TBS_ZERO.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_EQ(ENCODED_CERT_TBS_ZERO, got);
+}
+
+std::vector<uint8_t> const ENCODED_CERT_TBS_NONZERO = {
+    0x30,
+    0x81,
+    0xe1,
+    // version
+    0xa0,
+    0x03,
+    0x02,
+    0x01,
+    0x02,
+    // serialNumber
+    0x02,
+    0x01,
+    0x01,
+    // signature
+    0x30,
+    0x05,
+    0x06,
+    0x03,
+    0x2b,
+    0x65,
+    0x70,
+    // issuer
+    0x30,
+    0x35,
+    0x31,
+    0x0b,
+    0x30,
+    0x09,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x06,
+    0x13,
+    0x02,
+    0x49,
+    0x54,
+    0x31,
+    0x0f,
+    0x30,
+    0x0d,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x07,
+    0x13,
+    0x06,
+    0x4d,
+    0x69,
+    0x6c,
+    0x61,
+    0x6e,
+    0x6f,
+    0x31,
+    0x15,
+    0x30,
+    0x13,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x03,
+    0x13,
+    0x0c,
+    0x54,
+    0x65,
+    0x73,
+    0x74,
+    0x20,
+    0x65,
+    0x64,
+    0x32,
+    0x35,
+    0x35,
+    0x31,
+    0x39,
+    // validity
+    0x30,
+    0x22,
+    0x18,
+    0x0f,
+    0x32,
+    0x30,
+    0x32,
+    0x30,
+    0x30,
+    0x39,
+    0x30,
+    0x32,
+    0x31,
+    0x33,
+    0x32,
+    0x35,
+    0x32,
+    0x36,
+    0x5a,
+    0x18,
+    0x0f,
+    0x32,
+    0x30,
+    0x32,
+    0x30,
+    0x30,
+    0x39,
+    0x30,
+    0x32,
+    0x31,
+    0x33,
+    0x32,
+    0x35,
+    0x32,
+    0x36,
+    0x5a,
+    // subject
+    0x30,
+    0x35,
+    0x31,
+    0x0b,
+    0x30,
+    0x09,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x06,
+    0x13,
+    0x02,
+    0x49,
+    0x54,
+    0x31,
+    0x0f,
+    0x30,
+    0x0d,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x07,
+    0x13,
+    0x06,
+    0x4d,
+    0x69,
+    0x6c,
+    0x61,
+    0x6e,
+    0x6f,
+    0x31,
+    0x15,
+    0x30,
+    0x13,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x03,
+    0x13,
+    0x0c,
+    0x54,
+    0x65,
+    0x73,
+    0x74,
+    0x20,
+    0x65,
+    0x64,
+    0x32,
+    0x35,
+    0x35,
+    0x31,
+    0x39,
+    // subjectPublicKeyInfo,
+    0x30,
+    0x2a,
+    0x30,
+    0x05,
+    0x06,
+    0x03,
+    0x2b,
+    0x65,
+    0x70,
+    0x03,
+    0x21,
+    0x00,
+    0x3b,
+    0xa9,
+    0x2f,
+    0xfd,
+    0xcb,
+    0x17,
+    0x66,
+    0xde,
+    0x40,
+    0xa2,
+    0x92,
+    0xf7,
+    0x93,
+    0xde,
+    0x30,
+    0xf8,
+    0x0a,
+    0x23,
+    0xa8,
+    0x31,
+    0x21,
+    0x5d,
+    0xd0,
+    0x07,
+    0xd8,
+    0x63,
+    0x24,
+    0x2e,
+    0xff,
+    0x68,
+    0x21,
+    0x85,
+    // extensions
+    0xa3,
+    0x12,
+    0x30,
+    0x10,
+    0x30,
+    0x0e,
+    0x06,
+    0x03,
+    0x55,
+    0x1d,
+    0x0f,
+    0x01,
+    0x01,
+    0xff,
+    0x04,
+    0x04,
+    0x03,
+    0x02,
+    0x05,
+    0x00,
+};
+
+TEST(CertTBSTest, CertTBSNonzeroEncoding) {
+    n20_x509_tbs_t tbs;
+    tbs.serial_number = 1;
+    tbs.signature_algorithm = {.oid = &OID_ED25519,
+                               .params = {.variant = n20_x509_pv_none_e, .ec_curve = nullptr}};
+    tbs.issuer_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "IT"),
+                                    N20_X509_RDN(&OID_LOCALITY_NAME, "Milano"),
+                                    N20_X509_RDN(&OID_COMMON_NAME, "Test ed25519"));
+    tbs.validity = {.not_before = "20200902132526Z", .not_after = "20200902132526Z"};
+    tbs.subject_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "IT"),
+                                     N20_X509_RDN(&OID_LOCALITY_NAME, "Milano"),
+                                     N20_X509_RDN(&OID_COMMON_NAME, "Test ed25519"));
+    std::vector<uint8_t> public_key_v = {0x3b, 0xa9, 0x2f, 0xfd, 0xcb, 0x17, 0x66, 0xde,
+                                         0x40, 0xa2, 0x92, 0xf7, 0x93, 0xde, 0x30, 0xf8,
+                                         0x0a, 0x23, 0xa8, 0x31, 0x21, 0x5d, 0xd0, 0x07,
+                                         0xd8, 0x63, 0x24, 0x2e, 0xff, 0x68, 0x21, 0x85};
+    tbs.subject_public_key_info = {
+        .algorithm_identifier = {.oid = &OID_ED25519,
+                                 .params = {.variant = n20_x509_pv_none_e, .ec_curve = nullptr}},
+        .public_key_bits = 256,
+        .public_key = public_key_v.data(),
+    };
+    tbs.extensions = {
+        .extensions_count = EXTENSIONS_ONE.size(),
+        .extensions = EXTENSIONS_ONE.data(),
+    };
+
+    n20_asn1_stream_t s;
+    uint8_t buffer[256];
+    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_x509_cert_tbs(&s, &tbs);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_CERT_TBS_NONZERO.size());
+    std::vector<uint8_t> got = std::vector<uint8_t>(
+        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    for (int i = 0; i < got.size(); i++) {
+        if (got[i] != ENCODED_CERT_TBS_NONZERO[i]) {
+            std::cout << "FDSFSDFSD: " << i << std::endl;
+        }
+    }
+    ASSERT_EQ(ENCODED_CERT_TBS_NONZERO, got);
 }
 
 class CryptoTest : public testing::TestWithParam<std::tuple<n20_crypto_key_type_s>> {};
