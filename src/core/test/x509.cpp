@@ -16,8 +16,6 @@
 
 #include <gtest/gtest.h>
 #include <nat20/asn1.h>
-#include <nat20/crypto.h>
-#include <nat20/crypto_bssl/crypto.h>
 #include <nat20/oid.h>
 #include <nat20/x509.h>
 #include <openssl/base.h>

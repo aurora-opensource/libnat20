@@ -204,10 +204,6 @@ if (NAT20_WITH_CRYPTO_BSSL)
     add_definitions(-DN20_CONFIG_WITH_BSSL=1)
 
     if (NAT20_WITH_TESTS)
-        target_sources(nat20_test_bin
-            PRIVATE ${LIBNAT20_TEST_SOURCES}
-        )
-        target_link_libraries(nat20_test_bin nat20_crypto_boringssl)
         target_sources(nat20_crypto_test_bin
             PRIVATE src/crypto/test/crypto_boringssl.cpp
         )
