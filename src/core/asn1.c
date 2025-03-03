@@ -453,7 +453,7 @@ void n20_asn1_generalized_time(n20_asn1_stream_t *const s,
     }
     n20_asn1_slice_t const slice = {
         .buffer = (uint8_t *)time_str,
-        .size = time_str == NULL ? 0 : strlen(time_str),
+        .size = strlen(time_str),
     };
     n20_asn1_stringish(s, N20_ASN1_TAG_GENERALIZED_TIME, &slice, tag_info);
 }
