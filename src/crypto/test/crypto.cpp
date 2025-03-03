@@ -765,6 +765,17 @@ TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
         // must contain the correct maximal required buffer size.
         N20_ASSERT_EQ(want_key_size, public_key_size);
 
+        // Must return n20_crypto_error_ok_e if the the buffer size is sufficient.
+        uint8_t large_public_key_buffer[256];
+        public_key_size = sizeof(large_public_key_buffer);
+        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+                      this->ctx->key_get_public_key(
+                          this->ctx, key, large_public_key_buffer, &public_key_size));
+
+        // If n20_crypto_error_ok_e was returned public_key_size must contain the correct maximal
+        // required buffer size.
+        N20_ASSERT_EQ(want_key_size, public_key_size);
+
         N20_ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, key));
     }
 

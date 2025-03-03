@@ -520,6 +520,8 @@ static n20_crypto_error_t n20_crypto_boringssl_key_get_public_key(struct n20_cry
             }
             auto x962_key_info_guard = std::unique_ptr<uint8_t, BoringsslDeleter>(x962_key_info);
 
+            *public_key_size_in_out = public_key_size;
+
             // The key size should be exactly twice the key size + one byte for
             // the compression header, which must be 0x04 indication no compression.
             if ((size_t)rc_der_len != *public_key_size_in_out + 1 || x962_key_info[0] != 0x04) {
@@ -537,11 +539,6 @@ static n20_crypto_error_t n20_crypto_boringssl_key_get_public_key(struct n20_cry
                 // If this happened this implementation handed out
                 // inconsistent data or the user did something undefined.
                 return n20_crypto_error_implementation_specific_e;
-            }
-
-            if (*public_key_size_in_out < 32 || public_key_out == nullptr) {
-                *public_key_size_in_out = 32;
-                return n20_crypto_error_insufficient_buffer_size_e;
             }
 
             auto rc =
