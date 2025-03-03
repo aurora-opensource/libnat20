@@ -520,6 +520,7 @@ class CertTBSTest : public testing::Test {};
 
 std::vector<uint8_t> const ENCODED_CERT_TBS_NULL = {0x30, 0x00};
 
+// Test the encoding of a null tbs structure.
 TEST(CertTBSTest, CertTBSNullEncoding) {
     n20_asn1_stream_t s;
     uint8_t buffer[128];
@@ -605,6 +606,7 @@ std::vector<uint8_t> const ENCODED_CERT_TBS_ZERO = {
     0x00,
 };
 
+// Test the encoding of a zero tbs structure.
 TEST(CertTBSTest, CertTBSZeroEncoding) {
     n20_x509_tbs_t tbs = {0};
 
@@ -858,31 +860,43 @@ std::vector<uint8_t> const ENCODED_CERT_TBS_NONZERO = {
     0x00,
 };
 
+// Test the encoding of a non zero tbs structure.
 TEST(CertTBSTest, CertTBSNonzeroEncoding) {
-    n20_x509_tbs_t tbs;
-    tbs.serial_number = 1;
-    tbs.signature_algorithm = {.oid = &OID_ED25519,
-                               .params = {.variant = n20_x509_pv_none_e, .ec_curve = nullptr}};
-    tbs.issuer_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "IT"),
-                                    N20_X509_RDN(&OID_LOCALITY_NAME, "Milano"),
-                                    N20_X509_RDN(&OID_COMMON_NAME, "Test ed25519"));
-    tbs.validity = {.not_before = "20200902132526Z", .not_after = "20200902132526Z"};
-    tbs.subject_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "IT"),
-                                     N20_X509_RDN(&OID_LOCALITY_NAME, "Milano"),
-                                     N20_X509_RDN(&OID_COMMON_NAME, "Test ed25519"));
     std::vector<uint8_t> public_key_v = {0x3b, 0xa9, 0x2f, 0xfd, 0xcb, 0x17, 0x66, 0xde,
                                          0x40, 0xa2, 0x92, 0xf7, 0x93, 0xde, 0x30, 0xf8,
                                          0x0a, 0x23, 0xa8, 0x31, 0x21, 0x5d, 0xd0, 0x07,
                                          0xd8, 0x63, 0x24, 0x2e, 0xff, 0x68, 0x21, 0x85};
-    tbs.subject_public_key_info = {
-        .algorithm_identifier = {.oid = &OID_ED25519,
-                                 .params = {.variant = n20_x509_pv_none_e, .ec_curve = nullptr}},
-        .public_key_bits = 256,
-        .public_key = public_key_v.data(),
-    };
-    tbs.extensions = {
-        .extensions_count = EXTENSIONS_ONE.size(),
-        .extensions = EXTENSIONS_ONE.data(),
+    n20_x509_tbs_t tbs = {
+        .serial_number = 1,
+        .signature_algorithm =
+            {
+                .oid = &OID_ED25519,
+                .params =
+                    {
+                        .variant = n20_x509_pv_none_e,
+                        .ec_curve = nullptr,
+                    },
+            },
+        .issuer_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "IT"),
+                                     N20_X509_RDN(&OID_LOCALITY_NAME, "Milano"),
+                                     N20_X509_RDN(&OID_COMMON_NAME, "Test ed25519")),
+        .validity = {.not_before = "20200902132526Z", .not_after = "20200902132526Z"},
+        .subject_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "IT"),
+                                      N20_X509_RDN(&OID_LOCALITY_NAME, "Milano"),
+                                      N20_X509_RDN(&OID_COMMON_NAME, "Test ed25519")),
+        .subject_public_key_info =
+            {
+                .algorithm_identifier = {.oid = &OID_ED25519,
+                                         .params = {.variant = n20_x509_pv_none_e,
+                                                    .ec_curve = nullptr}},
+                .public_key_bits = 256,
+                .public_key = public_key_v.data(),
+            },
+        .extensions =
+            {
+                .extensions_count = EXTENSIONS_ONE.size(),
+                .extensions = EXTENSIONS_ONE.data(),
+            },
     };
 
     n20_asn1_stream_t s;
