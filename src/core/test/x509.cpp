@@ -279,128 +279,6 @@ bool verify(EVP_PKEY_PTR_t const& key,
     return true;
 }
 
-bool n20_verify(n20_crypto_key_type_s key_type,
-                std::vector<uint8_t> const& public_key,
-                std::vector<uint8_t> const& message,
-                std::vector<uint8_t> const& signature) {
-    auto md_ctx = EVP_MD_CTX_PTR_t(EVP_MD_CTX_new());
-    if (!md_ctx) {
-        ADD_FAILURE();
-        return false;
-    }
-
-    switch (key_type) {
-        case n20_crypto_key_type_ed25519_e: {
-            auto key = EVP_PKEY_PTR_t(EVP_PKEY_new_raw_public_key(
-                EVP_PKEY_ED25519, NULL, public_key.data(), public_key.size()));
-            if (!key) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            if (1 != EVP_DigestVerifyInit(md_ctx.get(), NULL, NULL, NULL, key.get())) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            if (1 != EVP_DigestVerify(md_ctx.get(),
-                                      signature.data(),
-                                      signature.size(),
-                                      message.data(),
-                                      message.size())) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            return true;
-        }
-        case n20_crypto_key_type_secp256r1_e:
-        case n20_crypto_key_type_secp384r1_e: {
-            // The nat20 crypto library always returns an uncompressed point as public key. But
-            // boringssl expects the uncompressed header byte 0x04 to be prefixed to this point
-            // representation.
-            std::vector<uint8_t> public_key_with_header_byte;
-            public_key_with_header_byte.reserve(public_key.size() + 1);
-            public_key_with_header_byte.push_back(0x04);
-            public_key_with_header_byte.insert(
-                public_key_with_header_byte.end(), public_key.begin(), public_key.end());
-
-            auto ec_key = EC_KEY_PTR_t(EC_KEY_new_by_curve_name(
-                key_type == n20_crypto_key_type_secp256r1_e ? NID_X9_62_prime256v1
-                                                            : NID_secp384r1));
-            if (!ec_key) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            auto ec_key_p = ec_key.get();
-            uint8_t const* p = public_key_with_header_byte.data();
-            if (!o2i_ECPublicKey(&ec_key_p, &p, public_key_with_header_byte.size())) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            auto key = EVP_PKEY_PTR_t(EVP_PKEY_new());
-            if (!key || !EVP_PKEY_assign_EC_KEY(key.get(), ec_key.release())) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            // The nat20 crypto library always returns the concatenation of the big-endian encoded
-            // unsigned integers R and S as signature. But boringssl expects this signature to be
-            // DER-encoded.
-            auto sig = ECDSA_SIG_new();
-            if (!sig) {
-                ADD_FAILURE();
-                return false;
-            }
-            auto r = BN_bin2bn(signature.data(), signature.size() / 2, NULL);
-            if (!r) {
-                ADD_FAILURE();
-                return false;
-            }
-            auto s = BN_bin2bn(signature.data() + signature.size() / 2, signature.size() / 2, NULL);
-            if (!s) {
-                ADD_FAILURE();
-                return false;
-            }
-            if (!ECDSA_SIG_set0(sig, r, s)) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            uint8_t signature_der[128];
-            auto signature_der_p = signature_der;
-            size_t signature_der_size = i2d_ECDSA_SIG(sig, &signature_der_p);
-
-            if (1 != EVP_DigestVerifyInit(
-                         md_ctx.get(),
-                         NULL,
-                         key_type == n20_crypto_key_type_secp256r1_e ? EVP_sha256() : EVP_sha384(),
-                         NULL,
-                         key.get())) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            if (1 != EVP_DigestVerifyUpdate(md_ctx.get(), message.data(), message.size())) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            if (1 != EVP_DigestVerifyFinal(md_ctx.get(), signature_der, signature_der_size)) {
-                ADD_FAILURE();
-                return false;
-            }
-
-            return true;
-        }
-        default:
-            ADD_FAILURE();
-            return false;
-    }
-}
-
 class NameTest : public testing::TestWithParam<std::tuple<n20_x509_name_t*, std::vector<uint8_t>>> {
 };
 
@@ -1023,57 +901,29 @@ TEST(CertTBSTest, CertTBSNonzeroEncoding) {
     ASSERT_EQ(ENCODED_CERT_TBS_NONZERO, got);
 }
 
-class CryptoTest : public testing::TestWithParam<std::tuple<n20_crypto_key_type_s>> {};
+class CryptoTest : public testing::TestWithParam<std::tuple<int>> {};
 
 INSTANTIATE_TEST_CASE_P(CryptoTestInstance,
                         CryptoTest,
-                        testing::Values(std::tuple(n20_crypto_key_type_secp256r1_e),
-                                        std::tuple(n20_crypto_key_type_secp384r1_e),
-                                        std::tuple(n20_crypto_key_type_ed25519_e)));
+                        testing::Values(std::tuple(EVP_PKEY_RSA),
+                                        std::tuple(EVP_PKEY_EC),
+                                        std::tuple(EVP_PKEY_ED25519)));
 
 TEST_P(CryptoTest, KeyGenSignVerify) {
     auto [key_type] = GetParam();
 
-    n20_crypto_context_t* ctx = nullptr;
-    n20_crypto_slice_t cdi_slice{.size = sizeof(test_cdi), .buffer = test_cdi};
-    n20_crypto_error_t err = n20_crypto_open_boringssl(&ctx, &cdi_slice);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
-
-    n20_crypto_key_t cdi_key = nullptr;
-    err = ctx->get_cdi(ctx, &cdi_key);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
-
-    n20_crypto_gather_list_t empty_context{.count = 0, .list = nullptr};
-
-    n20_crypto_key_t signing_key = nullptr;
-    err = ctx->kdf(ctx, cdi_key, key_type, &empty_context, &signing_key);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
-
-    uint8_t public_key[128];
-    size_t public_key_size = sizeof(public_key);
-    err = ctx->key_get_public_key(ctx, signing_key, public_key, &public_key_size);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
-    std::vector<uint8_t> pub_key(public_key, public_key + public_key_size);
-
     std::string message("the message");
-    std::vector<uint8_t> message_v(
-        reinterpret_cast<uint8_t const*>(message.c_str()),
-        reinterpret_cast<uint8_t const*>(message.c_str() + message.size()));
-    n20_crypto_slice_t msg_slice{.size = message_v.size(), .buffer = message_v.data()};
-    n20_crypto_gather_list_t msg_gather{.count = 1, .list = &msg_slice};
+    auto message_v =
+        std::vector<uint8_t>(reinterpret_cast<uint8_t const*>(message.c_str()),
+                             reinterpret_cast<uint8_t const*>(message.c_str() + message.size()));
 
-    uint8_t signature[128];
-    size_t signature_size = sizeof(signature);
-    err = ctx->sign(ctx, signing_key, &msg_gather, signature, &signature_size);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    auto key = generate_key(key_type, 2048, "KeyGenSignVerify");
+    ASSERT_TRUE(!!key);
 
-    ctx->key_free(ctx, signing_key);
+    auto signature = sign(key, message_v);
+    ASSERT_TRUE(!!signature);
 
-    n20_crypto_close_boringssl(ctx);
-
-    std::vector<uint8_t> public_key_v(public_key, public_key + public_key_size);
-    std::vector<uint8_t> signature_v(signature, signature + signature_size);
-    ASSERT_TRUE(n20_verify(key_type, public_key_v, message_v, signature_v));
+    ASSERT_TRUE(verify(key, message_v, *signature));
 }
 
 class X509Test : public testing::Test {};
