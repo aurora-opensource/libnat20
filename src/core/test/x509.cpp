@@ -86,6 +86,12 @@ uint8_t const test_cdi[] = {
     0xbb, 0xe0, 0x21, 0xf5, 0x87, 0x1c, 0x6c, 0x0c, 0x30, 0x2b, 0x32, 0x4f, 0x4c, 0x44, 0xd1, 0x26,
     0xca, 0x35, 0x6b, 0xc3, 0xc5, 0x0e, 0x17, 0xc6, 0x21, 0xad, 0x1d, 0x32, 0xbd, 0x6e, 0x35, 0x08};
 
+uint8_t const test_cdi2[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
 constexpr int secp256r1 = 1;
 constexpr int secp384r1 = 2;
 
@@ -993,11 +999,12 @@ INSTANTIATE_TEST_CASE_P(
                    true)));
 
 EVP_PKEY_PTR_t n20_crypto_key_to_evp_pkey_ptr(n20_crypto_key_type_s key_type,
-                                              std::vector<uint8_t> public_key) {
+                                              uint8_t* public_key,
+                                              size_t public_key_size) {
     switch (key_type) {
         case n20_crypto_key_type_ed25519_e: {
-            auto key = EVP_PKEY_PTR_t(EVP_PKEY_new_raw_public_key(
-                EVP_PKEY_ED25519, NULL, public_key.data(), public_key.size()));
+            auto key = EVP_PKEY_PTR_t(
+                EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, public_key, public_key_size));
             if (!key) {
                 ADD_FAILURE();
                 return nullptr;
@@ -1016,8 +1023,8 @@ EVP_PKEY_PTR_t n20_crypto_key_to_evp_pkey_ptr(n20_crypto_key_type_s key_type,
             }
 
             auto ec_key_p = ec_key.get();
-            uint8_t const* p = public_key.data();
-            if (!o2i_ECPublicKey(&ec_key_p, &p, public_key.size())) {
+            uint8_t const* p = public_key;
+            if (!o2i_ECPublicKey(&ec_key_p, &p, public_key_size)) {
                 ADD_FAILURE();
                 return nullptr;
             }
@@ -1063,6 +1070,7 @@ TEST_P(CertTest, CertEncoding) {
     auto [key_type, signature_algorithm, subject_public_key_info_algorithm, has_path_length] =
         GetParam();
 
+    // Create a key with test_cdi.
     n20_crypto_context_t* ctx = nullptr;
     n20_crypto_slice_t cdi_slice{.size = sizeof(test_cdi), .buffer = test_cdi};
     n20_crypto_error_t err = n20_crypto_open_boringssl(&ctx, &cdi_slice);
@@ -1078,14 +1086,16 @@ TEST_P(CertTest, CertEncoding) {
     err = ctx->kdf(ctx, cdi_key, key_type, &empty_context, &signing_key);
     ASSERT_EQ(n20_crypto_error_ok_e, err);
 
-    uint8_t public_key[128];
-    size_t public_key_size = sizeof(public_key);
+    uint8_t public_key_buffer[128];
+    uint8_t* public_key = &public_key_buffer[1];
+    size_t public_key_size = sizeof(public_key_buffer) - 1;
     err = ctx->key_get_public_key(ctx, signing_key, public_key, &public_key_size);
     ASSERT_EQ(n20_crypto_error_ok_e, err);
-    std::vector<uint8_t> public_key_v(public_key, public_key + public_key_size);
 
     if (key_type != n20_crypto_key_type_ed25519_e) {
-        public_key_v.insert(public_key_v.begin(), 0x04);
+        public_key_buffer[0] = 0x04;
+        public_key = &public_key_buffer[0];
+        public_key_size += 1;
     }
 
     // Assemble the to-be-signed part of the certificate.
@@ -1148,7 +1158,7 @@ TEST_P(CertTest, CertEncoding) {
     // DER encode the to-be-signed part of the certificate.
     n20_asn1_stream_t s;
     uint8_t buffer[2000];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_asn1_stream_init(&s, &buffer[0], sizeof(buffer));
     n20_x509_cert_tbs(&s, &tbs);
     ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
     ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
@@ -1169,7 +1179,7 @@ TEST_P(CertTest, CertEncoding) {
         case n20_crypto_key_type_secp256r1_e:
         case n20_crypto_key_type_secp384r1_e: {
             n20_x509_rs_t rs = {.signature = signature, .signature_size = signature_size};
-            n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+            n20_asn1_stream_init(&s, &buffer[0], sizeof(buffer));
             n20_x509_rs(&s, &rs);
             ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
             ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
@@ -1198,7 +1208,7 @@ TEST_P(CertTest, CertEncoding) {
                                 n20_asn1_stream_data(&s),
                                 n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s)));
     X509_print_ex_fp(stdout, x509i.get(), 0, X509V3_EXT_DUMP_UNKNOWN);
-    auto key = n20_crypto_key_to_evp_pkey_ptr(key_type, public_key_v);
+    auto key = n20_crypto_key_to_evp_pkey_ptr(key_type, public_key, public_key_size);
     auto rc = X509_verify(x509i.get(), key.get());
     ASSERT_EQ(rc, 1) << BsslError();
 
@@ -1222,6 +1232,114 @@ TEST_P(CertTest, CertEncoding) {
         auto verify_result = bssl::CertificateVerify(cert_opts, &v_error, &v_status);
         ASSERT_TRUE(!!verify_result);
         ASSERT_EQ(v_error.Code(), bssl::VerifyError::StatusCode::PATH_VERIFIED)
+            << "Diag: " << v_error.DiagnosticString();
+    }
+
+    // Now create a certificate signed with a different key. It is expected to fail the
+    // verification.
+
+    // Create a key with test_cdi2.
+    n20_crypto_context_t* ctx2 = nullptr;
+    n20_crypto_slice_t cdi_slice2{.size = sizeof(test_cdi2), .buffer = test_cdi2};
+    err = n20_crypto_open_boringssl(&ctx2, &cdi_slice2);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
+
+    n20_crypto_key_t cdi_key2 = nullptr;
+    err = ctx2->get_cdi(ctx2, &cdi_key2);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
+
+    n20_crypto_key_t signing_key2 = nullptr;
+    err = ctx2->kdf(ctx2, cdi_key2, key_type, &empty_context, &signing_key2);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
+
+    uint8_t public_key_buffer2[128];
+    uint8_t* public_key2 = &public_key_buffer2[1];
+    size_t public_key_size2 = sizeof(public_key_buffer2) - 1;
+    err = ctx2->key_get_public_key(ctx2, signing_key2, public_key2, &public_key_size2);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
+
+    if (key_type != n20_crypto_key_type_ed25519_e) {
+        public_key_buffer2[0] = 0x04;
+        public_key2 = &public_key_buffer2[0];
+        public_key_size2 += 1;
+    }
+
+    // DER encode the to-be-signed part of the certificate.
+    uint8_t buffer2[2000];
+    n20_asn1_stream_init(&s, &buffer2[0], sizeof(buffer2));
+    n20_x509_cert_tbs(&s, &tbs);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+
+    n20_crypto_slice_t tbs_der_slice2{.size = n20_asn1_stream_data_written(&s),
+                                      .buffer = n20_asn1_stream_data(&s)};
+    n20_crypto_gather_list_t tbs_der_gather2{.count = 1, .list = &tbs_der_slice2};
+
+    // Sign the to-be-signed part of the certificate.
+    uint8_t signature2[128];
+    size_t signature_size2 = sizeof(signature2);
+    err = ctx2->sign(ctx2, signing_key2, &tbs_der_gather2, signature2, &signature_size2);
+    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ctx2->key_free(ctx2, signing_key2);
+    n20_crypto_close_boringssl(ctx2);
+
+    switch (key_type) {
+        case n20_crypto_key_type_secp256r1_e:
+        case n20_crypto_key_type_secp384r1_e: {
+            n20_x509_rs_t rs = {.signature = signature2, .signature_size = signature_size2};
+            n20_asn1_stream_init(&s, &buffer2[0], sizeof(buffer2));
+            n20_x509_rs(&s, &rs);
+            ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+            ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+            memcpy(signature2, n20_asn1_stream_data(&s), n20_asn1_stream_data_written(&s));
+            signature_size2 = n20_asn1_stream_data_written(&s);
+        }
+    }
+
+    // Assemble the full certificate and DER encode it.
+    n20_x509_t cert2 = {
+        .tbs = &tbs,
+        .signature_algorithm = tbs.signature_algorithm,
+        .signature_bits = signature_size2 * 8,
+        .signature = signature2,
+    };
+    n20_asn1_stream_init(&s, &buffer2[0], sizeof(buffer2));
+    n20_x509_cert(&s, &cert2);
+    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
+    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+
+    // Now verify the new certificate with the new key.
+    uint8_t const* p2 = n20_asn1_stream_data(&s);
+    auto x509i2 = X509_PTR_t(d2i_X509(nullptr, &p2, (long)n20_asn1_stream_data_written(&s)));
+    ASSERT_TRUE(!!x509i2) << BsslError() << "\n"
+                          << hexdump(std::vector<uint8_t>(
+                                 n20_asn1_stream_data(&s),
+                                 n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s)));
+    X509_print_ex_fp(stdout, x509i2.get(), 0, X509V3_EXT_DUMP_UNKNOWN);
+    auto key2 = n20_crypto_key_to_evp_pkey_ptr(key_type, public_key2, public_key_size2);
+    auto rc2 = X509_verify(x509i2.get(), key2.get());
+    ASSERT_EQ(rc2, 1) << BsslError();
+
+    // Now assert that the old key fails to verify new certificate.
+    auto rc3 = X509_verify(x509i2.get(), key.get());
+    ASSERT_EQ(rc3, 0) << BsslError();
+
+    // The validation code in boringssl's pki library does not understand
+    // ED25519, so we have to skip this test for now.
+    if (key_type != n20_crypto_key_type_ed25519_e) {
+        auto cert_string_view2 =
+            std::string_view(reinterpret_cast<char const*>(n20_asn1_stream_data(&s)),
+                             n20_asn1_stream_data_written(&s));
+
+        cert_opts.leaf_cert = cert_string_view2;
+        auto verify_result = bssl::CertificateVerify(cert_opts, &v_error, &v_status);
+        ASSERT_FALSE(!!verify_result)
+            << "raw cert:\n"
+            << hexdump(std::vector<uint8_t>(
+                   n20_asn1_stream_data(&s),
+                   n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s)))
+            << std::endl;
+        ASSERT_EQ(v_error.Code(), bssl::VerifyError::StatusCode::CERTIFICATE_INVALID_SIGNATURE)
             << "Diag: " << v_error.DiagnosticString();
     }
 }
