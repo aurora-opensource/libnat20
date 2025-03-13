@@ -223,6 +223,8 @@ if (NAT20_WITH_DOCS)
 
     find_package(Doxygen REQUIRED dot)
 
+    set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
+
     doxygen_add_docs(nat20_docs
         ${LIBNAT20_PUB_HEADERS}
         ${LIBNAT20_DOC_PAGES}
