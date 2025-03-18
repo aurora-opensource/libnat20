@@ -17,82 +17,17 @@
 #include <endian.h>
 #include <nat20/asn1.h>
 #include <nat20/oid.h>
+#include <nat20/stream.h>
 #include <stdbool.h>
 #include <string.h>
 
-void n20_asn1_stream_init(n20_asn1_stream_t *s, uint8_t *const buffer, size_t buffer_size) {
-    if (s == NULL) return;
-    // If the buffer is NULL, the stream is marked bad.
-    // This will essentially ignore the buffer size, because
-    // begin or any pointer derived from it will never be
-    // dereferenced. See n20_asn1_stream_prepend.
-    s->bad = buffer == NULL;
-    s->begin = buffer;
-    s->size = buffer_size;
-    s->pos = 0;
-    s->overflow = false;
-}
-
-bool n20_asn1_stream_is_data_good(n20_asn1_stream_t const *const s) {
-    return (s != NULL) && !s->bad;
-}
-
-bool n20_asn1_stream_is_data_written_good(n20_asn1_stream_t const *const s) {
-    return (s != NULL) && !s->overflow;
-}
-
-// This function always returns the correct amount of data
-// that was written to the stream even if the stream is bad.
-// If the stream was bad it means that the stream ran out
-// of buffer. In this case the return value of this function
-// can be used to allocate a new buffer and initialize a new
-// stream that will fit the data.
-size_t n20_asn1_stream_data_written(n20_asn1_stream_t const *const s) {
-    return s != NULL ? s->pos : 0;
-}
-
-// Returns a pointer to the beginning of the written region of the buffer.
-// IMPORTANT it is only safe to dereference the returned pointer if
-// n20_asn1_stream_is_data_good returns a non zero value. Also the access must be
-// within the range [p, p + n20_asn1_stream_data_written) where p is the
-// return value of this function.
-uint8_t const *n20_asn1_stream_data(n20_asn1_stream_t const *const s) {
-    return (s != NULL) ? (s->begin + (s->size - s->pos)) : NULL;
-}
-
-// This function never fails. It might not write to the stream
-// because it ran out of buffer, however, the stream position will
-// be updated so that the required space can be read from the
-// stream state later.
-void n20_asn1_stream_prepend(n20_asn1_stream_t *const s,
-                             uint8_t const *const src,
-                             size_t const src_len) {
-    if (s == NULL) return;
-    // The write position shall be moved unconditionally,
-    // because we use this to calculate the required size later.
-    size_t old_pos = s->pos;
-    s->pos += src_len;
-    s->overflow = s->overflow || s->pos < old_pos;
-    // Mark the stream as bad if it was bad or if the next write.
-    // will overflow the buffer.
-    s->bad = s->overflow || s->bad || s->pos > s->size;
-    // If the stream is good we can write at the new position.
-    if (!s->bad) {
-        memcpy(s->begin + (s->size - s->pos), src, src_len);
-    }
-}
-
-void n20_asn1_stream_put(n20_asn1_stream_t *const s, uint8_t const c) {
-    n20_asn1_stream_prepend(s, &c, /*src_len=*/1);
-}
-
-void n20_asn1_base128_int(n20_asn1_stream_t *const s, uint64_t n) {
+void n20_asn1_base128_int(n20_stream_t *const s, uint64_t n) {
     // The integer n is written 7 bits at a time starting with the least
     // significant bits (because we are writing in reverse!). This
     // byte has the msb unset, because it terminates the sequence.
     uint8_t t = n & 0x7f;
     do {
-        n20_asn1_stream_prepend(s, &t, /*src_len=*/1);
+        n20_stream_prepend(s, &t, /*src_len=*/1);
         n >>= 7;
         // All following bytes now have have the msb set indicating that
         // more bytes follow.
@@ -100,7 +35,7 @@ void n20_asn1_base128_int(n20_asn1_stream_t *const s, uint64_t n) {
     } while (n);
 }
 
-n20_asn1_tag_info_t n20_asn1_tag_info_no_override() {
+n20_asn1_tag_info_t n20_asn1_tag_info_no_override(void) {
     n20_asn1_tag_info_t ret = {.type = n20_asn1_tag_info_no_override_e, .tag = 0};
     return ret;
 }
@@ -115,7 +50,7 @@ n20_asn1_tag_info_t n20_asn1_tag_info_implicit(int tag) {
     return ret;
 }
 
-void n20_asn1_header(n20_asn1_stream_t *const s,
+void n20_asn1_header(n20_stream_t *const s,
                      n20_asn1_class_t const class_,
                      bool const constructed,
                      uint32_t const tag,
@@ -127,7 +62,7 @@ void n20_asn1_header(n20_asn1_stream_t *const s,
         // If the length is is less than 128, it is encoded
         // in a single byte with the msb cleared.
         uint8_t l = len;
-        n20_asn1_stream_prepend(s, &l, /*src_len=*/1);
+        n20_stream_prepend(s, &l, /*src_len=*/1);
     } else {
         // Otherwise, the length is is written in big endian
         // order with the least number of bytes necessary as per DER.
@@ -138,7 +73,7 @@ void n20_asn1_header(n20_asn1_stream_t *const s,
         do {
             // Count the bytes written for the the length header.
             ++bytes;
-            n20_asn1_stream_prepend(s, &l, /*src_len=*/1);
+            n20_stream_prepend(s, &l, /*src_len=*/1);
             len >>= 8;
             l = len & 0xff;
         } while (len);
@@ -147,7 +82,7 @@ void n20_asn1_header(n20_asn1_stream_t *const s,
         // The length header has the msb set and the lower 7 bits hold
         // the number of additional length bytes.
         l = (bytes & 0x7f) | 0x80;
-        n20_asn1_stream_prepend(s, &l, /*src_len=*/1);
+        n20_stream_prepend(s, &l, /*src_len=*/1);
     }
 
     // Now for the tag.
@@ -172,17 +107,17 @@ void n20_asn1_header(n20_asn1_stream_t *const s,
         header |= 0x20;
     }
 
-    n20_asn1_stream_prepend(s, &header, /*src_len=*/1);
+    n20_stream_prepend(s, &header, /*src_len=*/1);
 }
 
-void n20_asn1_null(n20_asn1_stream_t *const s, n20_asn1_tag_info_t const tag_info) {
+void n20_asn1_null(n20_stream_t *const s, n20_asn1_tag_info_t const tag_info) {
     uint32_t tag = N20_ASN1_TAG_NULL;
     uint32_t class_ = N20_ASN1_CLASS_UNIVERSAL;
     if (tag_info.type == n20_asn1_tag_info_implicit_e) {
         tag = tag_info.tag;
         class_ = N20_ASN1_CLASS_CONTEXT_SPECIFIC;
     }
-    size_t mark = n20_asn1_stream_data_written(s);
+    size_t mark = n20_stream_byte_count(s);
     n20_asn1_header(s, class_, /*constructed=*/false, tag, /*len=*/0);
 
     if (tag_info.type == n20_asn1_tag_info_explicit_e) {
@@ -190,11 +125,11 @@ void n20_asn1_null(n20_asn1_stream_t *const s, n20_asn1_tag_info_t const tag_inf
                         N20_ASN1_CLASS_CONTEXT_SPECIFIC,
                         /*constructed=*/true,
                         tag_info.tag,
-                        n20_asn1_stream_data_written(s) - mark);
+                        n20_stream_byte_count(s) - mark);
     }
 }
 
-static void n20_asn1_object_identifier_content(n20_asn1_stream_t *const s, void *ctx) {
+static void n20_asn1_object_identifier_content(n20_stream_t *const s, void *ctx) {
     /* ctx must not be NULL. Since this function is static
        all call sites are in this compilation unit and must
        not call this function with a NULL argument. */
@@ -214,10 +149,10 @@ static void n20_asn1_object_identifier_content(n20_asn1_stream_t *const s, void 
     if (e > 0) {
         h += oid->elements[0] * 40;
     }
-    n20_asn1_stream_prepend(s, &h, /*src_len=*/1);
+    n20_stream_prepend(s, &h, /*src_len=*/1);
 }
 
-void n20_asn1_object_identifier(n20_asn1_stream_t *const s,
+void n20_asn1_object_identifier(n20_stream_t *const s,
                                 n20_asn1_object_identifier_t const *const oid,
                                 n20_asn1_tag_info_t const tag_info) {
     // If oid is a null pointer, or
@@ -244,7 +179,7 @@ struct n20_asn1_number_s {
     bool two_complement;
 };
 
-static void n20_asn1_integer_internal_content(n20_asn1_stream_t *const s, void *ctx) {
+static void n20_asn1_integer_internal_content(n20_stream_t *const s, void *ctx) {
     struct n20_asn1_number_s const *number = ctx;
 
     // n is never NULL because all of the call sites are in this
@@ -288,15 +223,15 @@ static void n20_asn1_integer_internal_content(n20_asn1_stream_t *const s, void *
 
     while (msb != end) {
         end -= inc;
-        n20_asn1_stream_prepend(s, end, /*src_len=*/1);
+        n20_stream_prepend(s, end, /*src_len=*/1);
     }
 
     if (add_extra) {
-        n20_asn1_stream_prepend(s, &extra, /*src_len=*/1);
+        n20_stream_prepend(s, &extra, /*src_len=*/1);
     }
 }
 
-void n20_asn1_integer(n20_asn1_stream_t *const s,
+void n20_asn1_integer(n20_stream_t *const s,
                       uint8_t const *const n,
                       size_t const len,
                       bool const little_endian,
@@ -324,9 +259,7 @@ void n20_asn1_integer(n20_asn1_stream_t *const s,
                                  tag_info);
 }
 
-void n20_asn1_uint64(n20_asn1_stream_t *const s,
-                     uint64_t const n,
-                     n20_asn1_tag_info_t const tag_info) {
+void n20_asn1_uint64(n20_stream_t *const s, uint64_t const n, n20_asn1_tag_info_t const tag_info) {
     n20_asn1_integer(s,
                      (uint8_t *)&n,
                      sizeof(n),
@@ -335,9 +268,7 @@ void n20_asn1_uint64(n20_asn1_stream_t *const s,
                      tag_info);
 }
 
-void n20_asn1_int64(n20_asn1_stream_t *const s,
-                    int64_t const n,
-                    n20_asn1_tag_info_t const tag_info) {
+void n20_asn1_int64(n20_stream_t *const s, int64_t const n, n20_asn1_tag_info_t const tag_info) {
     n20_asn1_integer(s,
                      (uint8_t *)&n,
                      sizeof(n),
@@ -351,7 +282,7 @@ struct n20_asn1_bitstring_slice_s {
     size_t bits;
 };
 
-static void n20_asn1_bitstring_content(n20_asn1_stream_t *const s, void *ctx) {
+static void n20_asn1_bitstring_content(n20_stream_t *const s, void *ctx) {
     struct n20_asn1_bitstring_slice_s *bit_slice = ctx;
     size_t bits = 0;
     uint8_t const *b = NULL;
@@ -368,17 +299,17 @@ static void n20_asn1_bitstring_content(n20_asn1_stream_t *const s, void *ctx) {
     if (bytes) {
         --bytes;
         uint8_t c = b[bytes] & ~((1 << unused) - 1);
-        n20_asn1_stream_prepend(s, &c, /*src_len=*/1);
+        n20_stream_prepend(s, &c, /*src_len=*/1);
         while (bytes) {
             --bytes;
-            n20_asn1_stream_prepend(s, &b[bytes], /*src_len=*/1);
+            n20_stream_prepend(s, &b[bytes], /*src_len=*/1);
         }
     }
 
-    n20_asn1_stream_prepend(s, &unused, /*src_len=*/1);
+    n20_stream_prepend(s, &unused, /*src_len=*/1);
 }
 
-void n20_asn1_bitstring(n20_asn1_stream_t *const s,
+void n20_asn1_bitstring(n20_stream_t *const s,
                         uint8_t const *const b,
                         size_t bits,
                         n20_asn1_tag_info_t const tag_info) {
@@ -397,14 +328,14 @@ void n20_asn1_bitstring(n20_asn1_stream_t *const s,
                                  tag_info);
 }
 
-static void n20_asn1_stringish_content(n20_asn1_stream_t *const s, void *ctx) {
+static void n20_asn1_stringish_content(n20_stream_t *const s, void *ctx) {
     n20_asn1_slice_t const *slice = (n20_asn1_slice_t const *)ctx;
     if (slice != NULL && slice->buffer != NULL) {
-        n20_asn1_stream_prepend(s, slice->buffer, slice->size);
+        n20_stream_prepend(s, slice->buffer, slice->size);
     }
 }
 
-static void n20_asn1_stringish(n20_asn1_stream_t *const s,
+static void n20_asn1_stringish(n20_stream_t *const s,
                                uint32_t tag,
                                n20_asn1_slice_t const *const slice,
                                n20_asn1_tag_info_t const tag_info) {
@@ -418,13 +349,13 @@ static void n20_asn1_stringish(n20_asn1_stream_t *const s,
                                  tag_info);
 }
 
-void n20_asn1_octetstring(n20_asn1_stream_t *const s,
+void n20_asn1_octetstring(n20_stream_t *const s,
                           n20_asn1_slice_t const *const slice,
                           n20_asn1_tag_info_t const tag_info) {
     n20_asn1_stringish(s, N20_ASN1_TAG_OCTET_STRING, slice, tag_info);
 }
 
-void n20_asn1_printablestring(n20_asn1_stream_t *const s,
+void n20_asn1_printablestring(n20_stream_t *const s,
                               char const *const str,
                               n20_asn1_tag_info_t const tag_info) {
     n20_asn1_slice_t const slice = {
@@ -434,7 +365,7 @@ void n20_asn1_printablestring(n20_asn1_stream_t *const s,
     n20_asn1_stringish(s, N20_ASN1_TAG_PRINTABLE_STRING, &slice, tag_info);
 }
 
-void n20_asn1_utf8_string(n20_asn1_stream_t *const s,
+void n20_asn1_utf8_string(n20_stream_t *const s,
                           char const *const str,
                           n20_asn1_tag_info_t const tag_info) {
     n20_asn1_slice_t const slice = {
@@ -444,7 +375,7 @@ void n20_asn1_utf8_string(n20_asn1_stream_t *const s,
     n20_asn1_stringish(s, N20_ASN1_TAG_UTF8_STRING, &slice, tag_info);
 }
 
-void n20_asn1_generalized_time(n20_asn1_stream_t *const s,
+void n20_asn1_generalized_time(n20_stream_t *const s,
                                char const *const time_str,
                                n20_asn1_tag_info_t const tag_info) {
     if (time_str == NULL) {
@@ -458,14 +389,14 @@ void n20_asn1_generalized_time(n20_asn1_stream_t *const s,
     n20_asn1_stringish(s, N20_ASN1_TAG_GENERALIZED_TIME, &slice, tag_info);
 }
 
-void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
+void n20_asn1_header_with_content(n20_stream_t *const s,
                                   n20_asn1_class_t class_,
                                   bool const constructed,
                                   uint32_t tag,
                                   n20_asn1_content_cb_t content_cb,
                                   void *cb_context,
                                   n20_asn1_tag_info_t const tag_info) {
-    size_t mark = n20_asn1_stream_data_written(s);
+    size_t mark = n20_stream_byte_count(s);
     if (content_cb != NULL) {
         content_cb(s, cb_context);
     }
@@ -477,7 +408,7 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
         tag = tag_info.tag;
     }
 
-    n20_asn1_header(s, class_, constructed, tag, n20_asn1_stream_data_written(s) - mark);
+    n20_asn1_header(s, class_, constructed, tag, n20_stream_byte_count(s) - mark);
 
     if (tag_info.type == n20_asn1_tag_info_explicit_e) {
         // If there is an explicit tag info, add another
@@ -486,11 +417,11 @@ void n20_asn1_header_with_content(n20_asn1_stream_t *const s,
                         N20_ASN1_CLASS_CONTEXT_SPECIFIC,
                         /*constructed=*/true,
                         tag_info.tag,
-                        n20_asn1_stream_data_written(s) - mark);
+                        n20_stream_byte_count(s) - mark);
     }
 }
 
-void n20_asn1_sequence(n20_asn1_stream_t *const s,
+void n20_asn1_sequence(n20_stream_t *const s,
                        n20_asn1_content_cb_t content_cb,
                        void *cb_context,
                        n20_asn1_tag_info_t const tag_info) {
@@ -503,16 +434,14 @@ void n20_asn1_sequence(n20_asn1_stream_t *const s,
                                  tag_info);
 }
 
-static void n20_asn1_boolean_content(n20_asn1_stream_t *const s, void *ctx) {
+static void n20_asn1_boolean_content(n20_stream_t *const s, void *ctx) {
     bool *v = ctx;
     uint8_t c = (v != NULL && *v) ? 0xff : 0x00;
 
-    n20_asn1_stream_prepend(s, &c, 1);
+    n20_stream_prepend(s, &c, 1);
 }
 
-void n20_asn1_boolean(n20_asn1_stream_t *const s,
-                      bool const v,
-                      n20_asn1_tag_info_t const tag_info) {
+void n20_asn1_boolean(n20_stream_t *const s, bool const v, n20_asn1_tag_info_t const tag_info) {
     n20_asn1_header_with_content(s,
                                  N20_ASN1_CLASS_UNIVERSAL,
                                  /*constructed=*/false,

@@ -175,7 +175,7 @@ typedef struct n20_x509_name_s {
  * @param s The stream that is to be updated.
  * @param name Pointer to an initialized instance of @ref n20_x509_name_t
  */
-extern void n20_x509_name(n20_asn1_stream_t *s, n20_x509_name_t const *name);
+extern void n20_x509_name(n20_stream_t *s, n20_x509_name_t const *name);
 
 /**
  * @brief Represents an x509 v3 extension.
@@ -311,7 +311,7 @@ typedef struct n20_x509_extensions_s {
  * @param s The stream that is to be updated.
  * @param exts Set of extensions.
  */
-extern void n20_x509_extension(n20_asn1_stream_t *const s, n20_x509_extensions_t const *exts);
+extern void n20_x509_extension(n20_stream_t *const s, n20_x509_extensions_t const *exts);
 
 /**
  * @brief Basic constraints callback context.
@@ -368,7 +368,7 @@ typedef struct n20_x509_ext_basic_constraints_s {
  * @param context A pointer to an instance of
  *        @ref n20_x509_ext_basic_constraints_t.
  */
-extern void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, void *context);
+extern void n20_x509_ext_basic_constraints_content(n20_stream_t *const s, void *context);
 
 /**
  * @defgroup n20_x509_key_usage_macros Key Usage Macros
@@ -486,7 +486,7 @@ typedef struct n20_x509_ext_key_usage_s {
  * instance of @ref n20_x509_extensions_t
  * (See @ref n20_x509_extension for an example).
  */
-extern void n20_x509_ext_key_usage_content(n20_asn1_stream_t *const s, void *context);
+extern void n20_x509_ext_key_usage_content(n20_stream_t *const s, void *context);
 
 /**
  * @brief Indicates the type of the algorithm parameter.
@@ -778,7 +778,7 @@ typedef struct n20_x509_s {
  *
  * @sa n20_x509_tbs_t
  */
-extern void n20_x509_cert_tbs(n20_asn1_stream_t *const s, n20_x509_tbs_t const *tbs);
+extern void n20_x509_cert_tbs(n20_stream_t *const s, n20_x509_tbs_t const *tbs);
 
 /**
  * @brief Render an X509 certificate.
@@ -794,7 +794,7 @@ extern void n20_x509_cert_tbs(n20_asn1_stream_t *const s, n20_x509_tbs_t const *
  * @param x509 Pointer to an instance of @ref n20_x509_t holding the
  * certificate content to be rendered.
  */
-extern void n20_x509_cert(n20_asn1_stream_t *const s, n20_x509_t const *x509);
+extern void n20_x509_cert(n20_stream_t *const s, n20_x509_t const *x509);
 
 #ifdef __cplusplus
 }

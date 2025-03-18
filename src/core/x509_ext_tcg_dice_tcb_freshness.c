@@ -15,10 +15,11 @@
  */
 
 #include <nat20/asn1.h>
+#include <nat20/stream.h>
 #include <nat20/x509.h>
 #include <nat20/x509_ext_tcg_dice_tcb_freshness.h>
 
-static void n20_x509_ext_tcg_dice_tcb_freshness_sequence_content(n20_asn1_stream_t *const s,
+static void n20_x509_ext_tcg_dice_tcb_freshness_sequence_content(n20_stream_t *const s,
                                                                  void *context) {
     n20_x509_ext_tcg_dice_tcb_freshness_t const *const tcg_dice_tcb_freshness =
         (n20_x509_ext_tcg_dice_tcb_freshness_t const *)context;
@@ -28,7 +29,7 @@ static void n20_x509_ext_tcg_dice_tcb_freshness_sequence_content(n20_asn1_stream
     n20_asn1_octetstring(s, &tcg_dice_tcb_freshness->nonce, n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_ext_tcg_dice_tcb_freshness_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_ext_tcg_dice_tcb_freshness_content(n20_stream_t *const s, void *context) {
     if (NULL == context) {
         return;
     }

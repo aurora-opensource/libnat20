@@ -15,10 +15,11 @@
  */
 
 #include <nat20/asn1.h>
+#include <nat20/stream.h>
 #include <nat20/x509.h>
 #include <nat20/x509_ext_tcg_dice_tcb_info.h>
 
-static void n20_x509_tcg_dice_tcb_info_fwid_content(n20_asn1_stream_t *const s, void *context) {
+static void n20_x509_tcg_dice_tcb_info_fwid_content(n20_stream_t *const s, void *context) {
     n20_x509_ext_tcg_dice_tcb_info_fwid_t const *const fwid =
         (n20_x509_ext_tcg_dice_tcb_info_fwid_t const *)context;
 
@@ -32,8 +33,7 @@ static void n20_x509_tcg_dice_tcb_info_fwid_content(n20_asn1_stream_t *const s, 
     n20_asn1_object_identifier(s, &fwid->hash_algo, n20_asn1_tag_info_no_override());
 }
 
-static void n20_x509_tcg_dice_tcb_info_fwid_list_content(n20_asn1_stream_t *const s,
-                                                         void *context) {
+static void n20_x509_tcg_dice_tcb_info_fwid_list_content(n20_stream_t *const s, void *context) {
     n20_x509_ext_tcg_dice_tcb_info_fwid_list_t const *const fwid_list =
         (n20_x509_ext_tcg_dice_tcb_info_fwid_list_t const *)context;
 
@@ -49,8 +49,7 @@ static void n20_x509_tcg_dice_tcb_info_fwid_list_content(n20_asn1_stream_t *cons
     }
 }
 
-static void n20_x509_ext_tcg_dice_tcb_info_sequence_content(n20_asn1_stream_t *const s,
-                                                            void *context) {
+static void n20_x509_ext_tcg_dice_tcb_info_sequence_content(n20_stream_t *const s, void *context) {
     n20_x509_ext_tcg_dice_tcb_info_t const *tcg_dice_tcb_info = context;
 
     // tcg_dice_tcb_info is never null since it's checked by n20_x509_ext_tcg_dice_tcb_info_content.
@@ -110,7 +109,7 @@ static void n20_x509_ext_tcg_dice_tcb_info_sequence_content(n20_asn1_stream_t *c
     }
 }
 
-void n20_x509_ext_tcg_dice_tcb_info_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_ext_tcg_dice_tcb_info_content(n20_stream_t *const s, void *context) {
     if (NULL == context) {
         return;
     }
@@ -121,7 +120,7 @@ void n20_x509_ext_tcg_dice_tcb_info_content(n20_asn1_stream_t *const s, void *co
                       n20_asn1_tag_info_no_override());
 }
 
-static void n20_x509_ext_tcg_dice_multi_tcb_info_sequence_content(n20_asn1_stream_t *const s,
+static void n20_x509_ext_tcg_dice_multi_tcb_info_sequence_content(n20_stream_t *const s,
                                                                   void *context) {
     n20_x509_ext_tcg_dice_multi_tcb_info_t const *const tcg_dice_multi_tcb_info = context;
 
@@ -137,7 +136,7 @@ static void n20_x509_ext_tcg_dice_multi_tcb_info_sequence_content(n20_asn1_strea
     }
 }
 
-void n20_x509_ext_tcg_dice_multi_tcb_info_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_ext_tcg_dice_multi_tcb_info_content(n20_stream_t *const s, void *context) {
     if (NULL == context) {
         return;
     }

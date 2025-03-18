@@ -97,34 +97,34 @@ TEST_P(X509ExtTcgTcbFreshnessTest, TcgTcbFreshnessEncoding) {
     // DER encode the extension.
     // First, run the formatting function with NULL stream buffer
     // to compute the length of the extension.
-    n20_asn1_stream_t s;
-    n20_asn1_stream_init(&s, nullptr, 0);
+    n20_stream_t s;
+    n20_stream_init(&s, nullptr, 0);
     n20_x509_extension(&s, &exts);
-    auto exts_size = n20_asn1_stream_data_written(&s);
-    ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+    auto exts_size = n20_stream_byte_count(&s);
+    ASSERT_TRUE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
     ASSERT_EQ(expected.size(), exts_size);
 
     // Now allocate a buffer large enough to hold the extension,
     // reinitialize the asn1_stream and write the tbs part again.
     uint8_t buffer[2000] = {};
-    n20_asn1_stream_init(&s, &buffer[0], sizeof(buffer));
+    n20_stream_init(&s, &buffer[0], sizeof(buffer));
     n20_x509_extension(&s, &exts);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
 
     ASSERT_EQ(expected, got);
 }
 
 TEST(X509ExtTcgTcbFreshnessTest, NullPointer) {
-    n20_asn1_stream_t s;
-    n20_asn1_stream_init(&s, nullptr, 0);
+    n20_stream_t s;
+    n20_stream_init(&s, nullptr, 0);
 
     n20_x509_ext_tcg_dice_tcb_freshness_content(&s, nullptr);
-    auto bytes_written = n20_asn1_stream_data_written(&s);
-    ASSERT_FALSE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+    auto bytes_written = n20_stream_byte_count(&s);
+    ASSERT_TRUE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
     ASSERT_EQ(0, bytes_written);
 }

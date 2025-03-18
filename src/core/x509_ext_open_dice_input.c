@@ -15,11 +15,11 @@
  */
 
 #include <nat20/asn1.h>
+#include <nat20/stream.h>
 #include <nat20/x509.h>
 #include <nat20/x509_ext_open_dice_input.h>
 
-static void n20_x509_ext_open_dice_input_sequence_content(n20_asn1_stream_t *const s,
-                                                          void *context) {
+static void n20_x509_ext_open_dice_input_sequence_content(n20_stream_t *const s, void *context) {
     n20_x509_ext_open_dice_input_t const *open_dice_input = context;
 
     // Don't need to check open_dice_input for NULL as it's checked in
@@ -79,7 +79,7 @@ static void n20_x509_ext_open_dice_input_sequence_content(n20_asn1_stream_t *con
     }
 }
 
-void n20_x509_ext_open_dice_input_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_ext_open_dice_input_content(n20_stream_t *const s, void *context) {
     if (context == NULL) {
         return;
     }
