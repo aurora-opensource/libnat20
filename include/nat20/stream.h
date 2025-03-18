@@ -70,7 +70,7 @@ typedef struct n20_stream_s {
      * dereferenced but subsequent writes will still update
      * @ref write_position.
      *
-     * Note: NOT @ref buffer_overflow implies NOT @ref overflow.
+     * Note: NOT @ref buffer_overflow implies NOT @ref write_position_overflow.
      *
      * @sa n20_stream_is_data_good
      */
@@ -130,11 +130,11 @@ extern void n20_stream_init(n20_stream_t *s, uint8_t *buffer, size_t buffer_size
 extern bool n20_stream_has_buffer_overflow(n20_stream_t const *s);
 
 /**
- * @brief Check if the stream write counter did overflow.
+ * @brief Check if the stream write counter overflowed.
  *
- * The stream failed to counted all the bytes written to it.
+ * The stream failed to count all the bytes written to it.
  * If `false` is returned @ref n20_stream_byte_count returns
- * a reliable result even if not all bytes where stored in
+ * a reliable result even if not all bytes were stored in
  * the underlying buffer. If `true` is returned, no inference
  * can be made about the stream data.
  * If `true` is returned it implies that
