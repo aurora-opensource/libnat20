@@ -16,6 +16,7 @@
 
 #include <nat20/cbor.h>
 #include <nat20/stream.h>
+#include <nat20/types.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -74,26 +75,24 @@ void n20_cbor_write_int(n20_stream_t *const s, int64_t const n) {
     }
 }
 
-void n20_cbor_write_byte_string(n20_stream_t *const s,
-                                uint8_t const *const bytes,
-                                size_t const len) {
-    if (bytes == NULL) {
+void n20_cbor_write_byte_string(n20_stream_t *const s, n20_slice_t const bytes) {
+    if (bytes.size > 0 && bytes.buffer == NULL) {
         n20_cbor_write_null(s);
         return;
     }
 
-    n20_stream_prepend(s, bytes, len);
-    n20_cbor_write_header(s, n20_cbor_type_bytes_e, len);
+    n20_stream_prepend(s, bytes.buffer, bytes.size);
+    n20_cbor_write_header(s, n20_cbor_type_bytes_e, bytes.size);
 }
 
-void n20_cbor_write_text_string(n20_stream_t *const s, char const *const str, size_t const len) {
-    if (str == NULL) {
+void n20_cbor_write_text_string(n20_stream_t *const s, n20_string_slice_t const text) {
+    if (text.size > 0 && text.buffer == NULL) {
         n20_cbor_write_null(s);
         return;
     }
 
-    n20_stream_prepend(s, (uint8_t const *)str, len);
-    n20_cbor_write_header(s, n20_cbor_type_string_e, len);
+    n20_stream_prepend(s, (uint8_t const *)text.buffer, text.size);
+    n20_cbor_write_header(s, n20_cbor_type_string_e, text.size);
 }
 
 void n20_cbor_write_array_header(n20_stream_t *const s, size_t const len) {

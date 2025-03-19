@@ -17,6 +17,7 @@
 #pragma once
 
 #include <nat20/stream.h>
+#include <nat20/types.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -160,23 +161,25 @@ extern void n20_cbor_write_int(n20_stream_t *s, int64_t value);
  * @brief Write a CBOR byte string to the given stream.
  *
  * This function encodes a byte string in CBOR format and writes it to the stream.
+ * if @par data.size is not 0 but @par data.buffer is NULL, it writes a NULL value
+ * instead.
  *
  * @param s The stream to write to.
- * @param data The byte string data to encode.
- * @param size The size of the byte string.
+ * @param data The byte string to encode.
  */
-extern void n20_cbor_write_byte_string(n20_stream_t *s, uint8_t const *data, size_t size);
+extern void n20_cbor_write_byte_string(n20_stream_t *s, n20_slice_t const data);
 
 /**
  * @brief Write a CBOR text string to the given stream.
  *
  * This function encodes a text string in CBOR format and writes it to the stream.
+ * if @par text.size is not 0 but @par text.buffer is NULL, it writes a NULL value
+ * instead.
  *
  * @param s The stream to write to.
  * @param text The text string to encode.
- * @param len The length of the text string.
  */
-extern void n20_cbor_write_text_string(n20_stream_t *s, char const *text, size_t len);
+extern void n20_cbor_write_text_string(n20_stream_t *s, n20_string_slice_t const text);
 
 /**
  * @brief Write a CBOR array header to the given stream.

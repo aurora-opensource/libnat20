@@ -197,7 +197,7 @@ TEST(CborTests, CborWriteByteStringTest) {
     n20_stream_init(&s, &buffer[0], sizeof(buffer));
 
     uint8_t bytes[] = {0x01, 0x02, 0x03, 0x04};
-    n20_cbor_write_byte_string(&s, bytes, sizeof(bytes));
+    n20_cbor_write_byte_string(&s, {.size = sizeof(bytes), .buffer = bytes});
 
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     size_t bytes_written = n20_stream_byte_count(&s);
@@ -215,8 +215,8 @@ TEST(CborTests, CborWriteStringTest) {
     n20_stream_t s;
     n20_stream_init(&s, &buffer[0], sizeof(buffer));
 
-    char const *str = "Hello";
-    n20_cbor_write_text_string(&s, str, strlen(str));
+    n20_string_slice_t str = N20_STR_C("Hello");
+    n20_cbor_write_text_string(&s, str);
 
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     size_t bytes_written = n20_stream_byte_count(&s);
