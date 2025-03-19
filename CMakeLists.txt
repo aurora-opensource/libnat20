@@ -45,6 +45,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(LIBNAT20_SOURCES
     # Add the core library source files here.
     src/core/asn1.c
+    src/core/cbor.c
     src/core/oid.c
     src/core/stream.c
     src/core/x509_ext_open_dice_input.c
@@ -58,6 +59,7 @@ set(LIBNAT20_PUB_HEADERS
     # Add the public headers here.
     # These files will be included in the generation of the API documentation.
     include/nat20/asn1.h
+    include/nat20/cbor.h
     include/nat20/crypto.h
     include/nat20/oid.h
     include/nat20/stream.h
@@ -70,9 +72,10 @@ set(LIBNAT20_PUB_HEADERS
 
 set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
-    src/core/test/test.cpp
     src/core/test/asn1.cpp
+    src/core/test/cbor.cpp
     src/core/test/stream.cpp
+    src/core/test/test.cpp
     src/core/test/x509.cpp
     src/core/test/x509_ext_open_dice_input.cpp
     src/core/test/x509_ext_tcg_dice_tcb_freshness.cpp
