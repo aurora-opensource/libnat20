@@ -65,7 +65,7 @@ typedef struct n20_x509_ext_tcg_dice_tcb_freshness_s {
  * instance of @ref n20_x509_extensions_t
  * (See @ref n20_x509_extension for an example).
  */
-extern void n20_x509_ext_tcg_dice_tcb_freshness_content(n20_asn1_stream_t *const s, void *context);
+extern void n20_x509_ext_tcg_dice_tcb_freshness_content(n20_stream_t *const s, void *context);
 
 #ifdef __cplusplus
 }

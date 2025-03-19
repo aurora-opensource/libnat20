@@ -325,10 +325,10 @@ static std::vector<uint8_t> signature_2_asn1_sequence(std::vector<uint8_t> const
     size_t integer_size = sig.size() / 2;
 
     uint8_t buffer[104];
-    n20_asn1_stream_t s;
-    n20_asn1_stream_init(&s, &buffer[0], 104);
+    n20_stream_t s;
+    n20_stream_init(&s, &buffer[0], 104);
 
-    auto mark = n20_asn1_stream_data_written(&s);
+    auto mark = n20_stream_byte_count(&s);
     // Write S
     n20_asn1_integer(
         &s, sig.data() + integer_size, integer_size, false, false, n20_asn1_tag_info_no_override());
@@ -339,11 +339,11 @@ static std::vector<uint8_t> signature_2_asn1_sequence(std::vector<uint8_t> const
                     N20_ASN1_CLASS_UNIVERSAL,
                     /*constructed=*/true,
                     N20_ASN1_TAG_SEQUENCE,
-                    n20_asn1_stream_data_written(&s) - mark);
+                    n20_stream_byte_count(&s) - mark);
 
-    EXPECT_TRUE(n20_asn1_stream_is_data_good(&s));
-    return std::vector<uint8_t>(n20_asn1_stream_data(&s),
-                                n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+    EXPECT_FALSE(n20_stream_has_buffer_overflow(&s));
+    return std::vector<uint8_t>(n20_stream_data(&s),
+                                n20_stream_data(&s) + n20_stream_byte_count(&s));
 }
 
 bool verify(EVP_PKEY_PTR_t const& key,

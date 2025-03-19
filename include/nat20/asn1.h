@@ -17,6 +17,7 @@
 #pragma once
 
 #include <nat20/oid.h>
+#include <nat20/stream.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -230,207 +231,6 @@ extern "C" {
 typedef uint8_t n20_asn1_class_t;
 
 /**
- * @brief Represents an stream buffer for rendering ASN.1 artifacts.
- *
- * A `n20_asn1_stream` is used to render ASN.1 artifacts by writing
- * ASN.1 structures to it in reverse order. It can also be used to
- * compute the size of a rendered artifact without actually
- * writing it to a buffer by initializing the buffer with NULL.
- *
- * Writing ASN.1 in reverse has the benefit, that the sizes of
- * each field is known when rendering the corresponding header
- * with no further adjustment required to adhere to DER.
- */
-typedef struct n20_asn1_stream_s {
-    /**
-     * @brief Points to the beginning of the underlying buffer.
-     *
-     * This may be NULL.
-     */
-    uint8_t *begin;
-    /**
-     * @brief The size of the underlying buffer.
-     *
-     * This is effectively ignored if @ref begin is NULL.
-     */
-    size_t size;
-    /**
-     * @brief Pos indicates the write position in bytes.
-     *
-     * This is initialized with `0` and incremented with
-     * each byte written. The actual write position within
-     * the buffer is computed as @ref begin + @ref size - @ref pos.
-     */
-    size_t pos;
-    /**
-     * @brief Indicates if the stream data is inconsistent.
-     *
-     * If @ref begin is NULL or if @ref pos became greater
-     * than @ref size or if an overflow occurred while
-     * incrementing @ref pos, @ref bad will be `true`.
-     *
-     * If @ref bad is `true`, @ref begin will not be
-     * dereferenced but subsequent writes will still update
-     * @ref pos.
-     *
-     * Note: NOT @ref bad implies NOT @ref overflow.
-     *
-     * @sa n20_asn1_stream_is_data_good
-     */
-    bool bad;
-    /**
-     * @brief Indicates that an overflow occurred while incrementing @ref pos.
-     *
-     * If an overflow occurred while incrementing @ref pos,
-     * @ref overflow is set to `true`.
-     *
-     * Note: @ref overflow implies @ref bad.
-     *
-     * @sa n20_asn1_stream_is_data_written_good
-     */
-    bool overflow;
-} n20_asn1_stream_t;
-
-/**
- * @brief Initialize an @ref n20_asn1_stream_t structure.
- *
- * Initializes a structure of @ref n20_asn1_stream_t.
- * It is safe to call this function with `buffer == NULL`.
- * In this case the `buffer_size` parameter is effectively ignored
- * and the stream will merely count the bytes written
- * to it, which can be used for calculating a buffer size hint.
- * If `buffer` is given it must point to a buffer of at least
- * `buffer_size` bytes, or an out of bounds write will occur.
- *
- * ## Ownership and life time
- *
- * The initialized stream does not take ownership of the provided
- * buffer and the buffer must outlive the stream object.
- *
- * Calling this function with `s == NULL` is safe but a noop.
- *
- * @param s A pointer to the to be initialized @ref n20_asn1_stream_t structure.
- * @param buffer A pointer to the target stream buffer or NULL.
- * @param buffer_size Size of `buffer` in bytes.
- */
-extern void n20_asn1_stream_init(n20_asn1_stream_t *s, uint8_t *buffer, size_t buffer_size);
-
-/**
- * @brief Check if the stream is good.
- *
- * The stream is considered good if all bytes
- * written to it where stored in the underlying stream
- * buffer. If `true` is returned it implies that
- * @ref n20_asn1_stream_data returns a pointer that can
- * be safely dereferenced.
- * If `true` is returned it implies @ref n20_asn1_stream_is_data_written_good
- * must return `true`.
- *
- * @param s the pointer to the stream that is to be queried.
- * @return true if the stream is good.
- */
-extern bool n20_asn1_stream_is_data_good(n20_asn1_stream_t const *s);
-
-/**
- * @brief Check if the stream write counter did not overflow.
- *
- * The stream successfully counted all the bytes written to it
- * even if not all bytes where stored in the underlying buffer.
- * If `true` is returned @ref n20_asn1_stream_data_written returns
- * a reliable result. No inference can be made about the stream
- * data. If `false` is returned it implies that @ref n20_stream_is_data_good
- * must also return `false`.
- *
- * @param s the pointer to the stream that is to be queried.
- * @return bool true if the stream write counter did not overflow.
- */
-extern bool n20_asn1_stream_is_data_written_good(n20_asn1_stream_t const *s);
-
-/**
- * @brief Query the number of bytes written to the stream.
- *
- * This function always returns the correct amount of data
- * if @ref n20_asn1_stream_is_data_written_good is true
- * even if @ref n20_asn1_stream_is_data_good is not.
- * The latter indicates that the stream ran out of buffer,
- * however, this function can still be used to gauge the
- * buffer size required for the asn1 formatting operation.
- *
- * @param s the pointer to the stream that is to be queried.
- * @return size_t number of bytes written to the stream.
- */
-extern size_t n20_asn1_stream_data_written(n20_asn1_stream_t const *s);
-
-/**
- * @brief Points to the current stream position.
- *
- * The stream is always written from the end of the buffer.
- * This means that the returned pointer points always to the
- * beginning of the written section. If no data has been written
- * this points past the end of the buffer.
- *
- * IMPORTANT it is only safe to dereference the returned pointer if
- * @ref n20_asn1_stream_is_data_good returns `true`. Also the access must be
- * within the range [p, p + @ref n20_asn1_stream_data_written) where p is the
- * return value of this function.
- *
- * @param s the pointer to the stream that is to be queried.
- * @return pointer to the beginning of the written buffer.
- */
-extern uint8_t const *n20_asn1_stream_data(n20_asn1_stream_t const *s);
-
-/**
- * @brief Write a buffer to the front of the stream buffer.
- *
- * The asn1 stream is always written in reverse. This means that
- * prepending is the only way to write to the stream buffer.
- * The buffer's write position is moved by `-src_len`
- * unconditionally. If the stream is good and the new position
- * points inside of the underlying buffer, the entire source
- * buffer @ref src is copied into the stream buffer. Otherwise,
- * nothing is copied and the stream is marked as bad.
- * A bad stream can still be written to, but it will only record
- * the number of bytes written without storing any data.
- *
- * If @ref src_len is exceedingly large such that the the write position
- * would wrapp and point within the writable buffer region, the
- * stream will remain bad but in addition the overflow flag will be
- * raised on the stream indicating that even @ref n20_asn1_stream_data_written
- * is no longer reliable. This condition can be queried using
- * @ref n20_asn1_stream_is_data_written_good.
- *
- * @param s The stream that is to be updated.
- * @param src The source buffer that is to be written to the stream.
- * @param src_len The size of the source buffer in bytes.
- * @sa n20_asn1_stream_data_written
- * @sa n20_asn1_stream_is_data_written_good
- */
-extern void n20_asn1_stream_prepend(n20_asn1_stream_t *s, uint8_t const *src, size_t src_len);
-
-/**
- * @brief Convenience function to write a single byte to the stream.
- *
- * This convenience function prepends a single byte to the stream.
- * It is useful for writing literals that are not already stored in
- * a memory address that can be referred to with a pointer.
- *
- * The function call
- * @code{.c}
- * n20_asn1_stream_put(s, 3)
- * @endcode
- * is equivalent to
- * @code{.c}
- * uint8_t c = 3
- * n20_asn1_stream_prepend(s, &c, 1)
- * @endcode
- *
- * @param s The stream that is to be updated.
- * @param c The byte that is to be written.
- * @sa n20_asn1_stream_prepend
- */
-extern void n20_asn1_stream_put(n20_asn1_stream_t *s, uint8_t c);
-
-/**
  * @brief Write a base 128 integer to the given stream.
  *
  * A base 128 integer is always positive. The encoding
@@ -448,7 +248,7 @@ extern void n20_asn1_stream_put(n20_asn1_stream_t *s, uint8_t c);
  * @param s The stream that is to be updated.
  * @param n The integer to be written.
  */
-extern void n20_asn1_base128_int(n20_asn1_stream_t *s, uint64_t n);
+extern void n20_asn1_base128_int(n20_stream_t *s, uint64_t n);
 
 /**
  * @brief Write an ASN.1 header to the given stream.
@@ -482,13 +282,13 @@ extern void n20_asn1_base128_int(n20_asn1_stream_t *s, uint64_t n);
  * field. A typical usage pattern of this function is as follows:
  *
  * @code{.c}
- * size_t mark = n20_asn1_stream_data_written(s);
+ * size_t mark = n20_stream_byte_count(s);
  * // Write structure content here.
  * n20_asn1_header(s,
  *             N20_ASN1_CLASS_UNIVERSAL,
  *             1, // constructed
  *             N20_ASN1_TAG_SEQUENCE,
- *             n20_asn1_stream_data_written(s) - mark);
+ *             n20_stream_byte_count(s) - mark);
  * @endcode
  *
  * @param s The stream that is to be updated.
@@ -500,7 +300,7 @@ extern void n20_asn1_base128_int(n20_asn1_stream_t *s, uint64_t n);
  *            header.
  */
 extern void n20_asn1_header(
-    n20_asn1_stream_t *s, n20_asn1_class_t class_, bool constructed, uint32_t tag, size_t len);
+    n20_stream_t *s, n20_asn1_class_t class_, bool constructed, uint32_t tag, size_t len);
 
 /**
  * @brief Qualifies the tag info override type.
@@ -581,7 +381,7 @@ typedef struct n20_asn1_tag_info_s {
  *
  * @return n20_asn1_tag_info_t
  */
-extern n20_asn1_tag_info_t n20_asn1_tag_info_no_override();
+extern n20_asn1_tag_info_t n20_asn1_tag_info_no_override(void);
 /**
  * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
  *
@@ -659,7 +459,7 @@ typedef struct n20_asn1_slice_s {
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_NULL
  */
-extern void n20_asn1_null(n20_asn1_stream_t *const s, n20_asn1_tag_info_t tag_info);
+extern void n20_asn1_null(n20_stream_t *const s, n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write an object identifier complete with ASN.1 header to the given stream.
@@ -676,7 +476,7 @@ extern void n20_asn1_null(n20_asn1_stream_t *const s, n20_asn1_tag_info_t tag_in
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_OBJECT_IDENTIFIER
  */
-extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
+extern void n20_asn1_object_identifier(n20_stream_t *s,
                                        n20_asn1_object_identifier_t const *oid,
                                        n20_asn1_tag_info_t tag_info);
 
@@ -699,7 +499,7 @@ extern void n20_asn1_object_identifier(n20_asn1_stream_t *s,
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_INTEGER
  */
-extern void n20_asn1_integer(n20_asn1_stream_t *s,
+extern void n20_asn1_integer(n20_stream_t *s,
                              uint8_t const *n,
                              size_t len,
                              bool little_endian,
@@ -720,7 +520,7 @@ extern void n20_asn1_integer(n20_asn1_stream_t *s,
  * @param n An unsigned integer.
  * @param tag_info Tag info override.
  */
-extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n, n20_asn1_tag_info_t tag_info);
+extern void n20_asn1_uint64(n20_stream_t *s, uint64_t n, n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Convenience function to write a signed C integer as ASN.1 INTEGER.
@@ -736,7 +536,7 @@ extern void n20_asn1_uint64(n20_asn1_stream_t *s, uint64_t n, n20_asn1_tag_info_
  * @param n A signed integer.
  * @param tag_info Tag info override.
  */
-extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n, n20_asn1_tag_info_t tag_info);
+extern void n20_asn1_int64(n20_stream_t *s, int64_t n, n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write a bit string complete with ASN.1 header to the given stream.
@@ -756,7 +556,7 @@ extern void n20_asn1_int64(n20_asn1_stream_t *s, int64_t n, n20_asn1_tag_info_t 
  * @param bits Number of bits represented by the bitstring.
  * @param tag_info Tag info override.
  */
-extern void n20_asn1_bitstring(n20_asn1_stream_t *s,
+extern void n20_asn1_bitstring(n20_stream_t *s,
                                uint8_t const *b,
                                size_t bits,
                                n20_asn1_tag_info_t tag_info);
@@ -772,7 +572,7 @@ extern void n20_asn1_bitstring(n20_asn1_stream_t *s,
  * @param slice Buffer holding the octet string.
  * @param tag_info Tag info override.
  */
-extern void n20_asn1_octetstring(n20_asn1_stream_t *s,
+extern void n20_asn1_octetstring(n20_stream_t *s,
                                  n20_asn1_slice_t const *slice,
                                  n20_asn1_tag_info_t tag_info);
 
@@ -794,9 +594,7 @@ extern void n20_asn1_octetstring(n20_asn1_stream_t *s,
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_UTF8_STRING
  */
-extern void n20_asn1_utf8_string(n20_asn1_stream_t *s,
-                                 char const *str,
-                                 n20_asn1_tag_info_t tag_info);
+extern void n20_asn1_utf8_string(n20_stream_t *s, char const *str, n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write an printable string complete with ASN.1 header to the given stream.
@@ -816,7 +614,7 @@ extern void n20_asn1_utf8_string(n20_asn1_stream_t *s,
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_PRINTABLE_STRING
  */
-extern void n20_asn1_printablestring(n20_asn1_stream_t *s,
+extern void n20_asn1_printablestring(n20_stream_t *s,
                                      char const *str,
                                      n20_asn1_tag_info_t tag_info);
 
@@ -837,7 +635,7 @@ extern void n20_asn1_printablestring(n20_asn1_stream_t *s,
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_GENERALIZED_TIME
  */
-extern void n20_asn1_generalized_time(n20_asn1_stream_t *s,
+extern void n20_asn1_generalized_time(n20_stream_t *s,
                                       char const *time_str,
                                       n20_asn1_tag_info_t tag_info);
 
@@ -851,7 +649,7 @@ extern void n20_asn1_generalized_time(n20_asn1_stream_t *s,
  * @sa n20_asn1_header_with_content
  * @sa n20_asn1_sequence
  */
-typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *, void *);
+typedef void(n20_asn1_content_cb_t)(n20_stream_t *, void *);
 
 /**
  * @brief Format an ASN.1 header while inferring the length field from the content.
@@ -872,7 +670,7 @@ typedef void(n20_asn1_content_cb_t)(n20_asn1_stream_t *, void *);
  * @sa n20_asn1_header
  * @sa n20_asn1_content_cb_t
  */
-extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
+extern void n20_asn1_header_with_content(n20_stream_t *s,
                                          n20_asn1_class_t class_,
                                          bool constructed,
                                          uint32_t tag,
@@ -906,7 +704,7 @@ extern void n20_asn1_header_with_content(n20_asn1_stream_t *s,
  * @sa N20_ASN1_TAG_SEQUENCE
  * @sa N20_ASN1_CLASS_UNIVERSAL
  */
-extern void n20_asn1_sequence(n20_asn1_stream_t *s,
+extern void n20_asn1_sequence(n20_stream_t *s,
                               n20_asn1_content_cb_t content_cb,
                               void *cb_context,
                               n20_asn1_tag_info_t tag_info);
@@ -924,7 +722,7 @@ extern void n20_asn1_sequence(n20_asn1_stream_t *s,
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_BOOLEAN
  */
-extern void n20_asn1_boolean(n20_asn1_stream_t *s, bool v, n20_asn1_tag_info_t tag_info);
+extern void n20_asn1_boolean(n20_stream_t *s, bool v, n20_asn1_tag_info_t tag_info);
 
 #ifdef __cplusplus
 }
