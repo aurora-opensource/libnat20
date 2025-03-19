@@ -115,14 +115,14 @@ INSTANTIATE_TEST_CASE_P(X509NameTest,
 TEST_P(NameTest, NameEncoding) {
     auto [p, expected] = GetParam();
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_name(&s, p);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(expected, got);
 }
 class ExtensionTest
@@ -130,13 +130,13 @@ class ExtensionTest
           std::tuple<std::variant<n20_x509_extensions_t*, std::vector<n20_x509_extension_t>>,
                      std::vector<uint8_t>>> {};
 
-void key_usage_content_cb(n20_asn1_stream_t* s, void* cb_context) {
+void key_usage_content_cb(n20_stream_t* s, void* cb_context) {
     uint8_t n = 0x05;
 
     n20_asn1_bitstring(s, &n, 3, n20_asn1_tag_info_no_override());
 }
 
-void basic_constraints_content_cb(n20_asn1_stream_t* s, void* cb_context) {
+void basic_constraints_content_cb(n20_stream_t* s, void* cb_context) {
     n20_asn1_sequence(s, nullptr, nullptr, n20_asn1_tag_info_no_override());
 }
 
@@ -172,9 +172,9 @@ INSTANTIATE_TEST_CASE_P(X509ExtensionTest,
 TEST_P(ExtensionTest, ExtensionEncoding) {
     auto [p, expected] = GetParam();
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     if (auto extensions = std::get_if<n20_x509_extensions_t*>(&p)) {
         n20_x509_extension(&s, *extensions);
     }
@@ -183,10 +183,10 @@ TEST_P(ExtensionTest, ExtensionEncoding) {
                                             .extensions = extensions_vector->data()};
         n20_x509_extension(&s, &extensions);
     }
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(expected, got);
 }
 
@@ -216,16 +216,16 @@ INSTANTIATE_TEST_CASE_P(
 TEST_P(BasicConstraintsTest, BasicConstraintsEncoding) {
     auto [is_ca, has_path_length, path_length, expected] = GetParam();
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_ext_basic_constraints_t context = {
         .is_ca = is_ca, .has_path_length = has_path_length, .path_length = path_length};
     n20_x509_ext_basic_constraints_content(&s, &context);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), expected.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), expected.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(expected, got);
 }
 
@@ -236,14 +236,14 @@ std::vector<uint8_t> const ENCODED_KEY_USAGE_ZERO_BITS = {0x03, 0x01, 0x00};
 TEST(KeyUsageTest, KeyUsageZeroBitsEncoding) {
     n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_ext_key_usage_content(&s, &key_usage);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_ZERO_BITS.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_ZERO_BITS.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_ZERO_BITS, got);
 }
 
@@ -254,14 +254,14 @@ TEST(KeyUsageTest, KeyUsageSixBitsEncoding) {
     N20_X509_KEY_USAGE_SET_DIGITAL_SIGNATURE(&key_usage);
     N20_X509_KEY_USAGE_SET_KEY_CERT_SIGN(&key_usage);
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_ext_key_usage_content(&s, &key_usage);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_SIX_BITS.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_SIX_BITS.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_SIX_BITS, got);
 }
 
@@ -273,14 +273,14 @@ TEST(KeyUsageTest, KeyUsageNineBitsEncoding) {
     N20_X509_KEY_USAGE_SET_KEY_CERT_SIGN(&key_usage);
     N20_X509_KEY_USAGE_SET_DECIPHER_ONLY(&key_usage);
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_ext_key_usage_content(&s, &key_usage);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_NINE_BITS.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_NINE_BITS.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS, got);
 }
 
@@ -298,28 +298,28 @@ TEST(KeyUsageTest, KeyUsageNineBitsAllSetEncoding) {
     N20_X509_KEY_USAGE_SET_ENCIPHER_ONLY(&key_usage);
     N20_X509_KEY_USAGE_SET_DECIPHER_ONLY(&key_usage);
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_ext_key_usage_content(&s, &key_usage);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_NINE_BITS_ALL_SET.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_NINE_BITS_ALL_SET.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS_ALL_SET, got);
 }
 
 TEST(KeyUsageTest, KeyUsageSixteenBitsAllSetEncoding) {
     n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0xff, 0xff}};
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_ext_key_usage_content(&s, &key_usage);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_KEY_USAGE_NINE_BITS_ALL_SET.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_NINE_BITS_ALL_SET.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS_ALL_SET, got);
 }
 
@@ -329,14 +329,14 @@ std::vector<uint8_t> const ENCODED_CERT_TBS_NULL = {0x30, 0x00};
 
 // Test the encoding of a null tbs structure.
 TEST(CertTBSTest, CertTBSNullEncoding) {
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_cert_tbs(&s, nullptr);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_CERT_TBS_NULL.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_NULL.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_CERT_TBS_NULL, got);
 }
 
@@ -366,14 +366,14 @@ std::vector<uint8_t> const ENCODED_CERT_TBS_ZERO = {
 TEST(CertTBSTest, CertTBSZeroEncoding) {
     n20_x509_tbs_t tbs = {0};
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[128];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_cert_tbs(&s, &tbs);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_CERT_TBS_ZERO.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_ZERO.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_CERT_TBS_ZERO, got);
 }
 
@@ -446,14 +446,14 @@ TEST(CertTBSTest, CertTBSNonzeroEncoding) {
             },
     };
 
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[256];
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_cert_tbs(&s, &tbs);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_EQ(n20_asn1_stream_data_written(&s), ENCODED_CERT_TBS_NONZERO.size());
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_NONZERO.size());
     std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_asn1_stream_data(&s), n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s));
+        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     for (int i = 0; i < got.size(); i++) {
         if (got[i] != ENCODED_CERT_TBS_NONZERO[i]) {
             std::cout << "FDSFSDFSD: " << i << std::endl;
@@ -563,7 +563,7 @@ typedef struct n20_x509_rs_s {
     size_t signature_size;
 } n20_x509_rs_t;
 
-void n20_x509_rs_content(n20_asn1_stream_t* const s, void* context) {
+void n20_x509_rs_content(n20_stream_t* const s, void* context) {
     n20_x509_rs_t const* rs = (n20_x509_rs_t const*)context;
 
     n20_asn1_integer(s,
@@ -576,7 +576,7 @@ void n20_x509_rs_content(n20_asn1_stream_t* const s, void* context) {
         s, rs->signature, rs->signature_size / 2, false, false, n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_rs(n20_asn1_stream_t* const s, n20_x509_rs_t const* const rs) {
+void n20_x509_rs(n20_stream_t* const s, n20_x509_rs_t const* const rs) {
     n20_asn1_sequence(s, n20_x509_rs_content, (void*)rs, n20_asn1_tag_info_no_override());
 }
 
@@ -670,15 +670,15 @@ TEST_P(CertTest, CertEncoding) {
     };
 
     // DER encode the to-be-signed part of the certificate.
-    n20_asn1_stream_t s;
+    n20_stream_t s;
     uint8_t buffer[2000];
-    n20_asn1_stream_init(&s, &buffer[0], sizeof(buffer));
+    n20_stream_init(&s, &buffer[0], sizeof(buffer));
     n20_x509_cert_tbs(&s, &tbs);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
 
-    n20_crypto_slice_t tbs_der_slice{.size = n20_asn1_stream_data_written(&s),
-                                     .buffer = n20_asn1_stream_data(&s)};
+    n20_crypto_slice_t tbs_der_slice{.size = n20_stream_byte_count(&s),
+                                     .buffer = n20_stream_data(&s)};
     n20_crypto_gather_list_t tbs_der_gather{.count = 1, .list = &tbs_der_slice};
 
     // Sign the to-be-signed part of the certificate.
@@ -693,12 +693,12 @@ TEST_P(CertTest, CertEncoding) {
         case n20_crypto_key_type_secp256r1_e:
         case n20_crypto_key_type_secp384r1_e: {
             n20_x509_rs_t rs = {.signature = signature, .signature_size = signature_size};
-            n20_asn1_stream_init(&s, &buffer[0], sizeof(buffer));
+            n20_stream_init(&s, &buffer[0], sizeof(buffer));
             n20_x509_rs(&s, &rs);
-            ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-            ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
-            memcpy(signature, n20_asn1_stream_data(&s), n20_asn1_stream_data_written(&s));
-            signature_size = n20_asn1_stream_data_written(&s);
+            ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+            ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
+            memcpy(signature, n20_stream_data(&s), n20_stream_byte_count(&s));
+            signature_size = n20_stream_byte_count(&s);
         }
     }
 
@@ -709,18 +709,18 @@ TEST_P(CertTest, CertEncoding) {
         .signature_bits = signature_size * 8,
         .signature = signature,
     };
-    n20_asn1_stream_init(&s, buffer, sizeof(buffer));
+    n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_cert(&s, &cert);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
 
     // Now verify the certificate.
-    uint8_t const* p = n20_asn1_stream_data(&s);
-    auto x509i = X509_PTR_t(d2i_X509(nullptr, &p, (long)n20_asn1_stream_data_written(&s)));
+    uint8_t const* p = n20_stream_data(&s);
+    auto x509i = X509_PTR_t(d2i_X509(nullptr, &p, (long)n20_stream_byte_count(&s)));
     ASSERT_TRUE(!!x509i) << BsslError() << "\n"
                          << hexdump(std::vector<uint8_t>(
-                                n20_asn1_stream_data(&s),
-                                n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s)));
+                                n20_stream_data(&s),
+                                n20_stream_data(&s) + n20_stream_byte_count(&s)));
     X509_print_ex_fp(stdout, x509i.get(), 0, X509V3_EXT_DUMP_UNKNOWN);
     auto key = n20_crypto_key_to_evp_pkey_ptr(key_type, public_key, public_key_size);
     auto rc = X509_verify(x509i.get(), key.get());
@@ -737,8 +737,8 @@ TEST_P(CertTest, CertEncoding) {
         // Validate the self signed certificate.
         std::string diag;
         auto cert_string_view =
-            std::string_view(reinterpret_cast<char const*>(n20_asn1_stream_data(&s)),
-                             n20_asn1_stream_data_written(&s));
+            std::string_view(reinterpret_cast<char const*>(n20_stream_data(&s)),
+                             n20_stream_byte_count(&s));
         trust_store = bssl::VerifyTrustStore::FromDER(cert_string_view, &diag);
         ASSERT_TRUE(!!trust_store) << "Diag: " << diag;
         cert_opts.leaf_cert = cert_string_view;
@@ -780,13 +780,13 @@ TEST_P(CertTest, CertEncoding) {
 
     // DER encode the to-be-signed part of the certificate.
     uint8_t buffer2[2000];
-    n20_asn1_stream_init(&s, &buffer2[0], sizeof(buffer2));
+    n20_stream_init(&s, &buffer2[0], sizeof(buffer2));
     n20_x509_cert_tbs(&s, &tbs);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
 
-    n20_crypto_slice_t tbs_der_slice2{.size = n20_asn1_stream_data_written(&s),
-                                      .buffer = n20_asn1_stream_data(&s)};
+    n20_crypto_slice_t tbs_der_slice2{.size = n20_stream_byte_count(&s),
+                                      .buffer = n20_stream_data(&s)};
     n20_crypto_gather_list_t tbs_der_gather2{.count = 1, .list = &tbs_der_slice2};
 
     // Sign the to-be-signed part of the certificate.
@@ -801,12 +801,12 @@ TEST_P(CertTest, CertEncoding) {
         case n20_crypto_key_type_secp256r1_e:
         case n20_crypto_key_type_secp384r1_e: {
             n20_x509_rs_t rs = {.signature = signature2, .signature_size = signature_size2};
-            n20_asn1_stream_init(&s, &buffer2[0], sizeof(buffer2));
+            n20_stream_init(&s, &buffer2[0], sizeof(buffer2));
             n20_x509_rs(&s, &rs);
-            ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-            ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
-            memcpy(signature2, n20_asn1_stream_data(&s), n20_asn1_stream_data_written(&s));
-            signature_size2 = n20_asn1_stream_data_written(&s);
+            ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+            ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
+            memcpy(signature2, n20_stream_data(&s), n20_stream_byte_count(&s));
+            signature_size2 = n20_stream_byte_count(&s);
         }
     }
 
@@ -817,18 +817,18 @@ TEST_P(CertTest, CertEncoding) {
         .signature_bits = signature_size2 * 8,
         .signature = signature2,
     };
-    n20_asn1_stream_init(&s, &buffer2[0], sizeof(buffer2));
+    n20_stream_init(&s, &buffer2[0], sizeof(buffer2));
     n20_x509_cert(&s, &cert2);
-    ASSERT_TRUE(n20_asn1_stream_is_data_good(&s));
-    ASSERT_TRUE(n20_asn1_stream_is_data_written_good(&s));
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
 
     // Now verify the new certificate with the new key.
-    uint8_t const* p2 = n20_asn1_stream_data(&s);
-    auto x509i2 = X509_PTR_t(d2i_X509(nullptr, &p2, (long)n20_asn1_stream_data_written(&s)));
+    uint8_t const* p2 = n20_stream_data(&s);
+    auto x509i2 = X509_PTR_t(d2i_X509(nullptr, &p2, (long)n20_stream_byte_count(&s)));
     ASSERT_TRUE(!!x509i2) << BsslError() << "\n"
                           << hexdump(std::vector<uint8_t>(
-                                 n20_asn1_stream_data(&s),
-                                 n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s)));
+                                 n20_stream_data(&s),
+                                 n20_stream_data(&s) + n20_stream_byte_count(&s)));
     X509_print_ex_fp(stdout, x509i2.get(), 0, X509V3_EXT_DUMP_UNKNOWN);
     auto key2 = n20_crypto_key_to_evp_pkey_ptr(key_type, public_key2, public_key_size2);
     auto rc2 = X509_verify(x509i2.get(), key2.get());
@@ -842,16 +842,16 @@ TEST_P(CertTest, CertEncoding) {
     // ED25519, so we have to skip this test for now.
     if (key_type != n20_crypto_key_type_ed25519_e) {
         auto cert_string_view2 =
-            std::string_view(reinterpret_cast<char const*>(n20_asn1_stream_data(&s)),
-                             n20_asn1_stream_data_written(&s));
+            std::string_view(reinterpret_cast<char const*>(n20_stream_data(&s)),
+                             n20_stream_byte_count(&s));
 
         cert_opts.leaf_cert = cert_string_view2;
         auto verify_result = bssl::CertificateVerify(cert_opts, &v_error, &v_status);
         ASSERT_FALSE(!!verify_result)
             << "raw cert:\n"
             << hexdump(std::vector<uint8_t>(
-                   n20_asn1_stream_data(&s),
-                   n20_asn1_stream_data(&s) + n20_asn1_stream_data_written(&s)))
+                   n20_stream_data(&s),
+                   n20_stream_data(&s) + n20_stream_byte_count(&s)))
             << std::endl;
         ASSERT_EQ(v_error.Code(), bssl::VerifyError::StatusCode::CERTIFICATE_INVALID_SIGNATURE)
             << "Diag: " << v_error.DiagnosticString();
