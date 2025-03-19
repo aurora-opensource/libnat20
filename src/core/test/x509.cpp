@@ -121,8 +121,8 @@ TEST_P(NameTest, NameEncoding) {
     n20_x509_name(&s, p);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), expected.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(expected, got);
 }
 class ExtensionTest
@@ -185,8 +185,8 @@ TEST_P(ExtensionTest, ExtensionEncoding) {
     }
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), expected.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(expected, got);
 }
 
@@ -224,8 +224,8 @@ TEST_P(BasicConstraintsTest, BasicConstraintsEncoding) {
     n20_x509_ext_basic_constraints_content(&s, &context);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), expected.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(expected, got);
 }
 
@@ -242,8 +242,8 @@ TEST(KeyUsageTest, KeyUsageZeroBitsEncoding) {
     n20_x509_ext_key_usage_content(&s, &key_usage);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_ZERO_BITS.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_ZERO_BITS, got);
 }
 
@@ -260,8 +260,8 @@ TEST(KeyUsageTest, KeyUsageSixBitsEncoding) {
     n20_x509_ext_key_usage_content(&s, &key_usage);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_SIX_BITS.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_SIX_BITS, got);
 }
 
@@ -279,8 +279,8 @@ TEST(KeyUsageTest, KeyUsageNineBitsEncoding) {
     n20_x509_ext_key_usage_content(&s, &key_usage);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_NINE_BITS.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS, got);
 }
 
@@ -304,8 +304,8 @@ TEST(KeyUsageTest, KeyUsageNineBitsAllSetEncoding) {
     n20_x509_ext_key_usage_content(&s, &key_usage);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_NINE_BITS_ALL_SET.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS_ALL_SET, got);
 }
 
@@ -318,8 +318,8 @@ TEST(KeyUsageTest, KeyUsageSixteenBitsAllSetEncoding) {
     n20_x509_ext_key_usage_content(&s, &key_usage);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_KEY_USAGE_NINE_BITS_ALL_SET.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS_ALL_SET, got);
 }
 
@@ -335,8 +335,8 @@ TEST(CertTBSTest, CertTBSNullEncoding) {
     n20_x509_cert_tbs(&s, nullptr);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_NULL.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_CERT_TBS_NULL, got);
 }
 
@@ -372,39 +372,248 @@ TEST(CertTBSTest, CertTBSZeroEncoding) {
     n20_x509_cert_tbs(&s, &tbs);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_ZERO.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     ASSERT_EQ(ENCODED_CERT_TBS_ZERO, got);
 }
 
 std::vector<uint8_t> const ENCODED_CERT_TBS_NONZERO = {
-    0x30, 0x81, 0xe1,
+    0x30,
+    0x81,
+    0xe1,
     // version
-    0xa0, 0x03, 0x02, 0x01, 0x02,
+    0xa0,
+    0x03,
+    0x02,
+    0x01,
+    0x02,
     // serialNumber
-    0x02, 0x01, 0x01,
+    0x02,
+    0x01,
+    0x01,
     // signature
-    0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70,
+    0x30,
+    0x05,
+    0x06,
+    0x03,
+    0x2b,
+    0x65,
+    0x70,
     // issuer
-    0x30, 0x35, 0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13, 0x02, 0x49, 0x54, 0x31,
-    0x0f, 0x30, 0x0d, 0x06, 0x03, 0x55, 0x04, 0x07, 0x13, 0x06, 0x4d, 0x69, 0x6c, 0x61, 0x6e, 0x6f,
-    0x31, 0x15, 0x30, 0x13, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x0c, 0x54, 0x65, 0x73, 0x74, 0x20,
-    0x65, 0x64, 0x32, 0x35, 0x35, 0x31, 0x39,
+    0x30,
+    0x35,
+    0x31,
+    0x0b,
+    0x30,
+    0x09,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x06,
+    0x13,
+    0x02,
+    0x49,
+    0x54,
+    0x31,
+    0x0f,
+    0x30,
+    0x0d,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x07,
+    0x13,
+    0x06,
+    0x4d,
+    0x69,
+    0x6c,
+    0x61,
+    0x6e,
+    0x6f,
+    0x31,
+    0x15,
+    0x30,
+    0x13,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x03,
+    0x13,
+    0x0c,
+    0x54,
+    0x65,
+    0x73,
+    0x74,
+    0x20,
+    0x65,
+    0x64,
+    0x32,
+    0x35,
+    0x35,
+    0x31,
+    0x39,
     // validity
-    0x30, 0x22, 0x18, 0x0f, 0x32, 0x30, 0x32, 0x30, 0x30, 0x39, 0x30, 0x32, 0x31, 0x33, 0x32, 0x35,
-    0x32, 0x36, 0x5a, 0x18, 0x0f, 0x32, 0x30, 0x32, 0x30, 0x30, 0x39, 0x30, 0x32, 0x31, 0x33, 0x32,
-    0x35, 0x32, 0x36, 0x5a,
+    0x30,
+    0x22,
+    0x18,
+    0x0f,
+    0x32,
+    0x30,
+    0x32,
+    0x30,
+    0x30,
+    0x39,
+    0x30,
+    0x32,
+    0x31,
+    0x33,
+    0x32,
+    0x35,
+    0x32,
+    0x36,
+    0x5a,
+    0x18,
+    0x0f,
+    0x32,
+    0x30,
+    0x32,
+    0x30,
+    0x30,
+    0x39,
+    0x30,
+    0x32,
+    0x31,
+    0x33,
+    0x32,
+    0x35,
+    0x32,
+    0x36,
+    0x5a,
     // subject
-    0x30, 0x35, 0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13, 0x02, 0x49, 0x54, 0x31,
-    0x0f, 0x30, 0x0d, 0x06, 0x03, 0x55, 0x04, 0x07, 0x13, 0x06, 0x4d, 0x69, 0x6c, 0x61, 0x6e, 0x6f,
-    0x31, 0x15, 0x30, 0x13, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x0c, 0x54, 0x65, 0x73, 0x74, 0x20, 0x65, 0x64, 0x32, 0x35, 0x35, 0x31, 0x39,
+    0x30,
+    0x35,
+    0x31,
+    0x0b,
+    0x30,
+    0x09,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x06,
+    0x13,
+    0x02,
+    0x49,
+    0x54,
+    0x31,
+    0x0f,
+    0x30,
+    0x0d,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x07,
+    0x13,
+    0x06,
+    0x4d,
+    0x69,
+    0x6c,
+    0x61,
+    0x6e,
+    0x6f,
+    0x31,
+    0x15,
+    0x30,
+    0x13,
+    0x06,
+    0x03,
+    0x55,
+    0x04,
+    0x03,
+    0x13,
+    0x0c,
+    0x54,
+    0x65,
+    0x73,
+    0x74,
+    0x20,
+    0x65,
+    0x64,
+    0x32,
+    0x35,
+    0x35,
+    0x31,
+    0x39,
     // subjectPublicKeyInfo
-    0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00, 0x3b, 0xa9, 0x2f, 0xfd,
-    0xcb, 0x17, 0x66, 0xde, 0x40, 0xa2, 0x92, 0xf7, 0x93, 0xde, 0x30, 0xf8, 0x0a, 0x23, 0xa8, 0x31,
-    0x21, 0x5d, 0xd0, 0x07, 0xd8, 0x63, 0x24, 0x2e, 0xff, 0x68, 0x21, 0x85,
+    0x30,
+    0x2a,
+    0x30,
+    0x05,
+    0x06,
+    0x03,
+    0x2b,
+    0x65,
+    0x70,
+    0x03,
+    0x21,
+    0x00,
+    0x3b,
+    0xa9,
+    0x2f,
+    0xfd,
+    0xcb,
+    0x17,
+    0x66,
+    0xde,
+    0x40,
+    0xa2,
+    0x92,
+    0xf7,
+    0x93,
+    0xde,
+    0x30,
+    0xf8,
+    0x0a,
+    0x23,
+    0xa8,
+    0x31,
+    0x21,
+    0x5d,
+    0xd0,
+    0x07,
+    0xd8,
+    0x63,
+    0x24,
+    0x2e,
+    0xff,
+    0x68,
+    0x21,
+    0x85,
     // extensions
-    0xa3, 0x12, 0x30, 0x10, 0x30, 0x0e, 0x06, 0x03, 0x55, 0x1d, 0x0f, 0x01, 0x01, 0xff, 0x04, 0x04,
-    0x03, 0x02, 0x05, 0x00,
+    0xa3,
+    0x12,
+    0x30,
+    0x10,
+    0x30,
+    0x0e,
+    0x06,
+    0x03,
+    0x55,
+    0x1d,
+    0x0f,
+    0x01,
+    0x01,
+    0xff,
+    0x04,
+    0x04,
+    0x03,
+    0x02,
+    0x05,
+    0x00,
 };
 
 // Test the encoding of a non zero tbs structure.
@@ -452,8 +661,8 @@ TEST(CertTBSTest, CertTBSNonzeroEncoding) {
     n20_x509_cert_tbs(&s, &tbs);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_NONZERO.size());
-    std::vector<uint8_t> got = std::vector<uint8_t>(
-        n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
+    std::vector<uint8_t> got =
+        std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
     for (int i = 0; i < got.size(); i++) {
         if (got[i] != ENCODED_CERT_TBS_NONZERO[i]) {
             std::cout << "FDSFSDFSD: " << i << std::endl;
@@ -736,9 +945,8 @@ TEST_P(CertTest, CertEncoding) {
     if (key_type != n20_crypto_key_type_ed25519_e) {
         // Validate the self signed certificate.
         std::string diag;
-        auto cert_string_view =
-            std::string_view(reinterpret_cast<char const*>(n20_stream_data(&s)),
-                             n20_stream_byte_count(&s));
+        auto cert_string_view = std::string_view(reinterpret_cast<char const*>(n20_stream_data(&s)),
+                                                 n20_stream_byte_count(&s));
         trust_store = bssl::VerifyTrustStore::FromDER(cert_string_view, &diag);
         ASSERT_TRUE(!!trust_store) << "Diag: " << diag;
         cert_opts.leaf_cert = cert_string_view;
@@ -841,17 +1049,15 @@ TEST_P(CertTest, CertEncoding) {
     // The validation code in boringssl's pki library does not understand
     // ED25519, so we have to skip this test for now.
     if (key_type != n20_crypto_key_type_ed25519_e) {
-        auto cert_string_view2 =
-            std::string_view(reinterpret_cast<char const*>(n20_stream_data(&s)),
-                             n20_stream_byte_count(&s));
+        auto cert_string_view2 = std::string_view(
+            reinterpret_cast<char const*>(n20_stream_data(&s)), n20_stream_byte_count(&s));
 
         cert_opts.leaf_cert = cert_string_view2;
         auto verify_result = bssl::CertificateVerify(cert_opts, &v_error, &v_status);
         ASSERT_FALSE(!!verify_result)
             << "raw cert:\n"
-            << hexdump(std::vector<uint8_t>(
-                   n20_stream_data(&s),
-                   n20_stream_data(&s) + n20_stream_byte_count(&s)))
+            << hexdump(std::vector<uint8_t>(n20_stream_data(&s),
+                                            n20_stream_data(&s) + n20_stream_byte_count(&s)))
             << std::endl;
         ASSERT_EQ(v_error.Code(), bssl::VerifyError::StatusCode::CERTIFICATE_INVALID_SIGNATURE)
             << "Diag: " << v_error.DiagnosticString();
