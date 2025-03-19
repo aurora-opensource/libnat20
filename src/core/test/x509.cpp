@@ -112,6 +112,9 @@ INSTANTIATE_TEST_CASE_P(X509NameTest,
                                         std::tuple(&NAME_TWO, ENCODED_NAME_TWO),
                                         std::tuple(&NAME_NINE, ENCODED_NAME_NULL)));
 
+// This test tests name encoding. It verifies that slices with one or two well formed
+// names are encoded correctly as well as the following corner cases: null slice, empty
+// slice, and slice with more names than the maximum supported by this library.
 TEST_P(NameTest, NameEncoding) {
     auto [p, expected] = GetParam();
 
@@ -169,6 +172,9 @@ INSTANTIATE_TEST_CASE_P(X509ExtensionTest,
                                         std::tuple(EXTENSIONS_ONE, ENCODED_EXTENSIONS_ONE),
                                         std::tuple(EXTENSIONS_TWO, ENCODED_EXTENSIONS_TWO)));
 
+// This test tests extension encoding. It verifies that vectors with one or two well formed
+// extensions are encoded correctly as well as the following corner cases: null vector, empty
+// vector, and vector with one extension with an empty value.
 TEST_P(ExtensionTest, ExtensionEncoding) {
     auto [p, expected] = GetParam();
 
@@ -213,6 +219,8 @@ INSTANTIATE_TEST_CASE_P(
         std::tuple(true, true, 0, ENCODED_BASIC_CONSTRAINTS_IS_CA_HAS_PATH_LENGTH),
         std::tuple(true, true, 1, ENCODED_BASIC_CONSTRAINTS_IS_CA_HAS_PATH_LENGTH_ONE)));
 
+// This test tests basic constraints encoding. It verifies that basic constraints with various
+// arguments are encoded correctly.
 TEST_P(BasicConstraintsTest, BasicConstraintsEncoding) {
     auto [is_ca, has_path_length, path_length, expected] = GetParam();
 
@@ -233,6 +241,8 @@ class KeyUsageTest : public testing::Test {};
 
 std::vector<uint8_t> const ENCODED_KEY_USAGE_ZERO_BITS = {0x03, 0x01, 0x00};
 
+// This test tests key usage encoding. It verifies that a key usage mask that uses zero bits is
+// encoded correctly.
 TEST(KeyUsageTest, KeyUsageZeroBitsEncoding) {
     n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
 
@@ -249,6 +259,8 @@ TEST(KeyUsageTest, KeyUsageZeroBitsEncoding) {
 
 std::vector<uint8_t> const ENCODED_KEY_USAGE_SIX_BITS = {0x03, 0x02, 0x02, 0x84};
 
+// This test tests key usage encoding. It verifies that a key usage mask that uses six bits is
+// encoded correctly.
 TEST(KeyUsageTest, KeyUsageSixBitsEncoding) {
     n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
     N20_X509_KEY_USAGE_SET_DIGITAL_SIGNATURE(&key_usage);
@@ -267,6 +279,8 @@ TEST(KeyUsageTest, KeyUsageSixBitsEncoding) {
 
 std::vector<uint8_t> const ENCODED_KEY_USAGE_NINE_BITS = {0x03, 0x03, 0x07, 0x84, 0x80};
 
+// This test tests key usage encoding. It verifies that a key usage mask that uses nine bits is
+// encoded correctly.
 TEST(KeyUsageTest, KeyUsageNineBitsEncoding) {
     n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
     N20_X509_KEY_USAGE_SET_DIGITAL_SIGNATURE(&key_usage);
@@ -286,6 +300,8 @@ TEST(KeyUsageTest, KeyUsageNineBitsEncoding) {
 
 std::vector<uint8_t> const ENCODED_KEY_USAGE_NINE_BITS_ALL_SET = {0x03, 0x03, 0x07, 0xff, 0x80};
 
+// This test tests key usage encoding. It verifies that a key usage mask with nine bits all set
+// is encoded correctly.
 TEST(KeyUsageTest, KeyUsageNineBitsAllSetEncoding) {
     n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0, 0}};
     N20_X509_KEY_USAGE_SET_DIGITAL_SIGNATURE(&key_usage);
@@ -309,6 +325,8 @@ TEST(KeyUsageTest, KeyUsageNineBitsAllSetEncoding) {
     ASSERT_EQ(ENCODED_KEY_USAGE_NINE_BITS_ALL_SET, got);
 }
 
+// This test tests key usage encoding. It verifies that a key usage mask with sixteen bits all set
+// is encoded correctly.
 TEST(KeyUsageTest, KeyUsageSixteenBitsAllSetEncoding) {
     n20_x509_ext_key_usage_t key_usage = {.key_usage_mask = {0xff, 0xff}};
 
@@ -789,6 +807,8 @@ void n20_x509_rs(n20_stream_t* const s, n20_x509_rs_t const* const rs) {
     n20_asn1_sequence(s, n20_x509_rs_content, (void*)rs, n20_asn1_tag_info_no_override());
 }
 
+// Test the encoding and successful verification of a well formed cert. It additionally also tests
+// that a well formed cert created using a different cdi does not verify.
 TEST_P(CertTest, CertEncoding) {
     auto [key_type, signature_algorithm, subject_public_key_info_algorithm, has_path_length] =
         GetParam();
