@@ -15,10 +15,11 @@
  */
 
 #include <nat20/asn1.h>
+#include <nat20/stream.h>
 #include <nat20/x509.h>
 #include <nat20/x509_ext_tcg_dice_ueid.h>
 
-static void n20_x509_ext_tcg_dice_ueid_sequence_content(n20_asn1_stream_t *const s, void *context) {
+static void n20_x509_ext_tcg_dice_ueid_sequence_content(n20_stream_t *const s, void *context) {
     n20_x509_ext_tcg_dice_ueid_t const *const tcg_dice_ueid =
         (n20_x509_ext_tcg_dice_ueid_t const *)context;
 
@@ -26,7 +27,7 @@ static void n20_x509_ext_tcg_dice_ueid_sequence_content(n20_asn1_stream_t *const
     n20_asn1_octetstring(s, &tcg_dice_ueid->ueid, n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_ext_tcg_dice_ueid_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_ext_tcg_dice_ueid_content(n20_stream_t *const s, void *context) {
     if (NULL == context) {
         return;
     }

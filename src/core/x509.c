@@ -16,26 +16,27 @@
 
 #include <nat20/asn1.h>
 #include <nat20/oid.h>
+#include <nat20/stream.h>
 #include <nat20/x509.h>
 
-void n20_x509_rdn_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_rdn_content(n20_stream_t *const s, void *context) {
     n20_x509_rdn_t const *rdn = (n20_x509_rdn_t const *)context;
 
     n20_asn1_printablestring(s, rdn->value, n20_asn1_tag_info_no_override());
     n20_asn1_object_identifier(s, rdn->type, n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_rdn(n20_asn1_stream_t *const s, n20_x509_rdn_t const *rdn) {
-    size_t mark = n20_asn1_stream_data_written(s);
+void n20_x509_rdn(n20_stream_t *const s, n20_x509_rdn_t const *rdn) {
+    size_t mark = n20_stream_byte_count(s);
     n20_asn1_sequence(s, n20_x509_rdn_content, (void *)rdn, n20_asn1_tag_info_no_override());
     n20_asn1_header(s,
                     N20_ASN1_CLASS_UNIVERSAL,
                     /*constructed=*/true,
                     N20_ASN1_TAG_SET,
-                    n20_asn1_stream_data_written(s) - mark);
+                    n20_stream_byte_count(s) - mark);
 }
 
-void n20_x509_name_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_name_content(n20_stream_t *const s, void *context) {
     n20_x509_name_t const *name = context;
     if (name == NULL || name->element_count > N20_X509_NAME_MAX_NAME_ELEMENTS) {
         n20_asn1_null(s, n20_asn1_tag_info_no_override());
@@ -47,11 +48,11 @@ void n20_x509_name_content(n20_asn1_stream_t *const s, void *context) {
     }
 }
 
-void n20_x509_name(n20_asn1_stream_t *const s, n20_x509_name_t const *name) {
+void n20_x509_name(n20_stream_t *const s, n20_x509_name_t const *name) {
     n20_asn1_sequence(s, n20_x509_name_content, (void *)name, n20_asn1_tag_info_no_override());
 }
 
-static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context) {
+static void n20_x509_extension_content(n20_stream_t *const s, void *context) {
     n20_x509_extensions_t const *exts = context;
 
     size_t mark = 0;
@@ -59,7 +60,7 @@ static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context
     for (size_t i = 0; i < exts->extensions_count; ++i) {
         n20_x509_extension_t const *ext = &exts->extensions[exts->extensions_count - (i + 1)];
 
-        mark = n20_asn1_stream_data_written(s);
+        mark = n20_stream_byte_count(s);
 
         // If no content_cb was given, no data is written.
         // The value octet string will be empty.
@@ -71,7 +72,7 @@ static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context
                         N20_ASN1_CLASS_UNIVERSAL,
                         /*constructed=*/false,
                         N20_ASN1_TAG_OCTET_STRING,
-                        n20_asn1_stream_data_written(s) - mark);
+                        n20_stream_byte_count(s) - mark);
 
         if (ext->critical) {
             n20_asn1_boolean(s, 1, n20_asn1_tag_info_no_override());
@@ -87,11 +88,11 @@ static void n20_x509_extension_content(n20_asn1_stream_t *const s, void *context
                         N20_ASN1_CLASS_UNIVERSAL,
                         /*constructed=*/true,
                         N20_ASN1_TAG_SEQUENCE,
-                        n20_asn1_stream_data_written(s) - mark);
+                        n20_stream_byte_count(s) - mark);
     }
 }
 
-void n20_x509_extension(n20_asn1_stream_t *const s, n20_x509_extensions_t const *exts) {
+void n20_x509_extension(n20_stream_t *const s, n20_x509_extensions_t const *exts) {
     if (exts == NULL || exts->extensions == NULL || exts->extensions_count == 0) {
         return;
     }
@@ -99,13 +100,13 @@ void n20_x509_extension(n20_asn1_stream_t *const s, n20_x509_extensions_t const 
     n20_asn1_sequence(s, n20_x509_extension_content, (void *)exts, n20_asn1_tag_info_explicit(3));
 }
 
-void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_ext_basic_constraints_content(n20_stream_t *const s, void *context) {
     n20_x509_ext_basic_constraints_t const *basic_constraints = context;
     if (basic_constraints == NULL) {
         return;
     }
 
-    size_t mark = n20_asn1_stream_data_written(s);
+    size_t mark = n20_stream_byte_count(s);
     if (basic_constraints->is_ca) {
         if (basic_constraints->has_path_length) {
             n20_asn1_uint64(s, basic_constraints->path_length, n20_asn1_tag_info_no_override());
@@ -116,10 +117,10 @@ void n20_x509_ext_basic_constraints_content(n20_asn1_stream_t *const s, void *co
                     N20_ASN1_CLASS_UNIVERSAL,
                     /*constructed=*/true,
                     N20_ASN1_TAG_SEQUENCE,
-                    n20_asn1_stream_data_written(s) - mark);
+                    n20_stream_byte_count(s) - mark);
 }
 
-void n20_x509_ext_key_usage_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_ext_key_usage_content(n20_stream_t *const s, void *context) {
     n20_x509_ext_key_usage_t const *key_usage = context;
     uint8_t bits = 0;
 
@@ -149,7 +150,7 @@ void n20_x509_ext_key_usage_content(n20_asn1_stream_t *const s, void *context) {
     n20_asn1_bitstring(s, key_usage->key_usage_mask, bits, n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_algorithm_identifier_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_algorithm_identifier_content(n20_stream_t *const s, void *context) {
     n20_x509_algorithm_identifier_t const *alg_id = context;
     if (alg_id == NULL) {
         return;
@@ -170,14 +171,14 @@ void n20_x509_algorithm_identifier_content(n20_asn1_stream_t *const s, void *con
 }
 
 void n20_x509_algorithm_identifier(
-    n20_asn1_stream_t *const s, n20_x509_algorithm_identifier_t const *const algorithm_identifier) {
+    n20_stream_t *const s, n20_x509_algorithm_identifier_t const *const algorithm_identifier) {
     n20_asn1_sequence(s,
                       n20_x509_algorithm_identifier_content,
                       (void *)algorithm_identifier,
                       n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_public_key_info_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_public_key_info_content(n20_stream_t *const s, void *context) {
     n20_x509_public_key_info_t const *pub_key_info = context;
     n20_asn1_bitstring(s,
                        pub_key_info->public_key,
@@ -186,7 +187,7 @@ void n20_x509_public_key_info_content(n20_asn1_stream_t *const s, void *context)
     n20_x509_algorithm_identifier(s, &pub_key_info->algorithm_identifier);
 }
 
-void n20_x509_public_key_info(n20_asn1_stream_t *const s,
+void n20_x509_public_key_info(n20_stream_t *const s,
                               n20_x509_public_key_info_t const *const public_key_info) {
     n20_asn1_sequence(s,
                       n20_x509_public_key_info_content,
@@ -194,7 +195,7 @@ void n20_x509_public_key_info(n20_asn1_stream_t *const s,
                       n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_validity_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_validity_content(n20_stream_t *const s, void *context) {
     n20_x509_validity_t const *const validity = context;
     // not after
     n20_asn1_generalized_time(
@@ -208,19 +209,19 @@ void n20_x509_validity_content(n20_asn1_stream_t *const s, void *context) {
         n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_validity(n20_asn1_stream_t *const s, n20_x509_validity_t const *const validity) {
+void n20_x509_validity(n20_stream_t *const s, n20_x509_validity_t const *const validity) {
     n20_asn1_sequence(
         s, n20_x509_validity_content, (void *)validity, n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_version_3(n20_asn1_stream_t *const s) {
+void n20_x509_version_3(n20_stream_t *const s) {
     // Version 3 (value 2) with explicit tag 0.
     static uint8_t const x509_version_3_with_explicit_tag_0[] = {0xa0, 0x03, 0x02, 0x01, 0x02};
-    n20_asn1_stream_prepend(
+    n20_stream_prepend(
         s, &x509_version_3_with_explicit_tag_0[0], sizeof(x509_version_3_with_explicit_tag_0));
 }
 
-void n20_x509_cert_tbs_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_cert_tbs_content(n20_stream_t *const s, void *context) {
     n20_x509_tbs_t const *tbs = context;
     if (tbs == NULL) {
         return;
@@ -255,11 +256,11 @@ void n20_x509_cert_tbs_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_version_3(s);
 }
 
-void n20_x509_cert_tbs(n20_asn1_stream_t *const s, n20_x509_tbs_t const *const tbs) {
+void n20_x509_cert_tbs(n20_stream_t *const s, n20_x509_tbs_t const *const tbs) {
     n20_asn1_sequence(s, n20_x509_cert_tbs_content, (void *)tbs, n20_asn1_tag_info_no_override());
 }
 
-void n20_x509_cert_content(n20_asn1_stream_t *const s, void *context) {
+void n20_x509_cert_content(n20_stream_t *const s, void *context) {
     n20_x509_t const *x509 = context;
     if (x509 == NULL) {
         return;
@@ -269,6 +270,6 @@ void n20_x509_cert_content(n20_asn1_stream_t *const s, void *context) {
     n20_x509_cert_tbs(s, x509->tbs);
 }
 
-void n20_x509_cert(n20_asn1_stream_t *const s, n20_x509_t const *const x509) {
+void n20_x509_cert(n20_stream_t *const s, n20_x509_t const *const x509) {
     n20_asn1_sequence(s, n20_x509_cert_content, (void *)x509, n20_asn1_tag_info_no_override());
 }

@@ -1,4 +1,4 @@
-# The libnat20 DICE library {#mainpage}
+# The libnat20 DICE library
 
 Libnat20 is a free standing DICE library implementing the protocols
 for OpenDICE, the TCG DICE Attestation Architecture, and the TCG DICE
@@ -57,8 +57,18 @@ sudo apt install doxygen graphviz
 By default only the core library is built.
 
 ```sh
-cmake --build .
+cmake -B .
 make
+```
+
+This package also provides a reference implementation of the crypto interface
+define in `include/crypto.h` based on boringssl. To enable building the reference
+implementation use the `NAT20_WITH_CRYPTO_BSSL` variable:
+
+```sh
+cmake -B . -DNAT20_WITH_CRYPTO_BSSL=ON
+make
+make test
 ```
 
 ### Testing
@@ -67,7 +77,7 @@ To enable the test suite set the cmake variable `NAT20_WITH_TESTS` to `ON`, then
 build and run the test suite as follows:
 
 ```sh
-cmake --build . -DNAT20_WITH_TESTS=ON
+cmake -B . -DNAT20_WITH_TESTS=ON
 make
 make test
 ```
@@ -79,7 +89,7 @@ the documentation target `nat20_docs` set the cmake variable `NAT20_WITH_DOCS` t
 then build the documentation as follows:
 
 ```sh
-cmake --build . -DNAT20_WITH_DOCS=ON
+cmake -B . -DNAT20_WITH_DOCS=ON
 make nat20_docs
 ```
 
