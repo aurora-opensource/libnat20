@@ -181,6 +181,10 @@ extern void n20_cbor_write_byte_string(n20_stream_t *s, n20_slice_t const data);
  */
 extern void n20_cbor_write_text_string(n20_stream_t *s, n20_string_slice_t const text);
 
+extern bool n20_read_cbor_header(n20_istream_t *const s, n20_cbor_type_t *const type, uint64_t *const n);
+
+extern bool n20_cbor_skip_item(n20_istream_t *const s);
+
 /**
  * @brief Write a CBOR array header to the given stream.
  *
