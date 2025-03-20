@@ -15,6 +15,7 @@
  */
 
 #include <nat20/stream.h>
+#include <nat20/types.h>
 #include <string.h>
 
 void n20_stream_init(n20_stream_t *s, uint8_t *const buffer, size_t buffer_size) {
@@ -80,4 +81,50 @@ void n20_stream_prepend(n20_stream_t *const s, uint8_t const *const src, size_t 
 
 void n20_stream_put(n20_stream_t *const s, uint8_t const c) {
     n20_stream_prepend(s, &c, /*src_len=*/1);
+}
+
+void n20_istream_init(n20_istream_t *s, uint8_t const *buffer, size_t buffer_size) {
+    if (s == NULL) return;
+    s->begin = buffer;
+    s->size = buffer_size;
+    s->read_position = 0;
+    s->buffer_underrun = false;
+}
+
+bool n20_istream_read(n20_istream_t *s, uint8_t *buffer, size_t buffer_size) {
+    if (s == NULL || s->buffer_underrun) return false;
+    size_t new_position = s->read_position + buffer_size;
+    if (new_position > s->size || new_position < s->read_position) {
+        s->read_position = s->size;
+        s->buffer_underrun = true;
+        return false;
+    }
+    memcpy(buffer, s->begin + s->read_position, buffer_size);
+    s->read_position = new_position;
+    return true;
+}
+
+bool n20_istream_get(n20_istream_t *s, uint8_t *c) {
+    return n20_istream_read(s, c, /*buffer_size=*/1);
+}
+
+uint8_t const *n20_istream_get_slice(n20_istream_t *s, size_t size) {
+    if (s == NULL || s->buffer_underrun) return NULL;
+    size_t new_position = s->read_position + size;
+    if (new_position > s->size || new_position < s->read_position) {
+        s->read_position = s->size;
+        s->buffer_underrun = true;
+        return NULL;
+    }
+    uint8_t const *slice = s->begin + s->read_position;
+    s->read_position = new_position;
+    return slice;
+}
+
+bool n20_istream_has_buffer_underrun(n20_istream_t const *s) {
+    return (s == NULL) || s->buffer_underrun;
+}
+
+size_t n20_istream_read_position(n20_istream_t const *s) {
+    return (s == NULL) ? 0 : s->read_position;
 }
