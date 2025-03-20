@@ -72,7 +72,7 @@ typedef struct n20_stream_s {
      *
      * Note: NOT @ref buffer_overflow implies NOT @ref write_position_overflow.
      *
-     * @sa n20_stream_is_data_good
+     * @sa n20_stream_has_buffer_overflow
      */
     bool buffer_overflow;
     /**
