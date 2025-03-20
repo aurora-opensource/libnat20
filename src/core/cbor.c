@@ -102,3 +102,114 @@ void n20_cbor_write_array_header(n20_stream_t *const s, size_t const len) {
 void n20_cbor_write_map_header(n20_stream_t *const s, size_t const len) {
     n20_cbor_write_header(s, n20_cbor_type_map_e, len);
 }
+
+bool n20_read_cbor_header(n20_istream_t *const s, n20_cbor_type_t *const type, uint64_t *const n) {
+    uint8_t header = 0;
+    if (!n20_istream_get(s, &header)) {
+        return false;
+    }
+
+    *type = (n20_cbor_type_t)(header >> 5);
+    uint8_t additional_info = header & 0x1f;
+
+    if (additional_info < 24 || additional_info > 27) {
+        *n = additional_info;
+        return true;
+    }
+
+    *n = 0;
+
+    uint8_t additional_bytes = 1 << (additional_info - 24);
+    for (int i = 0; i < additional_bytes; i++) {
+        uint8_t byte = 0;
+        if (!n20_istream_get(s, &byte)) {
+            return false;
+        }
+        *n = (*n << 8) | byte;
+    }
+
+    return true;
+}
+
+bool n20_iterate_cbor_item(n20_istream_t *const s) {
+    n20_cbor_type_t type = n20_cbor_type_none_e;
+    uint64_t n = 0;
+    if (!n20_read_cbor_header(s, &type, &n)) {
+        return false;
+    }
+
+    switch (type) {
+        case n20_cbor_type_array_e:
+            for (size_t i = 0; i < n; i++) {
+                if (!n20_iterate_cbor_item(s)) {
+                    return false;
+                }
+            }
+            break;
+        case n20_cbor_type_map_e:
+            for (size_t i = 0; i < n; i++) {
+                if (!n20_iterate_cbor_item(s)) {
+                    return false;
+                }
+                if (!n20_iterate_cbor_item(s)) {
+                    return false;
+                }
+            }
+            break;
+        case n20_cbor_type_bytes_e:
+        case n20_cbor_type_string_e: {
+            uint8_t const *slice = n20_istream_get_slice(s, n);
+            if (slice == NULL) {
+                return false;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+
+    return true;
+}
+
+bool n20_cbor_skip_item(n20_istream_t *const s) {
+    n20_cbor_type_t type = n20_cbor_type_none_e;
+    uint64_t n = 0;
+    if (!n20_read_cbor_header(s, &type, &n)) {
+        return false;
+    }
+
+    switch (type) {
+        case n20_cbor_type_array_e:
+            for (size_t i = 0; i < n; i++) {
+                if (!n20_cbor_skip_item(s)) {
+                    return false;
+                }
+            }
+            break;
+        case n20_cbor_type_map_e:
+            for (size_t i = 0; i < n; i++) {
+                if (!n20_cbor_skip_item(s)) {
+                    return false;
+                }
+                if (!n20_cbor_skip_item(s)) {
+                    return false;
+                }
+            }
+            break;
+        case n20_cbor_type_bytes_e:
+        case n20_cbor_type_string_e: {
+            uint8_t const *slice = n20_istream_get_slice(s, n);
+            if (slice == NULL) {
+                return false;
+            }
+            break;
+        }
+        case n20_cbor_type_tag_e:
+            return n20_cbor_skip_item(s);  // Skip the tag and the item it refers to.
+        default:
+            break;
+    }
+
+    return true;
+}
+
