@@ -662,23 +662,23 @@ TEST_P(CertTest, CertEncoding) {
     n20_x509_tbs_t tbs = {
         .serial_number = 1,
         .signature_algorithm = signature_algorithm,
-        .issuer_name =
-            N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
-                          N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
-                          N20_X509_RDN(&OID_ORGANIZATION_NAME, "Dunder Mifflin Paper Company, Inc."),
-                          N20_X509_RDN(&OID_ORGANIZATION_UNIT_NAME, "Dunder Mifflin Information Security"),
-                              N20_X509_RDN(&OID_COMMON_NAME, "Dunder Mifflin DICE Authority")),
+        .issuer_name = N20_X509_NAME(
+            N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
+            N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
+            N20_X509_RDN(&OID_ORGANIZATION_NAME, "Dunder Mifflin Paper Company, Inc."),
+            N20_X509_RDN(&OID_ORGANIZATION_UNIT_NAME, "Dunder Mifflin Information Security"),
+            N20_X509_RDN(&OID_COMMON_NAME, "Dunder Mifflin DICE Authority")),
         .validity =
             {
                 .not_before = nullptr,
                 .not_after = nullptr,
             },
-        .subject_name =
-            N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
-                          N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
-                          N20_X509_RDN(&OID_ORGANIZATION_NAME, "Dunder Mifflin Paper Company, Inc."),
-                          N20_X509_RDN(&OID_ORGANIZATION_UNIT_NAME, "Dunder Mifflin Information Security"),
-                          N20_X509_RDN(&OID_COMMON_NAME, "Dunder Mifflin DICE Authority")),
+        .subject_name = N20_X509_NAME(
+            N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
+            N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
+            N20_X509_RDN(&OID_ORGANIZATION_NAME, "Dunder Mifflin Paper Company, Inc."),
+            N20_X509_RDN(&OID_ORGANIZATION_UNIT_NAME, "Dunder Mifflin Information Security"),
+            N20_X509_RDN(&OID_COMMON_NAME, "Dunder Mifflin DICE Authority")),
         .subject_public_key_info =
             {
                 .algorithm_identifier = subject_public_key_info_algorithm,
