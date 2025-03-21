@@ -416,7 +416,8 @@ std::vector<uint8_t> const ENCODED_CERT_TBS_NONZERO = {
     // subject
     0x30, 0x35, 0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13, 0x02, 0x49, 0x54, 0x31,
     0x0f, 0x30, 0x0d, 0x06, 0x03, 0x55, 0x04, 0x07, 0x13, 0x06, 0x4d, 0x69, 0x6c, 0x61, 0x6e, 0x6f,
-    0x31, 0x15, 0x30, 0x13, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x0c, 0x54, 0x65, 0x73, 0x74, 0x20, 0x65, 0x64, 0x32, 0x35, 0x35, 0x31, 0x39,
+    0x31, 0x15, 0x30, 0x13, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x0c, 0x54, 0x65, 0x73, 0x74, 0x20,
+    0x65, 0x64, 0x32, 0x35, 0x35, 0x31, 0x39,
     // subjectPublicKeyInfo
     0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00, 0x3b, 0xa9, 0x2f, 0xfd,
     0xcb, 0x17, 0x66, 0xde, 0x40, 0xa2, 0x92, 0xf7, 0x93, 0xde, 0x30, 0xf8, 0x0a, 0x23, 0xa8, 0x31,
@@ -663,10 +664,10 @@ TEST_P(CertTest, CertEncoding) {
         .signature_algorithm = signature_algorithm,
         .issuer_name =
             N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
-                          N20_X509_RDN(&OID_LOCALITY_NAME, "Pittsburgh"),
-                          N20_X509_RDN(&OID_ORGANIZATION_NAME, "Aurora Innovation Inc"),
-                          N20_X509_RDN(&OID_ORGANIZATION_UNIT_NAME, "Aurora Information Security"),
-                          N20_X509_RDN(&OID_COMMON_NAME, "Aurora DICE Authority")),
+                          N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
+                          N20_X509_RDN(&OID_ORGANIZATION_NAME, "Dunder Mifflin Paper Company, Inc."),
+                          N20_X509_RDN(&OID_ORGANIZATION_UNIT_NAME, "Dunder Mifflin Information Security"),
+                              N20_X509_RDN(&OID_COMMON_NAME, "Dunder Mifflin DICE Authority")),
         .validity =
             {
                 .not_before = nullptr,
@@ -674,10 +675,10 @@ TEST_P(CertTest, CertEncoding) {
             },
         .subject_name =
             N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
-                          N20_X509_RDN(&OID_LOCALITY_NAME, "Pittsburgh"),
-                          N20_X509_RDN(&OID_ORGANIZATION_NAME, "Aurora Innovation Inc"),
-                          N20_X509_RDN(&OID_ORGANIZATION_UNIT_NAME, "Aurora Information Security"),
-                          N20_X509_RDN(&OID_COMMON_NAME, "Aurora DICE Authority")),
+                          N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
+                          N20_X509_RDN(&OID_ORGANIZATION_NAME, "Dunder Mifflin Paper Company, Inc."),
+                          N20_X509_RDN(&OID_ORGANIZATION_UNIT_NAME, "Dunder Mifflin Information Security"),
+                          N20_X509_RDN(&OID_COMMON_NAME, "Dunder Mifflin DICE Authority")),
         .subject_public_key_info =
             {
                 .algorithm_identifier = subject_public_key_info_algorithm,
