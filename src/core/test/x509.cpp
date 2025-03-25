@@ -475,11 +475,6 @@ TEST(CertTBSTest, CertTBSNonzeroEncoding) {
     ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_NONZERO.size());
     std::vector<uint8_t> got =
         std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
-    for (int i = 0; i < got.size(); i++) {
-        if (got[i] != ENCODED_CERT_TBS_NONZERO[i]) {
-            std::cout << "FDSFSDFSD: " << i << std::endl;
-        }
-    }
     ASSERT_EQ(ENCODED_CERT_TBS_NONZERO, got);
 }
 
