@@ -73,6 +73,7 @@ set(LIBNAT20_TEST_SOURCES
     src/core/test/test.cpp
     src/core/test/asn1.cpp
     src/core/test/stream.cpp
+    src/core/test/x509.cpp
     src/core/test/x509_ext_open_dice_input.cpp
     src/core/test/x509_ext_tcg_dice_tcb_freshness.cpp
     src/core/test/x509_ext_tcg_dice_tcb_info.cpp
@@ -124,7 +125,8 @@ target_include_directories(nat20
 ###################################################################################################
 
 ###################################################################################################
-# Import boringssl when building the test and/or the reference crypto implementation.
+# Import boringssl and compile nat20_crypto_boringssl when building the test and/or the reference
+# crypto implementation.
 
 if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
     include(FetchContent)
@@ -135,6 +137,28 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
         GIT_TAG        dc65229e58a98c0768d017d0c9bbe376f20c2577 # tag 0.20241024.0
     )
     FetchContent_MakeAvailable(crypto)
+
+    add_library(nat20_crypto_boringssl)
+
+    target_sources(nat20_crypto_boringssl
+        PRIVATE ${LIBNAT20_CRYPTO_BSSL_SOURCES}
+        INTERFACE ${LIBNAT20_PUB_CRYPTO_BSSL_HEADERS}
+    )
+
+    target_compile_options(nat20_crypto_boringssl
+        PRIVATE -pedantic
+        PRIVATE -Wall
+        PRIVATE -Wextra
+        PRIVATE -Werror
+    )
+
+    target_include_directories(nat20_crypto_boringssl
+        PUBLIC include
+    )
+
+    target_link_libraries(nat20_crypto_boringssl crypto)
+
+    add_definitions(-DN20_CONFIG_WITH_BSSL=1)
 endif()
 
 ###################################################################################################
@@ -163,7 +187,7 @@ if (NAT20_WITH_TESTS)
     target_sources(nat20_test_bin
         PRIVATE ${LIBNAT20_TEST_SOURCES}
     )
-    target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki)
+    target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki nat20_crypto_boringssl)
     add_test(NAME nat20_test COMMAND nat20_test_bin)
 
     add_executable(nat20_crypto_test_bin)
@@ -173,51 +197,15 @@ if (NAT20_WITH_TESTS)
     target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki)
     add_test(NAME nat20_crypto_test COMMAND nat20_crypto_test_bin)
 
+    target_sources(nat20_crypto_test_bin
+        PRIVATE src/crypto/test/crypto_boringssl.cpp
+    )
+    target_link_libraries(nat20_crypto_test_bin nat20_crypto_boringssl)
+    add_definitions(-DN20_CONFIG_ENABLE_CRYPTO_TEST_IMPL=1)
+
 endif() # NAT20_WITH_TESTS
 
 ###################################################################################################
-
-###################################################################################################
-# The nat20_crypto_boringssl library is a reference implementation
-# of the libnat20 crypto interface using boring ssl.
-# It will be compiled when selected by setting `-DNAT20_WITH_CRYPTO_BSSL` on
-# the `cmake -B` command line.
-if (NAT20_WITH_CRYPTO_BSSL)
-    add_library(nat20_crypto_boringssl)
-
-    target_sources(nat20_crypto_boringssl
-        PRIVATE ${LIBNAT20_CRYPTO_BSSL_SOURCES}
-        INTERFACE ${LIBNAT20_PUB_CRYPTO_BSSL_HEADERS}
-    )
-
-    target_compile_options(nat20_crypto_boringssl
-        PRIVATE -pedantic
-        PRIVATE -Wall
-        PRIVATE -Wextra
-        PRIVATE -Werror
-    )
-
-    target_include_directories(nat20_crypto_boringssl
-        PUBLIC include
-    )
-
-    target_link_libraries(nat20_crypto_boringssl crypto)
-
-    add_definitions(-DN20_CONFIG_WITH_BSSL=1)
-
-    if (NAT20_WITH_TESTS)
-        target_sources(nat20_crypto_test_bin
-            PRIVATE src/crypto/test/crypto_boringssl.cpp
-        )
-        target_link_libraries(nat20_crypto_test_bin nat20_crypto_boringssl)
-        add_definitions(-DN20_CONFIG_ENABLE_CRYPTO_TEST_IMPL=1)
-    endif()
-
-endif()
-
-###################################################################################################
-
-
 
 ###################################################################################################
 # The doxygen docs generation target is only created if enabled by setting `-DNAT20_WITH_DOCS=ON`
