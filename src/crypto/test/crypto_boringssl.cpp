@@ -60,8 +60,10 @@ extern std::variant<n20_crypto_error_t, bssl::UniquePtr<BIGNUM>> __n20_testing_r
     n20_crypto_digest_algorithm_t digest_algorithm,
     BIGNUM const* q);
 
-std::vector<uint8_t> const SAMPLE_MSG = {'s', 'a', 'm', 'p', 'l', 'e'};
-std::vector<uint8_t> const TEST_MSG = {'t', 'e', 's', 't'};
+std::optional<std::vector<uint8_t>> const SAMPLE_MSG = {{'s', 'a', 'm', 'p', 'l', 'e'}};
+std::optional<std::vector<uint8_t>> const TEST_MSG = {{'t', 'e', 's', 't'}};
+std::optional<std::vector<uint8_t>> const EMPTY_MSG = {{}};
+std::optional<std::vector<uint8_t>> const NULL_MSG = std::nullopt;
 
 /*
  * Test the RFC 6979 k generation function.
@@ -79,7 +81,7 @@ std::vector<uint8_t> const TEST_MSG = {'t', 'e', 's', 't'};
  */
 TEST(CryptoBoringsslTest, Test_rfc6979_k_generation) {
 
-    std::vector<uint8_t> m_octets = SAMPLE_MSG;
+    auto m_octets = SAMPLE_MSG;
     std::vector<uint8_t> x_octets = {0x00, 0x9a, 0x4d, 0x67, 0x92, 0x29, 0x5a,
                                      0x7f, 0x73, 0x0f, 0xc3, 0xf2, 0xb4, 0x9c,
                                      0xbc, 0x0f, 0x62, 0xe8, 0x62, 0x27, 0x2f};
@@ -102,8 +104,9 @@ TEST(CryptoBoringsslTest, Test_rfc6979_k_generation) {
 }
 
 class RFC6979KGenerationTestP256
-    : public testing::TestWithParam<
-          std::tuple<n20_crypto_digest_algorithm_t, std::vector<uint8_t>, std::string>> {};
+    : public testing::TestWithParam<std::tuple<n20_crypto_digest_algorithm_t,
+                                               std::optional<std::vector<uint8_t>>,
+                                               std::string>> {};
 
 INSTANTIATE_TEST_CASE_P(
     RFC6979KGenerationTestInstance,
@@ -132,7 +135,40 @@ INSTANTIATE_TEST_CASE_P(
                    "16AEFFA357260B04B1DD199693960740066C1A8F3E8EDD79070AA914D361B3B8"),
         std::tuple(n20_crypto_digest_algorithm_sha2_512_e,
                    TEST_MSG,
-                   "6915D11632ACA3C40D5D51C08DAF9C555933819548784480E93499000D9F0B7F")));
+                   "6915D11632ACA3C40D5D51C08DAF9C555933819548784480E93499000D9F0B7F"),
+        /*
+         * The following test vectors where computed using the same algorithm while
+         * verifying that the intermediate h1_digest is equal to the digest of the
+         * emtpy message for the corresponding digest algorithms.
+         */
+        std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
+                   EMPTY_MSG,
+                   "e6a082bf249944014406a9280befd1aa2369a98b31fe1eed9fa91098363cd60b"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_256_e,
+                   EMPTY_MSG,
+                   "3c7eca3784e9809c912f21d6c1894e70b8a709d3222982ae499b270bac245246"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_384_e,
+                   EMPTY_MSG,
+                   "bbbe969da70f10ecb28a059dad2589817cd64d7917dabb82cb6c52164415d530"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_512_e,
+                   EMPTY_MSG,
+                   "2d255f20e3aa839fcb4116e2819568ae8e15be3db130bac7c38ec5eba003ccd2"),
+        /*
+         * The following test vectors where computed using the same algorithm while
+         * omitting the message entirely.
+         */
+        std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
+                   NULL_MSG,
+                   "402ea153bb5ccccc8f87abb88a647a27eb2e7a51b92ece286dcb991e83a7efd3"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_256_e,
+                   NULL_MSG,
+                   "c3e0374fbfa3752b760374a626c649ed798b7146e869c2482cb17a54c94ebae3"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_384_e,
+                   NULL_MSG,
+                   "b868001fb7f5ed86ae0de3db439fe10bc56bf63ce776aeb6a2b011283d19ca17"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_512_e,
+                   NULL_MSG,
+                   "bbbb46f35c82170d767ed845f4a7d942bcc3ccc82bb39eb0f3b607ee18867ea2")));
 
 /*
  * Test the RFC 6979 k generation function.
@@ -142,7 +178,7 @@ INSTANTIATE_TEST_CASE_P(
  * and the message (m). This test verifies that the k generation
  * function produces the expected k value for a given x and m.
  *
- * The test vectors for this test are taken from RFC 6979 Appendix A2.5
+ * The first 8 test vectors for this test are taken from RFC 6979 Appendix A2.5
  * for the P-256 curve.
  */
 TEST_P(RFC6979KGenerationTestP256, Test_rfc6979_k_P_256_generation) {
@@ -171,8 +207,9 @@ TEST_P(RFC6979KGenerationTestP256, Test_rfc6979_k_P_256_generation) {
 }
 
 class RFC6979KGenerationTestP384
-    : public testing::TestWithParam<
-          std::tuple<n20_crypto_digest_algorithm_t, std::vector<uint8_t>, std::string>> {};
+    : public testing::TestWithParam<std::tuple<n20_crypto_digest_algorithm_t,
+                                               std::optional<std::vector<uint8_t>>,
+                                               std::string>> {};
 
 INSTANTIATE_TEST_CASE_P(
     RFC6979KGenerationTestInstance,
@@ -209,7 +246,48 @@ INSTANTIATE_TEST_CASE_P(
         std::tuple(n20_crypto_digest_algorithm_sha2_512_e,
                    TEST_MSG,
                    "3780C4F67CB15518B6ACAE34C9F83568D2E12E47DEAB6C50A4E4EE5319D1E8CE0E2CC8A136036DC"
-                   "4B9C00E6888F66B6C")));
+                   "4B9C00E6888F66B6C"),
+        /*
+         * The following test vectors where computed using the same algorithm while
+         * verifying that the intermediate h1_digest is equal to the digest of the
+         * emtpy message for the corresponding digest algorithms.
+         */
+        std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
+                   EMPTY_MSG,
+                   "9f505a478bed79931bfddfea0b9716f70e40f62d7d0adf30bb150d12a6347d15732a04d05e476dc"
+                   "2c4d53a8af47cb38b"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_256_e,
+                   EMPTY_MSG,
+                   "116adedf47ab686d7a08423f10f71ec8f7a50377e1b0064a34e10c003ec9ec01e07530d15422b4e"
+                   "b44231470388e5c1a"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_384_e,
+                   EMPTY_MSG,
+                   "7854122f919247f959d67fa203d21d82492833774cf53d2cff2a140b7613550716c29249efaa647"
+                   "7798834bd138397cf"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_512_e,
+                   EMPTY_MSG,
+                   "3d17a14dc514d778ec13054653bfa748666d9c6e0d4d1d75b66c5cadd6506ef4a76967423746a3f"
+                   "47118bea059434338"),
+        /*
+         * The following test vectors where computed using the same algorithm while
+         * omitting the message entirely.
+         */
+        std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
+                   NULL_MSG,
+                   "5d466efc7b95beff2bc2e4790e22091afc20afbcbe1e9d3cec9f4bcb468218dd20e133333dc252d"
+                   "07d101d4150423b65"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_256_e,
+                   NULL_MSG,
+                   "e4bb15ea89ee2b6e4093f2e95cd931b6abbbeed39a0ee99cda944a6a083b2401034203492fa593d"
+                   "cdffd7a1495c3fd2a"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_384_e,
+                   NULL_MSG,
+                   "27d6797656786c57d7bfc0ac25eb421aa6d0ff4864c82792e68d08f7945eb5ba514d1c9a5a58398"
+                   "0e00b4bda1cbf1656"),
+        std::tuple(n20_crypto_digest_algorithm_sha2_512_e,
+                   NULL_MSG,
+                   "589de498de6c4c596445d6ebec4c29336b15f5feccb4af3a911a28ab0bac78ee81e0218fefaf5f1"
+                   "05e7f896d92e1ede1")));
 
 /*
  * Test the RFC 6979 k generation function.
@@ -219,7 +297,7 @@ INSTANTIATE_TEST_CASE_P(
  * and the message (m). This test verifies that the k generation
  * function produces the expected k value for a given x and m.
  *
- * The test vectors for this test are taken from RFC 6979 Appendix A2.6
+ * The first 8 test vectors for this test are taken from RFC 6979 Appendix A2.6
  * for the P-384 curve.
  */
 TEST_P(RFC6979KGenerationTestP384, Test_rfc6979_k_P_384_generation) {
