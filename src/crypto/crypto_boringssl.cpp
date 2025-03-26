@@ -206,7 +206,7 @@ static std::variant<n20_crypto_error_t, std::vector<uint8_t> const> gather_list_
  * (of type BIGNUM_PTR_t) that represents the generated k value.
  *
  * In this context this method is used to deterministically generate
- * a private key key for supported NIST elliptic curves which has the
+ * a private key for supported NIST elliptic curves which has the
  * same properties as the k value used in the ECDSA signing process.
  * In this case the optional message (m) is elided and the secret key
  * (x) is a seed that is deterministically derived from a CDI and
