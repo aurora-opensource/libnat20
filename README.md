@@ -1,5 +1,7 @@
 # The libnat20 DICE library
 
+CLA test
+
 Libnat20 is a free standing DICE library implementing the protocols
 for OpenDICE, the TCG DICE Attestation Architecture, and the TCG DICE
 Layering architecture.
