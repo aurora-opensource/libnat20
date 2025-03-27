@@ -17,12 +17,14 @@
 #include <nat20/crypto.h>
 #include <nat20/crypto_bssl/crypto.h>
 #include <openssl/base.h>
+#include <openssl/bn.h>
 #include <openssl/digest.h>
 #include <openssl/ec.h>
 #include <openssl/ec_key.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/hkdf.h>
+#include <openssl/hmac.h>
 #include <openssl/mem.h>
 #include <openssl/nid.h>
 #include <openssl/pki/verify.h>
@@ -31,6 +33,7 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -42,6 +45,9 @@ MAKE_PTR(EVP_MD_CTX);
 MAKE_PTR(BIO);
 MAKE_PTR(X509);
 MAKE_PTR(EC_KEY);
+MAKE_PTR(HMAC_CTX);
+MAKE_PTR(BIGNUM);
+MAKE_PTR(EC_POINT);
 
 #define N20_BSSL_SHA2_224_OCTETS 28
 #define N20_BSSL_SHA2_256_OCTETS 32
@@ -71,6 +77,36 @@ static n20_bssl_context* context_cast(n20_crypto_context_t* ctx) {
     return static_cast<n20_bssl_context*>(ctx);
 }
 
+static EVP_MD const* digest_enum_to_bssl_evp_md(n20_crypto_digest_algorithm_t alg_in) {
+    switch (alg_in) {
+        case n20_crypto_digest_algorithm_sha2_224_e:
+            return EVP_sha224();
+        case n20_crypto_digest_algorithm_sha2_256_e:
+            return EVP_sha256();
+        case n20_crypto_digest_algorithm_sha2_384_e:
+            return EVP_sha384();
+        case n20_crypto_digest_algorithm_sha2_512_e:
+            return EVP_sha512();
+        default:
+            return nullptr;
+    }
+}
+
+static size_t digest_enum_to_size(n20_crypto_digest_algorithm_t alg_in) {
+    switch (alg_in) {
+        case n20_crypto_digest_algorithm_sha2_224_e:
+            return N20_BSSL_SHA2_224_OCTETS;
+        case n20_crypto_digest_algorithm_sha2_256_e:
+            return N20_BSSL_SHA2_256_OCTETS;
+        case n20_crypto_digest_algorithm_sha2_384_e:
+            return N20_BSSL_SHA2_384_OCTETS;
+        case n20_crypto_digest_algorithm_sha2_512_e:
+            return N20_BSSL_SHA2_512_OCTETS;
+        default:
+            return 0;
+    }
+}
+
 static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_s* ctx,
                                                       n20_crypto_digest_algorithm_t alg_in,
                                                       n20_crypto_gather_list_t const* msg_in,
@@ -84,28 +120,11 @@ static n20_crypto_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_
         return n20_crypto_error_unexpected_null_size_e;
     }
 
-    EVP_MD const* md = NULL;
-    size_t digest_size = 0;
-    switch (alg_in) {
-        case n20_crypto_digest_algorithm_sha2_224_e:
-            digest_size = N20_BSSL_SHA2_224_OCTETS;
-            md = EVP_sha224();
-            break;
-        case n20_crypto_digest_algorithm_sha2_256_e:
-            digest_size = N20_BSSL_SHA2_256_OCTETS;
-            md = EVP_sha256();
-            break;
-        case n20_crypto_digest_algorithm_sha2_384_e:
-            digest_size = N20_BSSL_SHA2_384_OCTETS;
-            md = EVP_sha384();
-            break;
-        case n20_crypto_digest_algorithm_sha2_512_e:
-            digest_size = N20_BSSL_SHA2_512_OCTETS;
-            md = EVP_sha512();
-            break;
-        default:
-            return n20_crypto_error_unkown_algorithm_e;
+    EVP_MD const* md = digest_enum_to_bssl_evp_md(alg_in);
+    if (md == nullptr) {
+        return n20_crypto_error_unkown_algorithm_e;
     }
+    size_t digest_size = digest_enum_to_size(alg_in);
 
     // If the provided buffer size is too small or no buffer was provided
     // set the required buffer size and return
@@ -170,6 +189,219 @@ static std::variant<n20_crypto_error_t, std::vector<uint8_t> const> gather_list_
     }
 
     return result;
+}
+
+/*
+ * @brief Generate a k value for signing using RFC 6979.
+ *
+ * This function implements the k generation algorithm from RFC 6979
+ * (https://tools.ietf.org/html/rfc6979).
+ * The algorithm is used to generate a deterministic k value
+ * for signing ECDSA signatures.
+ * It takes the private key (x) and an optional message (m)
+ * and generates a k value that is used for signing.
+ *
+ * The function returns a variant that can either be an error code
+ * (of type n20_crypto_error_t) or a pointer to a BIGNUM
+ * (of type BIGNUM_PTR_t) that represents the generated k value.
+ *
+ * In this context this method is used to deterministically generate
+ * a private key for supported NIST elliptic curves which has the
+ * same properties as the k value used in the ECDSA signing process.
+ * In this case the optional message (m) is elided and the secret key
+ * (x) is a seed that is deterministically derived from a CDI and
+ * the context of the key to be derived.
+ */
+static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
+    std::vector<uint8_t> const& x_octets,
+    std::optional<std::vector<uint8_t>> const& m_octets,
+    n20_crypto_digest_algorithm_t digest_algorithm,
+    BIGNUM const* q) {
+
+    auto md = digest_enum_to_bssl_evp_md(digest_algorithm);
+    if (md == nullptr) {
+        return n20_crypto_error_unkown_algorithm_e;
+    }
+
+    auto digest_size = digest_enum_to_size(digest_algorithm);
+    unsigned int out_size = digest_size;
+
+    auto qlen = BN_num_bits(q);
+    auto rlen = (qlen + 7) / 8;
+
+    std::vector<uint8_t> h1;
+    if (m_octets) {
+        auto h1_digest = std::vector<uint8_t>(digest_size);
+        if (!EVP_Digest(
+                m_octets->data(), m_octets->size(), h1_digest.data(), &out_size, md, NULL) ||
+            out_size != digest_size) {
+            return n20_crypto_error_implementation_specific_e;
+        }
+        /*
+         * The message digest needs to be converted to an octet sequence using
+         * bits2octets as specified by RFC 6979. This means that the first qlen
+         * bits of the digest are interpreted as a big-endian integer (bits2int)
+         * and then modulo reduced by q to get the final value for h1.
+         * Finally the result is converted back to an octet sequence.
+         *
+         * First the digest is interpreted as a big-endian integer.
+         */
+        auto h1_bn = BIGNUM_PTR_t(BN_bin2bn(h1_digest.data(), h1_digest.size(), NULL));
+        if (h1_bn.get() == nullptr) {
+            return n20_crypto_error_no_resources_e;
+        }
+
+        /*
+         * If the number of bits in the hash is greater than qlen, right shift
+         * the big-endian integer by the difference to get the correct value of
+         * h1. This concludes the application of bits2int to h1_digest.
+         */
+        if (h1_digest.size() * 8 > qlen) {
+            if (!BN_rshift(h1_bn.get(), h1_bn.get(), h1_digest.size() * 8 - qlen)) {
+                return n20_crypto_error_no_resources_e;
+            }
+        }
+
+        /*
+         * Now the intermediate value of h1 is modulo reduced by q by
+         * substracting q from h1 if h1 is greater than or equal to q.
+         */
+        auto h1_bn2 = BIGNUM_PTR_t(BN_new());
+        if (h1_bn2.get() == nullptr) {
+            return n20_crypto_error_no_resources_e;
+        }
+
+        if (!BN_sub(h1_bn2.get(), h1_bn.get(), q)) {
+            return n20_crypto_error_no_resources_e;
+        }
+
+        h1.resize(rlen);
+
+        if (BN_is_negative(h1_bn2.get())) {
+            if (!BN_bn2bin_padded(h1.data(), rlen, h1_bn.get())) {
+                return n20_crypto_error_no_resources_e;
+            }
+        } else {
+            if (!BN_bn2bin_padded(h1.data(), rlen, h1_bn2.get())) {
+                return n20_crypto_error_no_resources_e;
+            }
+        }
+
+        /* This concludes `h1 = bits2octets(h1_digest)`. */
+    }
+
+    /* Initialize V with digest_size octets of value 0x01. */
+    auto V = std::vector<uint8_t>(digest_size, 1);
+    /* Initialize K with digest_size octets of value 0x00. */
+    auto K = std::vector<uint8_t>(digest_size, 0);
+
+    auto hmac_ctx = HMAC_CTX_PTR_t(HMAC_CTX_new());
+    if (hmac_ctx == nullptr) {
+        return n20_crypto_error_no_resources_e;
+    }
+
+    uint8_t internal_octet = 0;
+
+    /*
+     * Run two rounds of the pseudorandom number generator to warm up K and V
+     * with the key/seed (x_octets) and the optional message (m_octets).
+     */
+    do {
+        /* Update K. */
+        if (!HMAC_Init_ex(hmac_ctx.get(), K.data(), K.size(), md, NULL)) {
+            return n20_crypto_error_no_resources_e;
+        }
+
+        HMAC_Update(hmac_ctx.get(), V.data(), V.size());
+        HMAC_Update(hmac_ctx.get(), &internal_octet, 1);
+        HMAC_Update(hmac_ctx.get(), x_octets.data(), x_octets.size());
+        if (h1.size() > 0) {
+            HMAC_Update(hmac_ctx.get(), h1.data(), h1.size());
+        }
+        if (!HMAC_Final(hmac_ctx.get(), K.data(), &out_size) || out_size != digest_size) {
+            return n20_crypto_error_implementation_specific_e;
+        }
+
+        /* Update V. */
+        if (!HMAC(md, K.data(), K.size(), V.data(), V.size(), V.data(), &out_size) ||
+            out_size != digest_size) {
+            return n20_crypto_error_implementation_specific_e;
+        }
+        internal_octet += 1;
+
+    } while (internal_octet < 2);
+
+    BIGNUM_PTR_t k;
+
+    /*
+     * Reuse the internal_octet buffer for the T generation rounds.
+     * During these rounds the octet is 0.
+     */
+    internal_octet = 0;
+
+    /*
+     * Loop until k is valid.
+     * k is valid if it is not zero and less than the group order.
+     */
+    while (true) {
+
+        auto iterations = (qlen + (digest_size * 8) - 1) / (digest_size * 8);
+        auto T = std::vector<uint8_t>(iterations * digest_size, 0);
+
+        for (size_t i = 0; i < iterations; ++i) {
+            /* Update V. */
+            if (!HMAC(md, K.data(), K.size(), V.data(), V.size(), V.data(), &out_size) ||
+                out_size != digest_size) {
+                return n20_crypto_error_implementation_specific_e;
+            }
+
+            std::copy(V.begin(), V.end(), T.begin() + i * digest_size);
+        }
+
+        /*
+         * This applies bits2int to T before checking if k is in the desired range
+         * [1 .. q-1]. To avoid adding bias, k is not modulo reduced by q here,
+         * rather k is discarded and a new T and candidate k are generated if k
+         * is outside the desired range.
+         */
+        k = BIGNUM_PTR_t(BN_bin2bn(T.data(), T.size(), NULL));
+        if (k.get() == nullptr) {
+            return n20_crypto_error_no_resources_e;
+        }
+
+        if (!BN_rshift(k.get(), k.get(), T.size() * 8 - qlen)) {
+            return n20_crypto_error_no_resources_e;
+        }
+
+        if (!BN_is_zero(k.get()) && BN_cmp(k.get(), q) < 0) {
+            /* Success! */
+            return k;
+        }
+
+        /* Update K. */
+        if (!HMAC_Init_ex(hmac_ctx.get(), K.data(), K.size(), md, NULL)) {
+            return n20_crypto_error_no_resources_e;
+        }
+        HMAC_Update(hmac_ctx.get(), V.data(), V.size());
+        HMAC_Update(hmac_ctx.get(), &internal_octet, 1);
+        if (!HMAC_Final(hmac_ctx.get(), K.data(), &out_size) || out_size != digest_size) {
+            return n20_crypto_error_implementation_specific_e;
+        }
+
+        /* Update V. */
+        if (!HMAC(md, K.data(), K.size(), V.data(), V.size(), V.data(), &out_size) ||
+            out_size != digest_size) {
+            return n20_crypto_error_implementation_specific_e;
+        }
+    }
+}
+
+std::variant<n20_crypto_error_t, bssl::UniquePtr<BIGNUM>> __n20_testing_rfc6979_k_generation(
+    std::vector<uint8_t> const& x_octets,
+    std::optional<std::vector<uint8_t>> const& m_octets,
+    n20_crypto_digest_algorithm_t digest_algorithm,
+    BIGNUM const* q) {
+    return rfc6979_k_generation(x_octets, m_octets, digest_algorithm, q);
 }
 
 static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* ctx,
@@ -248,9 +480,45 @@ static n20_crypto_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* 
                 ec_group = EC_group_p384();
             }
 
-            auto ec_key =
-                EC_KEY_PTR_t(EC_KEY_derive_from_secret(ec_group, derived.data(), derived.size()));
-            if (!ec_key) {
+            auto q = EC_GROUP_get0_order(ec_group);
+            if (q == nullptr) {
+                return n20_crypto_error_implementation_specific_e;
+            }
+
+            auto private_key = rfc6979_k_generation(
+                derived, /*m_octets=*/std::nullopt, n20_crypto_digest_algorithm_sha2_512_e, q);
+            if (auto error = std::get_if<n20_crypto_error_t>(&private_key)) {
+                return *error;
+            }
+
+            auto public_key = EC_POINT_PTR_t(EC_POINT_new(ec_group));
+            if (public_key.get() == nullptr) {
+                return n20_crypto_error_no_resources_e;
+            }
+
+            if (!EC_POINT_mul(ec_group,
+                              public_key.get(),
+                              std::get<BIGNUM_PTR_t>(private_key).get(),
+                              NULL,
+                              NULL,
+                              NULL)) {
+                return n20_crypto_error_implementation_specific_e;
+            }
+
+            auto ec_key = EC_KEY_PTR_t(EC_KEY_new());
+            if (ec_key == nullptr) {
+                return n20_crypto_error_no_resources_e;
+            }
+
+            if (!EC_KEY_set_group(ec_key.get(), ec_group)) {
+                return n20_crypto_error_implementation_specific_e;
+            }
+
+            if (!EC_KEY_set_private_key(ec_key.get(), std::get<BIGNUM_PTR_t>(private_key).get())) {
+                return n20_crypto_error_implementation_specific_e;
+            }
+
+            if (!EC_KEY_set_public_key(ec_key.get(), public_key.get())) {
                 return n20_crypto_error_implementation_specific_e;
             }
 
