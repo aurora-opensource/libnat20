@@ -237,18 +237,35 @@ static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
             out_size != digest_size) {
             return n20_crypto_error_implementation_specific_e;
         }
-
+        /*
+         * The message digest needs to be converted to an octet sequence using
+         * bits2octets as specified by RFC 6979. This means that the first qlen
+         * bits of the digest are interpreted as a big-endian integer (bits2int)
+         * and then modulo reduced by q to get the final value for h1.
+         * Finally the result is converted back to an octet sequence.
+         *
+         * First the digest is interpreted as a big-endian integer.
+         */
         auto h1_bn = BIGNUM_PTR_t(BN_bin2bn(h1_digest.data(), h1_digest.size(), NULL));
         if (h1_bn.get() == nullptr) {
             return n20_crypto_error_no_resources_e;
         }
 
+        /*
+         * If the number of bits in the hash is greater than qlen, right shift
+         * the big-endian integer by the difference to get the correct value of
+         * h1. This concludes the application of bits2int to h1_digest.
+         */
         if (h1_digest.size() * 8 > qlen) {
             if (!BN_rshift(h1_bn.get(), h1_bn.get(), h1_digest.size() * 8 - qlen)) {
                 return n20_crypto_error_no_resources_e;
             }
         }
 
+        /*
+         * Now the intermediate value of h1 is modulo reduced by q by
+         * substracting q from h1 if h1 is greater than or equal to q.
+         */
         auto h1_bn2 = BIGNUM_PTR_t(BN_new());
         if (h1_bn2.get() == nullptr) {
             return n20_crypto_error_no_resources_e;
@@ -269,9 +286,13 @@ static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
                 return n20_crypto_error_no_resources_e;
             }
         }
+
+        /* This concludes `h1 = bits2octets(h1_digest)`. */
     }
 
+    /* Initialize V with digest_size octets of value 0x01. */
     auto V = std::vector<uint8_t>(digest_size, 1);
+    /* Initialize K with digest_size octets of value 0x00. */
     auto K = std::vector<uint8_t>(digest_size, 0);
 
     auto hmac_ctx = HMAC_CTX_PTR_t(HMAC_CTX_new());
@@ -281,8 +302,12 @@ static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
 
     uint8_t internal_octet = 0;
 
+    /*
+     * Run two rounds of the pseudorandom number generator to warm up K and V
+     * with the key/seed (x_octets) and the optional message (m_octets).
+     */
     do {
-        // Update k.
+        /* Update K. */
         if (!HMAC_Init_ex(hmac_ctx.get(), K.data(), K.size(), md, NULL)) {
             return n20_crypto_error_no_resources_e;
         }
@@ -297,7 +322,7 @@ static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
             return n20_crypto_error_implementation_specific_e;
         }
 
-        // Update v.
+        /* Update V. */
         if (!HMAC(md, K.data(), K.size(), V.data(), V.size(), V.data(), &out_size) ||
             out_size != digest_size) {
             return n20_crypto_error_implementation_specific_e;
@@ -308,16 +333,23 @@ static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
 
     BIGNUM_PTR_t k;
 
+    /*
+     * Reuse the internal_octet buffer for the T generation rounds.
+     * During these rounds the octet is 0.
+     */
     internal_octet = 0;
-    // Loop until k is valid.
-    // k is valid if it is not zero and less than the group order.
+
+    /*
+     * Loop until k is valid.
+     * k is valid if it is not zero and less than the group order.
+     */
     while (true) {
 
         auto iterations = (qlen + (digest_size * 8) - 1) / (digest_size * 8);
         auto T = std::vector<uint8_t>(iterations * digest_size, 0);
 
         for (size_t i = 0; i < iterations; ++i) {
-            // Update V.
+            /* Update V. */
             if (!HMAC(md, K.data(), K.size(), V.data(), V.size(), V.data(), &out_size) ||
                 out_size != digest_size) {
                 return n20_crypto_error_implementation_specific_e;
@@ -326,6 +358,12 @@ static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
             std::copy(V.begin(), V.end(), T.begin() + i * digest_size);
         }
 
+        /*
+         * This applies bits2int to T before checking if k is in the desired range
+         * [1 .. q-1]. To avoid adding bias, k is not modulo reduced by q here,
+         * rather k is discarded and a new T and candidate k are generated if k
+         * is outside the desired range.
+         */
         k = BIGNUM_PTR_t(BN_bin2bn(T.data(), T.size(), NULL));
         if (k.get() == nullptr) {
             return n20_crypto_error_no_resources_e;
@@ -336,11 +374,11 @@ static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
         }
 
         if (!BN_is_zero(k.get()) && BN_cmp(k.get(), q) < 0) {
-            // Success!
+            /* Success! */
             return k;
         }
 
-        // Update K.
+        /* Update K. */
         if (!HMAC_Init_ex(hmac_ctx.get(), K.data(), K.size(), md, NULL)) {
             return n20_crypto_error_no_resources_e;
         }
@@ -350,7 +388,7 @@ static std::variant<n20_crypto_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
             return n20_crypto_error_implementation_specific_e;
         }
 
-        // Update V.
+        /* Update V. */
         if (!HMAC(md, K.data(), K.size(), V.data(), V.size(), V.data(), &out_size) ||
             out_size != digest_size) {
             return n20_crypto_error_implementation_specific_e;
