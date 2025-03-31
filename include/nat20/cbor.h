@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <nat20/stream.h>
 #include <stdint.h>
 #include <unistd.h>
-
-#pragma once
 
 #ifdef __cplusplus
 extern "C" {
