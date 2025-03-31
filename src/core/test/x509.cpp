@@ -47,7 +47,7 @@ MAKE_PTR(BIO);
 MAKE_PTR(X509);
 MAKE_PTR(EC_KEY);
 
-std::string hexdump(std::vector<uint8_t> const& data) {
+static std::string hexdump(std::vector<uint8_t> const& data) {
     std::stringstream s;
     int i;
     for (i = 0; i < data.size() - 1; ++i) {
