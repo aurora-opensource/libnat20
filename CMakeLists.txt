@@ -45,6 +45,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(LIBNAT20_SOURCES
     # Add the core library source files here.
     src/core/asn1.c
+    src/core/functionality.c
     src/core/oid.c
     src/core/stream.c
     src/core/x509_ext_open_dice_input.c
@@ -60,6 +61,7 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/asn1.h
     include/nat20/crypto.h
     include/nat20/error.h
+    include/nat20/functionality.h
     include/nat20/oid.h
     include/nat20/stream.h
     include/nat20/types.h
@@ -87,9 +89,10 @@ set(LIBNAT20_CRYPTO_NAT20_PUB_HEADERS
 
 set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
-    src/core/test/test.cpp
     src/core/test/asn1.cpp
+    src/core/test/functionality.cpp
     src/core/test/stream.cpp
+    src/core/test/test.cpp
     src/core/test/x509.cpp
     src/core/test/x509_ext_open_dice_input.cpp
     src/core/test/x509_ext_tcg_dice_tcb_freshness.cpp
@@ -216,8 +219,8 @@ if (NAT20_WITH_TESTS)
     include(FetchContent)
 
     FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/5376968f6948923e2411081fd9372e71a59d8e77.zip
+        googletest
+        URL https://github.com/google/googletest/archive/5376968f6948923e2411081fd9372e71a59d8e77.zip
     )
     # For Windows: Prevent overriding the parent project's compiler/linker settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -235,14 +238,14 @@ if (NAT20_WITH_TESTS)
     target_sources(nat20_test_bin
         PRIVATE ${LIBNAT20_TEST_SOURCES}
     )
-    target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki nat20_crypto_boringssl)
+    target_link_libraries(nat20_test_bin gtest_main gmock gmock_main nat20 crypto pki nat20_crypto_boringssl)
     add_test(NAME nat20_test COMMAND nat20_test_bin)
 
     add_executable(nat20_crypto_test_bin)
     target_sources(nat20_crypto_test_bin
         PRIVATE ${LIBNAT20_CRYPTO_TEST_SOURCES}
     )
-    target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki)
+    target_link_libraries(nat20_crypto_test_bin gtest_main gmock gmock_main nat20 crypto pki)
     add_test(NAME nat20_crypto_test COMMAND nat20_crypto_test_bin)
 
     target_sources(nat20_crypto_test_bin
