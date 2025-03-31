@@ -40,6 +40,28 @@ enum n20_error_s {
      * @brief No error occurred.
      */
     n20_error_ok_e = 0,
+
+    /**
+     * @brief The function requires a crypto context to be passed, but none was provided.
+     */
+    n20_error_missing_crypto_context_e = 1,
+    /**
+     * @brief Insufficient buffer size.
+     */
+    n20_error_insufficient_buffer_size_e = 3,
+    /**
+     * @brief Unexpected NULL pointer in buffer size argument.
+     */
+    n20_error_unexpected_null_buffer_size_e = 4,
+    /**
+     * @brief Unexpected NULL pointer key_handle argument.
+     */
+    n20_error_unexpected_null_key_handle_e = 5,
+
+    n20_error_missing_node_state_e = 6,
+    n20_error_client_slot_index_out_of_range_e = 7,
+    n20_error_client_slot_empty_e = 8,
+    n20_error_missing_callback_function_or_context_e = 9,
     /**
      * @brief The crypto context given to an interface was invalid.
      *
