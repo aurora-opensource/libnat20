@@ -45,27 +45,16 @@ static void n20_x509_ext_open_dice_input_sequence_content(n20_stream_t *const s,
         n20_asn1_octetstring(s, &open_dice_input->authority_hash, n20_asn1_tag_info_explicit(4));
     }
 
-    switch (open_dice_input->configuration_format) {
-        case n20_x509_ext_open_dice_configuration_format_inline_e:
-            // configurationDescriptor [3] EXPLICIT OCTET STRING OPTIONAL
-            if (open_dice_input->configuration_inline.buffer != NULL) {
-                n20_asn1_octetstring(
-                    s, &open_dice_input->configuration_inline, n20_asn1_tag_info_explicit(3));
-            }
-            break;
-        case n20_x509_ext_open_dice_configuration_format_descriptor_e:
-            // configurationDescriptor [3] EXPLICIT OCTET STRING OPTIONAL
-            if (open_dice_input->configuration_descriptor.buffer != NULL) {
-                n20_asn1_octetstring(
-                    s, &open_dice_input->configuration_descriptor, n20_asn1_tag_info_explicit(3));
-            }
+    // configurationDescriptor [3] EXPLICIT OCTET STRING OPTIONAL
+    if (open_dice_input->configuration_descriptor.buffer != NULL) {
+        n20_asn1_octetstring(
+            s, &open_dice_input->configuration_descriptor, n20_asn1_tag_info_explicit(3));
+    }
 
-            // configurationHash [2] EXPLICIT OCTET STRING OPTIONAL
-            if (open_dice_input->configuration_hash.buffer != NULL) {
-                n20_asn1_octetstring(
-                    s, &open_dice_input->configuration_hash, n20_asn1_tag_info_explicit(2));
-            }
-            break;
+    // configurationHash [2] EXPLICIT OCTET STRING OPTIONAL
+    if (open_dice_input->configuration_hash.buffer != NULL) {
+        n20_asn1_octetstring(
+            s, &open_dice_input->configuration_hash, n20_asn1_tag_info_explicit(2));
     }
 
     // codeDescriptor [1] EXPLICIT OCTET STRING OPTIONAL
