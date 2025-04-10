@@ -228,7 +228,6 @@ TEST(CborTests, CborWriteStringTest) {
     ASSERT_EQ(got_encoding, want_encoding);
 }
 
-
 class CborArrayHeaderTestFixture
     : public testing::TestWithParam<std::tuple<uint64_t, std::vector<uint8_t>>> {};
 
@@ -304,4 +303,3 @@ TEST_P(CborMapHeaderTestFixture, CborMapHeaderTest) {
     auto got_encoding = std::vector(n20_stream_data(&s), n20_stream_data(&s) + bytes_written);
     ASSERT_EQ(got_encoding, encoding);
 }
-
