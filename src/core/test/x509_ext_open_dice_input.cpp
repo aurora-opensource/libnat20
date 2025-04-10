@@ -30,8 +30,6 @@
 class X509ExtOpenDiceInputTest
     : public testing::TestWithParam<std::tuple<std::optional<std::vector<uint8_t>>,
                                                std::optional<std::vector<uint8_t>>,
-                                               n20_x509_ext_open_dice_configuration_format_t const,
-                                               std::optional<std::vector<uint8_t>>,
                                                std::optional<std::vector<uint8_t>>,
                                                std::optional<std::vector<uint8_t>>,
                                                std::optional<std::vector<uint8_t>>,
@@ -214,42 +212,35 @@ std::vector<uint8_t> const EXTENSION_WITHOUT_OPTIONALS = {
 
 std::string const AURORA_OPEN_DICE_PROFILE = "Aurora OpenDICE Profile";
 
-INSTANTIATE_TEST_CASE_P(
-    OpenDiceInputEncoding,
-    X509ExtOpenDiceInputTest,
-    testing::Values(std::tuple(CODE_HASH,
-                               CODE_DESCRIPTOR,
-                               n20_x509_ext_open_dice_configuration_format_inline_e,
-                               CONFIGURATION_INLINE,
-                               std::nullopt,
-                               std::nullopt,
-                               AUTHORITY_HASH,
-                               AUTHORITY_DESCRIPTOR,
-                               n20_x509_ext_open_dice_normal_e,
-                               AURORA_OPEN_DICE_PROFILE,
-                               EXTENSION_WITH_INLINE_CONFIGURATION),
-                    std::tuple(CODE_HASH,
-                               CODE_DESCRIPTOR,
-                               n20_x509_ext_open_dice_configuration_format_descriptor_e,
-                               std::nullopt,
-                               CONFIGURATION_HASH,
-                               CONFIGURATION_DESCRIPTOR,
-                               AUTHORITY_HASH,
-                               AUTHORITY_DESCRIPTOR,
-                               n20_x509_ext_open_dice_normal_e,
-                               AURORA_OPEN_DICE_PROFILE,
-                               EXTENSION_WITH_CONFIGURATION_DESCRIPTOR),
-                    std::tuple(std::nullopt,
-                               std::nullopt,
-                               n20_x509_ext_open_dice_configuration_format_inline_e,
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt,
-                               n20_x509_ext_open_dice_not_configured_e,
-                               std::nullopt,
-                               EXTENSION_WITHOUT_OPTIONALS)));
+INSTANTIATE_TEST_CASE_P(OpenDiceInputEncoding,
+                        X509ExtOpenDiceInputTest,
+                        testing::Values(std::tuple(CODE_HASH,
+                                                   CODE_DESCRIPTOR,
+                                                   std::nullopt,
+                                                   CONFIGURATION_INLINE,
+                                                   AUTHORITY_HASH,
+                                                   AUTHORITY_DESCRIPTOR,
+                                                   n20_x509_ext_open_dice_normal_e,
+                                                   AURORA_OPEN_DICE_PROFILE,
+                                                   EXTENSION_WITH_INLINE_CONFIGURATION),
+                                        std::tuple(CODE_HASH,
+                                                   CODE_DESCRIPTOR,
+                                                   CONFIGURATION_HASH,
+                                                   CONFIGURATION_DESCRIPTOR,
+                                                   AUTHORITY_HASH,
+                                                   AUTHORITY_DESCRIPTOR,
+                                                   n20_x509_ext_open_dice_normal_e,
+                                                   AURORA_OPEN_DICE_PROFILE,
+                                                   EXTENSION_WITH_CONFIGURATION_DESCRIPTOR),
+                                        std::tuple(std::nullopt,
+                                                   std::nullopt,
+                                                   std::nullopt,
+                                                   std::nullopt,
+                                                   std::nullopt,
+                                                   std::nullopt,
+                                                   n20_x509_ext_open_dice_not_configured_e,
+                                                   std::nullopt,
+                                                   EXTENSION_WITHOUT_OPTIONALS)));
 
 template <typename T>
 inline static n20_asn1_slice_t v2slice(T const& v) {
@@ -262,8 +253,6 @@ inline static n20_asn1_slice_t v2slice(T const& v) {
 TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
     auto [optional_code_hash,
           optional_code_descriptor,
-          configuration_format,
-          optional_configuration_inline,
           optional_configuration_hash,
           optional_configuration_descriptor,
           optional_authority_hash,
@@ -278,16 +267,8 @@ TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
     inputs.code_hash = v2slice(optional_code_hash);
     inputs.code_descriptor = v2slice(optional_code_descriptor);
 
-    inputs.configuration_format = configuration_format;
-    switch (inputs.configuration_format) {
-        case n20_x509_ext_open_dice_configuration_format_inline_e:
-            inputs.configuration_inline = v2slice(optional_configuration_inline);
-            break;
-        case n20_x509_ext_open_dice_configuration_format_descriptor_e:
-            inputs.configuration_hash = v2slice(optional_configuration_hash);
-            inputs.configuration_descriptor = v2slice(optional_configuration_descriptor);
-            break;
-    }
+    inputs.configuration_hash = v2slice(optional_configuration_hash);
+    inputs.configuration_descriptor = v2slice(optional_configuration_descriptor);
 
     inputs.authority_hash = v2slice(optional_authority_hash);
     inputs.authority_descriptor = v2slice(optional_authority_descriptor);
