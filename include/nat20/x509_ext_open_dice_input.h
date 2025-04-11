@@ -47,22 +47,6 @@ typedef enum n20_x509_ext_open_dice_modes_s {
 } n20_x509_ext_open_dice_modes_t;
 
 /**
- * @brief Format of the configuration data used as input to the DICE.
- */
-typedef enum n20_x509_ext_open_dice_configuration_format_s {
-    /**
-     * @brief Format of the configuration data is an implementation defined inline value (not a
-     * hash).
-     */
-    n20_x509_ext_open_dice_configuration_format_inline_e = 0,
-    /**
-     * @brief Format of the configuration data is a hash over an implementation defined
-     * configuration descriptor.
-     */
-    n20_x509_ext_open_dice_configuration_format_descriptor_e = 1,
-} n20_x509_ext_open_dice_configuration_format_t;
-
-/**
  * @brief OpenDICE input content context.
  *
  * This is the context expected by
@@ -100,37 +84,12 @@ typedef struct n20_x509_ext_open_dice_input_s {
      */
     n20_asn1_slice_t code_descriptor;
     /**
-     * @brief Configuration type (inline or descriptor).
-     *
-     * If @ref configuration_format is set to @ref
-     * n20_x509_ext_open_dice_configuration_format_inline_e, @ref configuration_inline is used as
-     * the configuration input to the DICE. @ref configuration_descriptor and
-     * @ref configuration_hash are ignored.
-     *
-     * If @ref configuration_format is set to @ref
-     * n20_x509_ext_open_dice_configuration_format_descriptor_e,
-     * @ref configuration_descriptor and @ref configuration_hash are used.
-     * @ref configuration_inline is ignored.
-     *
-     * @sa n20_x509_ext_open_dice_configuration_t
-     */
-    n20_x509_ext_open_dice_configuration_format_t configuration_format;
-    /**
-     * @brief Implementation defined inline configuration input to the DICE.
-     *
-     * Only valid if @ref configuration_format is set to @ref
-     * n20_x509_ext_open_dice_configuration_format_inline_e.
-     *
-     * No ownerships is taken. The user has to
-     * assure that the buffer outlives the instance
-     * of this structure.
-     */
-    n20_asn1_slice_t configuration_inline;
-    /**
      * @brief Digest of the configuration descriptor used as input to the DICE.
      *
-     * Only valid if @ref configuration_format is set to @ref
-     * n20_x509_ext_open_dice_configuration_format_descriptor_e.
+     * This field is optional and may be set to `{0, 0}` to indicate that it is
+     * to be omitted.
+     * If present, it must be set to the digest of the configuration descriptor.
+     * In this case this digest was used to compute the CDI secret.
      *
      * No ownerships is taken. The user has to
      * assure that the buffer outlives the instance
@@ -142,9 +101,8 @@ typedef struct n20_x509_ext_open_dice_input_s {
      * to the DICE.
      *
      * H( @ref configuration_descriptor ) must equal the value stored in @ref configuration_hash.
-     *
-     * Only valid if @ref configuration_format is set to @ref
-     * n20_x509_ext_open_dice_configuration_format_descriptor_e.
+     * if @ref configuration_hash is present. Otherwise, this field holds the exact
+     * 64 bytes of the configuration data used to calculate the CDI secret.
      *
      * No ownerships is taken. The user has to
      * assure that the buffer outlives the instance
