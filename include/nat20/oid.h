@@ -270,6 +270,13 @@ N20_ASN1_DECLARE_OID(OID_ORGANIZATION_UNIT_NAME);
 N20_ASN1_DECLARE_OID(OID_COMMON_NAME);
 
 /**
+ * @brief OID for the serial number attribute.
+ *
+ * Represents the object identifier for the serial number attribute in X.509 certificates.
+ */
+N20_ASN1_DECLARE_OID(OID_SERIAL_NUMBER);
+
+/**
  * @brief OID for the basic constraints extension.
  *
  * Represents the object identifier for the basic constraints extension in X.509 certificates.
