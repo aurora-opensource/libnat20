@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <nat20/types.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -110,8 +111,8 @@ enum n20_crypto_error_s {
      * the message for `sign` and `digest` or the
      * the key derivation context of `kdf` return this
      * error the gather list contains a slice
-     * with @ref n20_crypto_slice_t.size non zero but
-     * @ref n20_crypto_slice_t.buffer is NULL.
+     * with @ref n20_slice_t.size non zero but
+     * @ref n20_slice_t.buffer is NULL.
      *
      * @sa n20_crypto_context_t.digest
      * @sa n20_crypto_context_t.kdf
@@ -296,42 +297,10 @@ typedef enum n20_crypto_key_type_s n20_crypto_key_type_t;
 typedef void* n20_crypto_key_t;
 
 /**
- * @brief A single consecutive immutable buffer slice.
- *
- * A slice refers to a immutable (const) buffer.
- *
- * A slice never owns this buffer, i.e., the user must
- * assure that the buffer outlives this structure as
- * long as this structure references the buffer.
- */
-struct n20_crypto_slice_s {
-    /**
-     * @brief The size of the slice.
-     */
-    size_t size;
-    /**
-     * @brief The buffer.
-     *
-     * This pointer must reference a buffer of sufficient
-     * capacity to accommodate @ref size bytes of data.
-     *
-     * Implementation must ignore this value if @ref size is `0`.
-     *
-     * This field may be NULL only if @ref size is `0`.
-     */
-    uint8_t const* buffer;
-};
-
-/**
- * @brief Alias for @ref n20_crypto_slice_s
- */
-typedef struct n20_crypto_slice_s n20_crypto_slice_t;
-
-/**
  * @brief A list of immutable buffer slices.
  *
  * This structure must be initialized such that @ref list points
- * to a buffer of sizeof( @ref n20_crypto_slice_t ) * @ref count,
+ * to a buffer of sizeof( @ref n20_slice_t ) * @ref count,
  * where @ref count refers to the number of slices in the gather
  * list.
  *
@@ -346,15 +315,15 @@ struct n20_crypto_gather_list_s {
      */
     size_t count;
     /**
-     * @brief Points to an array of @ref n20_crypto_slice_t.
+     * @brief Points to an array of @ref n20_slice_t.
      *
      * The array pointed to must accommodate at leaset @ref count
-     * elements of @ref n20_crypto_slice_t.
+     * elements of @ref n20_slice_t.
      *
      * This structure does not take ownership of the array.
      *
      */
-    n20_crypto_slice_t* list;
+    n20_slice_t* list;
 };
 
 /**
@@ -380,8 +349,8 @@ struct n20_crypto_context_s {
      * Each buffer in the gather list is concatenated in the order they
      * appear in the list.
      *
-     * Buffers with zero @ref n20_crypto_slice_s.size are allowed and treated
-     * as empty. In this case the @ref n20_crypto_slice_s.buffer is ignored.
+     * Buffers with zero @ref n20_slice_s.size are allowed and treated
+     * as empty. In this case the @ref n20_slice_s.buffer is ignored.
      *
      *
      * Implementations must implement the following digests.
@@ -482,7 +451,7 @@ struct n20_crypto_context_s {
      *
      * // Assemble the derivation context.
      * char const context_str[] = "kdf context";
-     * n20_crypto_slice_t context_buffer = {
+     * n20_slice_t context_buffer = {
      *     .size = sizeof(context_str) -1,
      *     .buffer = (uint8_t const*)context_str,
      * };

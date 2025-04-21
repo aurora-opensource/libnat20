@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <nat20/asn1.h>
 #include <nat20/oid.h>
+#include <nat20/types.h>
 
 #include <cstdint>
 #include <optional>
@@ -440,9 +441,9 @@ TEST_P(OctetStringTest, OctetStringEncoding) {
         n20_stream_t s;
         uint8_t buffer[128];
         n20_stream_init(&s, buffer, sizeof(buffer));
-        n20_asn1_slice_t slice = {
-            .buffer = bytes.data(),
+        n20_slice_t slice = {
             .size = bytes.size(),
+            .buffer = bytes.data(),
         };
         n20_asn1_octetstring(&s, &slice, tag_info);
         ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));

@@ -243,11 +243,11 @@ INSTANTIATE_TEST_CASE_P(OpenDiceInputEncoding,
                                                    EXTENSION_WITHOUT_OPTIONALS)));
 
 template <typename T>
-inline static n20_asn1_slice_t v2slice(T const& v) {
+inline static n20_slice_t v2slice(T const& v) {
     if (v.has_value()) {
-        return n20_asn1_slice_t{v->data(), v->size()};
+        return n20_slice_t{v->size(), v->data()};
     }
-    return n20_asn1_slice_t{nullptr, 0};
+    return n20_slice_t{0, nullptr};
 }
 
 TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {

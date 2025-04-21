@@ -18,6 +18,7 @@
 
 #include <nat20/oid.h>
 #include <nat20/stream.h>
+#include <nat20/types.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -432,42 +433,6 @@ extern n20_asn1_tag_info_t n20_asn1_tag_info_explicit(int tag);
 extern n20_asn1_tag_info_t n20_asn1_tag_info_implicit(int tag);
 
 /**
- * @brief Refers to a constant buffer of the specified size.
- *
- * This is used to refer to foreign non-mutable buffers
- * of a given size. The user has to assure buffer outlives
- * the instance of the slice and that the buffer is
- * sufficiently large to accommodate @ref size bytes of data.
- *
- * No ownership is implied.
- *
- * Implementations must handle the cases where @ref buffer
- * is NULL gracefully, and must not dereference the pointer
- * even if @ref size is not 0.
- *
- * If @ref size is 0, implementation may use the value of buffer
- * to distinguish between an empty buffer and an optional
- * field that is not present.
- */
-struct n20_asn1_slice_s {
-    /**
-     * @brief Pointer to the buffer.
-     *
-     * A buffer with a capacity of at least @ref size bytes or NULL.
-     */
-    uint8_t const *buffer;
-    /**
-     * @brief The guaranteed capacity of the buffer.
-     */
-    size_t size;
-};
-
-/**
- * @brief Alias for @ref n20_asn1_slice_s
- */
-typedef struct n20_asn1_slice_s n20_asn1_slice_t;
-
-/**
  * @brief Write an ASN1 NULL to the given stream.
  *
  * @param s The stream that is to be updated.
@@ -588,7 +553,7 @@ extern void n20_asn1_bitstring(n20_stream_t *s,
  * @param tag_info Tag info override.
  */
 extern void n20_asn1_octetstring(n20_stream_t *s,
-                                 n20_asn1_slice_t const *slice,
+                                 n20_slice_t const *slice,
                                  n20_asn1_tag_info_t tag_info);
 
 /**

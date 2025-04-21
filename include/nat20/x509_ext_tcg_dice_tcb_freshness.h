@@ -48,7 +48,7 @@ struct n20_x509_ext_tcg_dice_tcb_freshness_s {
      *
      * If nonce.buffer is NULL, the nonce is not rendered in the extension.
      */
-    n20_asn1_slice_t nonce;
+    n20_slice_t nonce;
 };
 
 /**

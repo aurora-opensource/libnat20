@@ -165,7 +165,7 @@ DigestTestCase digest_test_cases[] = {
 
 TYPED_TEST_P(CryptoTestFixture, DigestTestVectorTest) {
     for (auto test_case : digest_test_cases) {
-        n20_crypto_slice_t buffers[]{
+        n20_slice_t buffers[]{
             {test_case.preimage.size(),
              const_cast<uint8_t*>(reinterpret_cast<uint8_t const*>(test_case.preimage.c_str()))}};
         n20_crypto_gather_list_t msg = {1, buffers};
@@ -215,7 +215,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
         got_size = buffer.size();
         N20_ASSERT_EQ(80, got_size);
 
-        n20_crypto_slice_t buffers[]{{0, nullptr}};
+        n20_slice_t buffers[]{{0, nullptr}};
         n20_crypto_gather_list_t msg = {1, buffers};
 
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
@@ -256,7 +256,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
 
         // Must return n20_crypto_error_unexpected_null_slice_e if a buffer in
         // the message has a size but nullptr buffer.
-        n20_crypto_slice_t buffers[]{{3, nullptr}};
+        n20_slice_t buffers[]{{3, nullptr}};
         msg.list = buffers;
         N20_ASSERT_EQ(n20_crypto_error_unexpected_null_slice_e,
                       this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
@@ -280,7 +280,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
 
         // We are digesting the message "foobar" in a roundabout way.
         // First we split it up into {"foo", "bar", ""}.
-        n20_crypto_slice_t buffers[3]{{sizeof msg1, msg1}, {sizeof msg2, msg2}, {0, nullptr}};
+        n20_slice_t buffers[3]{{sizeof msg1, msg1}, {sizeof msg2, msg2}, {0, nullptr}};
         n20_crypto_gather_list_t msg = {3, buffers};
 
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
@@ -429,7 +429,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
              tc{"secp384r1", n20_crypto_key_type_secp384r1_e},
          }) {
 
-        n20_crypto_slice_t context_buffers[] = {
+        n20_slice_t context_buffers[] = {
             {15, (uint8_t*)"this context is "},
             {4, (uint8_t*)"not "},
             {10, (uint8_t*)"the other"},
@@ -451,7 +451,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
                       this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_verify));
 
         // ##### Sign the message. #########
-        n20_crypto_slice_t message_buffers[] = {
+        n20_slice_t message_buffers[] = {
             {10, (uint8_t*)"my message"},
         };
         n20_crypto_gather_list_t message = {1, message_buffers};
@@ -579,7 +579,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
         // Derive each key type that would be ineligible to derive a key from
         // and use it as `key_in` for the KDF. The kdf must diagnose it
         // as n20_crypto_error_invalid_key_e.
-        n20_crypto_slice_t context_buffers[] = {
+        n20_slice_t context_buffers[] = {
             {3, (uint8_t*)"foo"},
         };
         n20_crypto_gather_list_t context = {1, context_buffers};
@@ -620,7 +620,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
         N20_ASSERT_EQ(n20_crypto_error_unexpected_null_list_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &invalid_context, &key_out));
 
-        n20_crypto_slice_t invalid_context_buffers[] = {
+        n20_slice_t invalid_context_buffers[] = {
             {3, nullptr},
         };
         invalid_context.list = invalid_context_buffers;
@@ -629,7 +629,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
     }
 
     n20_crypto_key_t out_key = nullptr;
-    n20_crypto_slice_t context_buffers[] = {
+    n20_slice_t context_buffers[] = {
         {3, (uint8_t*)"foo"},
     };
     n20_crypto_gather_list_t context = {1, context_buffers};
@@ -665,7 +665,7 @@ TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
              tc{"secp384r1", n20_crypto_key_type_secp384r1_e, 96},
          }) {
 
-        n20_crypto_slice_t context_buffers[] = {
+        n20_slice_t context_buffers[] = {
             {19, (uint8_t*)"sign error test key"},
         };
         n20_crypto_gather_list_t context = {1, context_buffers};
@@ -701,7 +701,7 @@ TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
             n20_crypto_error_unexpected_null_list_e,
             this->ctx->sign(this->ctx, signing_key, &message, signature_buffer, &signature_size));
 
-        n20_crypto_slice_t msg_buffers[] = {{5, nullptr}};
+        n20_slice_t msg_buffers[] = {{5, nullptr}};
         message.list = msg_buffers;
         N20_ASSERT_EQ(
             n20_crypto_error_unexpected_null_slice_e,
@@ -738,8 +738,7 @@ TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
 
         n20_crypto_key_t key = nullptr;
         char const context_str[] = "public key errors test context";
-        n20_crypto_slice_t context_buffers[] = {sizeof(context_str) - 1,
-                                                (uint8_t* const)&context_str[0]};
+        n20_slice_t context_buffers[] = {sizeof(context_str) - 1, (uint8_t* const)&context_str[0]};
         n20_crypto_gather_list_t context = {1, context_buffers};
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &context, &key));

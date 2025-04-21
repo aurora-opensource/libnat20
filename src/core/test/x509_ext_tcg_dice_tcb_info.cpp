@@ -62,8 +62,8 @@ n20_x509_ext_tcg_dice_tcb_info_fwid_t TEST_FWID_1 = {
     .hash_algo = OID_SHA256,
     .digest =
         {
-            .buffer = TEST_DIGEST_1.data(),
             .size = TEST_DIGEST_1.size(),
+            .buffer = TEST_DIGEST_1.data(),
         },
 };
 
@@ -71,8 +71,8 @@ n20_x509_ext_tcg_dice_tcb_info_fwid_t TEST_FWID_2 = {
     .hash_algo = OID_SHA512,
     .digest =
         {
-            .buffer = TEST_DIGEST_2.data(),
             .size = TEST_DIGEST_2.size(),
+            .buffer = TEST_DIGEST_2.data(),
         },
 };
 
@@ -419,13 +419,13 @@ TEST(X509ExtTcgMultiTcbInfoTest, TcgTcbMultiInfoEncoding) {
             .flags_mask = TEST_FLAGS_MASK,
             .vendor_info =
                 {
-                    .buffer = TEST_VENDOR_INFO.data(),
                     .size = TEST_VENDOR_INFO.size(),
+                    .buffer = TEST_VENDOR_INFO.data(),
                 },
             .type =
                 {
-                    .buffer = TEST_TYPE.data(),
                     .size = TEST_TYPE.size(),
+                    .buffer = TEST_TYPE.data(),
                 },
         },
         {
@@ -444,13 +444,13 @@ TEST(X509ExtTcgMultiTcbInfoTest, TcgTcbMultiInfoEncoding) {
             .flags_mask = TEST_FLAGS_MASK,
             .vendor_info =
                 {
-                    .buffer = nullptr,
                     .size = 0,
+                    .buffer = nullptr,
                 },
             .type =
                 {
-                    .buffer = nullptr,
                     .size = 0,
+                    .buffer = nullptr,
                 },
         },
     };
