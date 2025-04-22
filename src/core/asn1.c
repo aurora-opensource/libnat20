@@ -356,35 +356,37 @@ void n20_asn1_octetstring(n20_stream_t *const s,
 }
 
 void n20_asn1_printablestring(n20_stream_t *const s,
-                              char const *const str,
+                              n20_string_slice_t const *const str,
                               n20_asn1_tag_info_t const tag_info) {
-    n20_slice_t const slice = {
-        .buffer = (uint8_t *)str,
-        .size = str == NULL ? 0 : strlen(str),
-    };
+    n20_slice_t slice = {0, NULL};
+    if (str != NULL) {
+        slice.buffer = (uint8_t *)str->buffer;
+        slice.size = str->size;
+    }
     n20_asn1_stringish(s, N20_ASN1_TAG_PRINTABLE_STRING, &slice, tag_info);
 }
 
 void n20_asn1_utf8_string(n20_stream_t *const s,
-                          char const *const str,
+                          n20_string_slice_t const *const str,
                           n20_asn1_tag_info_t const tag_info) {
-    n20_slice_t const slice = {
-        .buffer = (uint8_t *)str,
-        .size = str == NULL ? 0 : strlen(str),
-    };
+    n20_slice_t slice = {0, NULL};
+    if (str != NULL) {
+        slice.buffer = (uint8_t *)str->buffer;
+        slice.size = str->size;
+    }
     n20_asn1_stringish(s, N20_ASN1_TAG_UTF8_STRING, &slice, tag_info);
 }
 
 void n20_asn1_generalized_time(n20_stream_t *const s,
-                               char const *const time_str,
+                               n20_string_slice_t const *const time_str,
                                n20_asn1_tag_info_t const tag_info) {
     if (time_str == NULL) {
         n20_asn1_null(s, n20_asn1_tag_info_no_override());
         return;
     }
     n20_slice_t const slice = {
-        .buffer = (uint8_t *)time_str,
-        .size = strlen(time_str),
+        .buffer = (uint8_t *)time_str->buffer,
+        .size = time_str->size,
     };
     n20_asn1_stringish(s, N20_ASN1_TAG_GENERALIZED_TIME, &slice, tag_info);
 }

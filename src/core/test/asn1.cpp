@@ -489,7 +489,11 @@ TEST_P(PrintableStringTest, PrintableStringEncoding) {
         uint8_t buffer[128];
         n20_stream_init(&s, buffer, sizeof(buffer));
         if (optional_string.has_value()) {
-            n20_asn1_printablestring(&s, optional_string.value().c_str(), tag_info);
+            n20_string_slice_t optional_string_slice = {
+                .size = optional_string.value().size(),
+                .buffer = optional_string.value().c_str(),
+            };
+            n20_asn1_printablestring(&s, &optional_string_slice, tag_info);
         } else {
             n20_asn1_printablestring(&s, nullptr, tag_info);
         }
@@ -536,7 +540,11 @@ TEST_P(Utf8StringTest, Utf8StringEncoding) {
         uint8_t buffer[128];
         n20_stream_init(&s, buffer, sizeof(buffer));
         if (optional_string.has_value()) {
-            n20_asn1_utf8_string(&s, optional_string.value().c_str(), tag_info);
+            n20_string_slice_t optional_string_slice = {
+                .size = optional_string.value().size(),
+                .buffer = optional_string.value().c_str(),
+            };
+            n20_asn1_utf8_string(&s, &optional_string_slice, tag_info);
         } else {
             n20_asn1_utf8_string(&s, nullptr, tag_info);
         }
@@ -605,7 +613,11 @@ TEST_P(GeneralizedTimeTest, GeneralizedTimeEncoding) {
         uint8_t buffer[128];
         n20_stream_init(&s, buffer, sizeof(buffer));
         if (optional_string.has_value()) {
-            n20_asn1_generalized_time(&s, optional_string.value().c_str(), tag_info);
+            n20_string_slice_t optional_string_slice = {
+                .size = optional_string.value().size(),
+                .buffer = optional_string.value().c_str(),
+            };
+            n20_asn1_generalized_time(&s, &optional_string_slice, tag_info);
         } else {
             n20_asn1_generalized_time(&s, nullptr, tag_info);
         }
@@ -622,12 +634,14 @@ class SequenceTest
           std::tuple<void (*)(n20_stream_t *, void *), void *, std::vector<uint8_t>>> {};
 
 void flat(n20_stream_t *s, void *cb_context) {
-    n20_asn1_printablestring(s, "flat", n20_asn1_tag_info_no_override());
+    n20_string_slice_t slice = N20_STR_C("flat");
+    n20_asn1_printablestring(s, &slice, n20_asn1_tag_info_no_override());
     n20_asn1_boolean(s, true, n20_asn1_tag_info_no_override());
 }
 
 void nested(n20_stream_t *s, void *cb_context) {
-    n20_asn1_printablestring(s, "nested", n20_asn1_tag_info_no_override());
+    n20_string_slice_t slice = N20_STR_C("nested");
+    n20_asn1_printablestring(s, &slice, n20_asn1_tag_info_no_override());
     n20_asn1_sequence(s, &flat, cb_context, n20_asn1_tag_info_no_override());
 }
 
