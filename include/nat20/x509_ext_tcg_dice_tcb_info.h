@@ -139,7 +139,8 @@ struct n20_x509_ext_tcg_dice_tcb_info_operational_flags_s {
 /**
  * @brief Alias for @ref n20_x509_ext_tcg_dice_tcb_info_operational_flags_s
  */
-typedef struct n20_x509_ext_tcg_dice_tcb_info_operational_flags_s n20_x509_ext_tcg_dice_tcb_info_operational_flags_t;
+typedef struct n20_x509_ext_tcg_dice_tcb_info_operational_flags_s
+    n20_x509_ext_tcg_dice_tcb_info_operational_flags_t;
 
 /**
  * @brief TCG DICE TCB FW ID.
@@ -184,7 +185,8 @@ struct n20_x509_ext_tcg_dice_tcb_info_fwid_list_s {
 /**
  * @brief Alias for @ref n20_x509_ext_tcg_dice_tcb_info_fwid_list_s
  */
-typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_list_s n20_x509_ext_tcg_dice_tcb_info_fwid_list_t;
+typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_list_s
+    n20_x509_ext_tcg_dice_tcb_info_fwid_list_t;
 
 /**
  * @brief TCG DICE TCB Info X509 extension context.

@@ -257,7 +257,8 @@ N20_ASN1_DECLARE_OID(OID_ORGANIZATION_NAME);
 /**
  * @brief OID for the organizational unit name attribute.
  *
- * Represents the object identifier for the organizational unit name attribute in X.509 certificates.
+ * Represents the object identifier for the organizational unit name attribute in X.509
+ * certificates.
  */
 N20_ASN1_DECLARE_OID(OID_ORGANIZATION_UNIT_NAME);
 
@@ -299,21 +300,24 @@ N20_ASN1_DECLARE_OID(OID_TCG_DICE_TCB_INFO);
 /**
  * @brief OID for the TCG DICE multi-TCB info extension.
  *
- * Represents the object identifier for the Trusted Computing Group (TCG) DICE multi-TCB info extension.
+ * Represents the object identifier for the Trusted Computing Group (TCG) DICE multi-TCB info
+ * extension.
  */
 N20_ASN1_DECLARE_OID(OID_TCG_DICE_MULTI_TCB_INFO);
 
 /**
  * @brief OID for the TCG DICE UEID extension.
  *
- * Represents the object identifier for the Trusted Computing Group (TCG) DICE Unique Endpoint Identifier (UEID) extension.
+ * Represents the object identifier for the Trusted Computing Group (TCG) DICE Unique Endpoint
+ * Identifier (UEID) extension.
  */
 N20_ASN1_DECLARE_OID(OID_TCG_DICE_UEID);
 
 /**
  * @brief OID for the TCG DICE TCB freshness extension.
  *
- * Represents the object identifier for the Trusted Computing Group (TCG) DICE TCB freshness extension.
+ * Represents the object identifier for the Trusted Computing Group (TCG) DICE TCB freshness
+ * extension.
  */
 N20_ASN1_DECLARE_OID(OID_TCG_DICE_TCB_FRESHNESS);
 

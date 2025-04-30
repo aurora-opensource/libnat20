@@ -679,7 +679,6 @@ struct n20_x509_validity_s {
      * @ref n20_x509_no_expiration.
      */
     char const *not_after;
-
 };
 
 /**
