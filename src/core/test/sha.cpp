@@ -20,10 +20,10 @@
 #include <string>
 #include <tuple>
 
-#include "sha256_test_vectors.h"
 #include "sha224_test_vectors.h"
-#include "sha512_test_vectors.h"
+#include "sha256_test_vectors.h"
 #include "sha384_test_vectors.h"
+#include "sha512_test_vectors.h"
 
 static std::string hexdump(std::vector<uint8_t> const& data) {
     std::stringstream s;
@@ -43,13 +43,11 @@ class Sha256TestFixture : public testing::TestWithParam<
                               std::tuple<std::string, std::vector<uint8_t>, std::vector<uint8_t>>> {
 };
 
-INSTANTIATE_TEST_CASE_P(
-    ShaSha256Test,
-    Sha256TestFixture,
-    sha256TestVectors,
-    [](testing::TestParamInfo<Sha256TestFixture::ParamType> const& info) -> std::string {
-        return std::get<0>(info.param);
-    });
+INSTANTIATE_TEST_CASE_P(ShaSha256Test,
+                        Sha256TestFixture,
+                        sha256TestVectors,
+                        [](testing::TestParamInfo<Sha256TestFixture::ParamType> const& info)
+                            -> std::string { return std::get<0>(info.param); });
 
 TEST_P(Sha256TestFixture, Sha256DigestTest) {
     auto [_, msg, want_digest] = GetParam();
@@ -62,18 +60,15 @@ TEST_P(Sha256TestFixture, Sha256DigestTest) {
                                        << "Actual digest: " << hexdump(got_digest) << std::endl;
 }
 
-
 class Sha224TestFixture : public testing::TestWithParam<
                               std::tuple<std::string, std::vector<uint8_t>, std::vector<uint8_t>>> {
 };
 
-INSTANTIATE_TEST_CASE_P(
-    ShaSha224Test,
-    Sha224TestFixture,
-    sha224TestVectors,
-    [](testing::TestParamInfo<Sha256TestFixture::ParamType> const& info) -> std::string {
-        return std::get<0>(info.param);
-    });
+INSTANTIATE_TEST_CASE_P(ShaSha224Test,
+                        Sha224TestFixture,
+                        sha224TestVectors,
+                        [](testing::TestParamInfo<Sha256TestFixture::ParamType> const& info)
+                            -> std::string { return std::get<0>(info.param); });
 
 TEST_P(Sha224TestFixture, Sha224DigestTest) {
     auto [_, msg, want_digest] = GetParam();
@@ -90,13 +85,11 @@ class Sha512TestFixture : public testing::TestWithParam<
                               std::tuple<std::string, std::vector<uint8_t>, std::vector<uint8_t>>> {
 };
 
-INSTANTIATE_TEST_CASE_P(
-    ShaSha512Test,
-    Sha512TestFixture,
-    sha512TestVectors,
-    [](testing::TestParamInfo<Sha256TestFixture::ParamType> const& info) -> std::string {
-        return std::get<0>(info.param);
-    });
+INSTANTIATE_TEST_CASE_P(ShaSha512Test,
+                        Sha512TestFixture,
+                        sha512TestVectors,
+                        [](testing::TestParamInfo<Sha256TestFixture::ParamType> const& info)
+                            -> std::string { return std::get<0>(info.param); });
 
 TEST_P(Sha512TestFixture, Sha512DigestTest) {
     auto [_, msg, want_digest] = GetParam();
@@ -112,13 +105,11 @@ TEST_P(Sha512TestFixture, Sha512DigestTest) {
 class Sha384TestFixture : public testing::TestWithParam<
                               std::tuple<std::string, std::vector<uint8_t>, std::vector<uint8_t>>> {
 };
-INSTANTIATE_TEST_CASE_P(
-    ShaSha384Test,
-    Sha384TestFixture,
-    sha384TestVectors,
-    [](testing::TestParamInfo<Sha256TestFixture::ParamType> const& info) -> std::string {
-        return std::get<0>(info.param);
-    });
+INSTANTIATE_TEST_CASE_P(ShaSha384Test,
+                        Sha384TestFixture,
+                        sha384TestVectors,
+                        [](testing::TestParamInfo<Sha256TestFixture::ParamType> const& info)
+                            -> std::string { return std::get<0>(info.param); });
 TEST_P(Sha384TestFixture, Sha384DigestTest) {
     auto [_, msg, want_digest] = GetParam();
 
