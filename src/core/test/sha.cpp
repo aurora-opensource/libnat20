@@ -20,10 +20,10 @@
 #include <string>
 #include <tuple>
 
-#include "sha256_test_vectors.hpp"
-#include "sha224_test_vectors.hpp"
-#include "sha512_test_vectors.hpp"
-#include "sha384_test_vectors.hpp"
+#include "sha256_test_vectors.h"
+#include "sha224_test_vectors.h"
+#include "sha512_test_vectors.h"
+#include "sha384_test_vectors.h"
 
 static std::string hexdump(std::vector<uint8_t> const& data) {
     std::stringstream s;
