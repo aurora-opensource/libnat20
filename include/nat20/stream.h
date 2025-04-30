@@ -38,7 +38,7 @@ extern "C" {
  * each field is known when rendering the corresponding header
  * with no further adjustment required to adhere to DER.
  */
-typedef struct n20_stream_s {
+struct n20_stream_s {
     /**
      * @brief Points to the beginning of the underlying buffer.
      *
@@ -87,7 +87,12 @@ typedef struct n20_stream_s {
      * @sa n20_stream_has_write_postion_overflow
      */
     bool write_position_overflow;
-} n20_stream_t;
+};
+
+/**
+ * @brief Alias for @ref n20_stream_s
+ */
+typedef struct n20_stream_s n20_stream_t;
 
 /**
  * @brief Initialize an @ref n20_stream_t structure.
@@ -121,7 +126,7 @@ extern void n20_stream_init(n20_stream_t *s, uint8_t *buffer, size_t buffer_size
  * buffer. If `false` is returned, it implies that
  * @ref n20_stream_data returns a pointer that can
  * be safely dereferenced.
- * If `false` is returned it implies @ref n20_stream_has_write_postion_overflow
+ * If `false` is returned it implies @ref n20_stream_has_write_position_overflow
  * must return `false`.
  *
  * @param s the pointer to the stream that is to be queried.
@@ -186,23 +191,23 @@ extern uint8_t const *n20_stream_data(n20_stream_t const *s);
  * The buffer's write position is moved by `-src_len`
  * unconditionally. If the stream is good and the new position
  * points inside of the underlying buffer, the entire source
- * buffer @ref src is copied into the stream buffer. Otherwise,
+ * buffer @p src is copied into the stream buffer. Otherwise,
  * nothing is copied and the stream is marked as bad.
  * A bad stream can still be written to, but it will only record
  * the number of bytes written without storing any data.
  *
- * If @ref src_len is exceedingly large such that the the write position
+ * If @p src_len is exceedingly large such that the the write position
  * would wrapp and point within the writable buffer region, the
  * stream will remain bad but in addition the overflow flag will be
  * raised on the stream indicating that even @ref n20_stream_byte_count
  * is no longer reliable. This condition can be queried using
- * @ref n20_stream_has_write_postion_overflow.
+ * @ref n20_stream_has_write_position_overflow.
  *
  * @param s The stream that is to be updated.
  * @param src The source buffer that is to be written to the stream.
  * @param src_len The size of the source buffer in bytes.
  * @sa n20_stream_byte_count
- * @sa n20_stream_has_write_postion_overflow
+ * @sa n20_stream_has_write_position_overflow
  */
 extern void n20_stream_prepend(n20_stream_t *s, uint8_t const *src, size_t src_len);
 

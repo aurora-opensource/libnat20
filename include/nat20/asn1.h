@@ -305,7 +305,7 @@ extern void n20_asn1_header(
 /**
  * @brief Qualifies the tag info override type.
  */
-typedef enum n20_asn1_tag_info_type_s {
+enum n20_asn1_tag_info_type_s {
     /**
      * @brief No override.
      *
@@ -320,7 +320,12 @@ typedef enum n20_asn1_tag_info_type_s {
      * @brief Context specific tagging with explicit typing.
      */
     n20_asn1_tag_info_explicit_e = 2,
-} n20_asn1_tag_info_type_t;
+};
+
+/**
+ * @brief Alias for @ref n20_asn1_tag_info_type_s
+ */
+typedef enum n20_asn1_tag_info_type_s n20_asn1_tag_info_type_t;
 
 /**
  * @brief The tag info override.
@@ -338,15 +343,15 @@ typedef enum n20_asn1_tag_info_type_s {
  * on the value of @ref type (Except when the default fallback value
  * is rendered).
  *
- * - @ref n20_asn1_tag_info_no_override_e: The override is ignored.
- * - @ref n20_asn1_tag_info_implicit_e: The class of the ASN.1 item
+ * - @ref n20_asn1_tag_info_no_override_e : The override is ignored.
+ * - @ref n20_asn1_tag_info_implicit_e : The class of the ASN.1 item
  *   is set to @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC, and the tag is
  *   replaced with the value of @ref tag.
- * - @ref n20_asn1_tag_info_explicit_e: The header of the ASN.1 item
+ * - @ref n20_asn1_tag_info_explicit_e : The header of the ASN.1 item
  *   is unchanged, but a second header is rendered with a class of
  *   @ref N20_ASN1_CLASS_CONTEXT_SPECIFIC, and a value of @ref tag.
  */
-typedef struct n20_asn1_tag_info_s {
+struct n20_asn1_tag_info_s {
     /**
      * @brief Indicates the type of the tag info override.
      *
@@ -362,7 +367,12 @@ typedef struct n20_asn1_tag_info_s {
      * requested.
      */
     uint32_t tag;
-} n20_asn1_tag_info_t;
+};
+
+/**
+ * @brief Alias for @ref n20_asn1_tag_info_s
+ */
+typedef struct n20_asn1_tag_info_s n20_asn1_tag_info_t;
 
 /**
  * @brief Convenience function for initializing @ref n20_asn1_tag_info_t.
@@ -439,7 +449,7 @@ extern n20_asn1_tag_info_t n20_asn1_tag_info_implicit(int tag);
  * to distinguish between an empty buffer and an optional
  * field that is not present.
  */
-typedef struct n20_asn1_slice_s {
+struct n20_asn1_slice_s {
     /**
      * @brief Pointer to the buffer.
      *
@@ -450,7 +460,12 @@ typedef struct n20_asn1_slice_s {
      * @brief The guaranteed capacity of the buffer.
      */
     size_t size;
-} n20_asn1_slice_t;
+};
+
+/**
+ * @brief Alias for @ref n20_asn1_slice_s
+ */
+typedef struct n20_asn1_slice_s n20_asn1_slice_t;
 
 /**
  * @brief Write an ASN1 NULL to the given stream.
@@ -464,7 +479,7 @@ extern void n20_asn1_null(n20_stream_t *const s, n20_asn1_tag_info_t tag_info);
 /**
  * @brief Write an object identifier complete with ASN.1 header to the given stream.
  *
- * If the @ref oid parameter is NULL this function behaves like
+ * If the @p oid parameter is NULL this function behaves like
  * @ref n20_asn1_null.
  *
  * If `oid->element_count` is initialized to avalue greater than
@@ -549,7 +564,7 @@ extern void n20_asn1_int64(n20_stream_t *s, int64_t n, n20_asn1_tag_info_t tag_i
  * significant used bit in the byte at offset `bits/8`. The remaining
  * bits are to be set to zero as for DER.
  *
- * If @ref b is NULL an empty bitstring is written.
+ * If @p b is NULL an empty bitstring is written.
  *
  * @param s The stream that is to be updated.
  * @param b Buffer holding the bitstring.
@@ -566,7 +581,7 @@ extern void n20_asn1_bitstring(n20_stream_t *s,
  *
  * Writes the `len` octets from `str` to the stream.
  *
- * If @ref str is NULL an empty octetstring is written.
+ * If @p str is NULL an empty octetstring is written.
  *
  * @param s The stream that is to be updated.
  * @param slice Buffer holding the octet string.
@@ -582,12 +597,12 @@ extern void n20_asn1_octetstring(n20_stream_t *s,
  * This function assumes that `str` is `'\0'` terminated and uses
  * `strlen` to determine the size of the string.
  * It writes the string without the terminating character to the
- * stream. This function assumes the string pointed to by @ref str is
+ * stream. This function assumes the string pointed to by @p str is
  * a valid UTF-8 encoding.
  * It is up to the caller to uphold this invariant. This function does
  * not perform any compliance checks.
  *
- * If @ref str is NULL, an empty string is written.
+ * If @p str is NULL, an empty string is written.
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the string.
@@ -607,7 +622,7 @@ extern void n20_asn1_utf8_string(n20_stream_t *s, char const *str, n20_asn1_tag_
  * It is up to the caller to uphold this invariant. This function does
  * not perform any compliance checks.
  *
- * If @ref str is NULL, an empty printable string is written.
+ * If @p str is NULL, an empty printable string is written.
  *
  * @param s The stream that is to be updated.
  * @param str Buffer holding the string.
@@ -628,7 +643,7 @@ extern void n20_asn1_printablestring(n20_stream_t *s,
  * It is up to the caller to format the time string, and no checks are
  * performed on the string.
  *
- * If @ref time_str is `NULL`, this function behaves like @ref n20_asn_null.
+ * If @p time_str is `NULL`, this function behaves like @ref n20_asn1_null.
  *
  * @param s The stream that is to be updated.
  * @param time_str Buffer holding the string.

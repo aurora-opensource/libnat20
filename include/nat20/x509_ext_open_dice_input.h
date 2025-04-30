@@ -27,7 +27,7 @@ extern "C" {
 /**
  * @brief Mode inputs to the DICE.
  */
-typedef enum n20_x509_ext_open_dice_modes_s {
+enum n20_x509_ext_open_dice_modes_s {
     /**
      * @brief No security features (e.g. verified boot) have been configured on the device.
      */
@@ -44,7 +44,12 @@ typedef enum n20_x509_ext_open_dice_modes_s {
      * @brief Device is in a debug or maintenance mode.
      */
     n20_x509_ext_open_dice_recovery_e = 3,
-} n20_x509_ext_open_dice_modes_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_open_dice_modes_s
+ */
+typedef enum n20_x509_ext_open_dice_modes_s n20_x509_ext_open_dice_modes_t;
 
 /**
  * @brief OpenDICE input content context.
@@ -61,7 +66,7 @@ typedef enum n20_x509_ext_open_dice_modes_s {
  * (See Open Profile for DICE, Section X.509 CDI Certificates)
  * @sa OID_OPEN_DICE_INPUT
  */
-typedef struct n20_x509_ext_open_dice_input_s {
+struct n20_x509_ext_open_dice_input_s {
     /**
      * @brief Digest of the code used as input to the DICE.
      *
@@ -148,15 +153,20 @@ typedef struct n20_x509_ext_open_dice_input_s {
      * @sa n20_asn1_utf8_string
      */
     char const *profile_name;
-} n20_x509_ext_open_dice_input_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_open_dice_input_s
+ */
+typedef struct n20_x509_ext_open_dice_input_s n20_x509_ext_open_dice_input_t;
 
 /**
  * @brief Renders the value of a OpenDice Input extension.
  *
  * The function expects a pointer to an instance of
- * @ref n20_x509_ext_open_dice_input_t as @ref context argument.
+ * @ref n20_x509_ext_open_dice_input_t as @p context argument.
  *
- * If @ref context is NULL, nothing is rendered, which would leave
+ * If @p context is NULL, nothing is rendered, which would leave
  * the resulting OpenDice Input extension malformed.
  *
  * This function is typically not used directly but instead
