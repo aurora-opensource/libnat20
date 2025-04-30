@@ -150,7 +150,7 @@ extern n20_sha224_sha256_state_t n20_sha256_init(void);
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
  */
- extern void n20_sha256_update(n20_sha224_sha256_state_t *state,
+extern void n20_sha256_update(n20_sha224_sha256_state_t *state,
                               uint8_t const *data,
                               size_t data_size);
 
@@ -167,7 +167,7 @@ extern n20_sha224_sha256_state_t n20_sha256_init(void);
  * @param state The SHA-256 state.
  * @param digest The output buffer for the hash digest (32 bytes).
  */
- extern void n20_sha256_finalize(n20_sha224_sha256_state_t *state, uint8_t *digest);
+extern void n20_sha256_finalize(n20_sha224_sha256_state_t *state, uint8_t *digest);
 
 /**
  * @brief State structure for SHA-384 and SHA-512 computations.
@@ -215,7 +215,7 @@ extern n20_sha384_sha512_state_t n20_sha384_init(void);
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
  */
- extern void n20_sha384_update(n20_sha384_sha512_state_t *state,
+extern void n20_sha384_update(n20_sha384_sha512_state_t *state,
                               uint8_t const *data,
                               size_t data_size);
 
@@ -232,7 +232,7 @@ extern n20_sha384_sha512_state_t n20_sha384_init(void);
  * @param state The SHA-384 state.
  * @param digest The output buffer for the hash digest (48 bytes).
  */
- extern void n20_sha384_finalize(n20_sha384_sha512_state_t *state, uint8_t *digest);
+extern void n20_sha384_finalize(n20_sha384_sha512_state_t *state, uint8_t *digest);
 
 /**
  * @brief Initializes the state for SHA-512 computation.
@@ -249,7 +249,7 @@ extern n20_sha384_sha512_state_t n20_sha384_init(void);
  * @note The implementation deviates from the NIST FIPS 180-4 specification in that the
  *       maximum supported message size is limited to 2^64 bits.
  */
- extern n20_sha384_sha512_state_t n20_sha512_init(void);
+extern n20_sha384_sha512_state_t n20_sha512_init(void);
 
 /**
  * @brief Updates the SHA-512 state with new data.
@@ -270,7 +270,7 @@ extern n20_sha384_sha512_state_t n20_sha384_init(void);
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
  */
- extern void n20_sha512_update(n20_sha384_sha512_state_t *state,
+extern void n20_sha512_update(n20_sha384_sha512_state_t *state,
                               uint8_t const *data,
                               size_t data_size);
 
@@ -287,7 +287,7 @@ extern n20_sha384_sha512_state_t n20_sha384_init(void);
  * @param state The SHA-512 state.
  * @param digest The output buffer for the hash digest (64 bytes).
  */
- extern void n20_sha512_finalize(n20_sha384_sha512_state_t *state, uint8_t *digest);
+extern void n20_sha512_finalize(n20_sha384_sha512_state_t *state, uint8_t *digest);
 
 /** @} */ /* End of SHA group */
 
