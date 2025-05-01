@@ -80,6 +80,8 @@ typedef struct n20_slice_s n20_slice_t;
 /**
  * @brief Refers to a constant buffer holding a string.
  *
+ * No ownership is implied.
+ *
  * This is used to refer to foreign non-mutable buffers
  * holding utf-8 encoded strings.
  * The user has to assure that the buffer outlives the string slice

@@ -358,7 +358,7 @@ void n20_asn1_octetstring(n20_stream_t *const s,
 void n20_asn1_printablestring(n20_stream_t *const s,
                               n20_string_slice_t const *const str,
                               n20_asn1_tag_info_t const tag_info) {
-    n20_slice_t slice = {0, NULL};
+    n20_slice_t slice = N20_SLICE_NULL;
     if (str != NULL) {
         slice.buffer = (uint8_t *)str->buffer;
         slice.size = str->size;
@@ -369,7 +369,7 @@ void n20_asn1_printablestring(n20_stream_t *const s,
 void n20_asn1_utf8_string(n20_stream_t *const s,
                           n20_string_slice_t const *const str,
                           n20_asn1_tag_info_t const tag_info) {
-    n20_slice_t slice = {0, NULL};
+    n20_slice_t slice = N20_SLICE_NULL;
     if (str != NULL) {
         slice.buffer = (uint8_t *)str->buffer;
         slice.size = str->size;
