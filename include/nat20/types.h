@@ -61,6 +61,22 @@ struct n20_slice_s {
  */
 typedef struct n20_slice_s n20_slice_t;
 
+/**
+ * @brief Convenience macro for defining a null slice.
+ *
+ * This macro defines a slice with a size of 0 and a NULL buffer.
+ *
+ * The following code snippets are equivalent:
+ * @code
+ * n20_slice_t slice = N20_SLICE_NULL;
+ * @endcode
+ *
+ * @code
+ * n20_slice_t slice = {.size = 0, .buffer = NULL};
+ * @endcode
+ */
+#define N20_SLICE_NULL ((n20_slice_t){.size = 0, .buffer = NULL})
+
 #ifdef __cplusplus
 }
 #endif

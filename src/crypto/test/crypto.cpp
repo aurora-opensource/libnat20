@@ -18,6 +18,7 @@
 #include <nat20/asn1.h>
 #include <nat20/crypto.h>
 #include <nat20/oid.h>
+#include <nat20/types.h>
 #include <nat20/x509.h>
 #include <openssl/base.h>
 #include <openssl/digest.h>
@@ -215,7 +216,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
         got_size = buffer.size();
         N20_ASSERT_EQ(80, got_size);
 
-        n20_slice_t buffers[]{{0, nullptr}};
+        n20_slice_t buffers[]{N20_SLICE_NULL};
         n20_crypto_gather_list_t msg = {1, buffers};
 
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
@@ -256,7 +257,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
 
         // Must return n20_crypto_error_unexpected_null_slice_e if a buffer in
         // the message has a size but nullptr buffer.
-        n20_slice_t buffers[]{{3, nullptr}};
+        n20_slice_t buffers[]{N20_SLICE_NULL};
         msg.list = buffers;
         N20_ASSERT_EQ(n20_crypto_error_unexpected_null_slice_e,
                       this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
@@ -280,7 +281,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
 
         // We are digesting the message "foobar" in a roundabout way.
         // First we split it up into {"foo", "bar", ""}.
-        n20_slice_t buffers[3]{{sizeof msg1, msg1}, {sizeof msg2, msg2}, {0, nullptr}};
+        n20_slice_t buffers[3]{{sizeof msg1, msg1}, {sizeof msg2, msg2}, N20_SLICE_NULL};
         n20_crypto_gather_list_t msg = {3, buffers};
 
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
@@ -291,7 +292,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
 
         // Change the message gather list to {"foo", "", "bar"}.
         buffers[2] = buffers[1];
-        buffers[1] = {0, nullptr};
+        buffers[1] = N20_SLICE_NULL;
 
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
@@ -301,7 +302,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
 
         // Change the message gather list to {"", "foo", "bar"}.
         buffers[1] = buffers[0];
-        buffers[0] = {0, nullptr};
+        buffers[0] = N20_SLICE_NULL;
 
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
@@ -311,7 +312,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
 
         // This test checks that the buffer pointer has no impact if size is 0
         // even if not null.
-        buffers[0] = {0, msg2};
+        buffers[0] = N20_SLICE_NULL;
 
         N20_ASSERT_EQ(n20_crypto_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));

@@ -247,7 +247,7 @@ inline static n20_slice_t v2slice(T const& v) {
     if (v.has_value()) {
         return n20_slice_t{v->size(), v->data()};
     }
-    return n20_slice_t{0, nullptr};
+    return N20_SLICE_NULL;
 }
 
 TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
