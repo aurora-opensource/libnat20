@@ -257,7 +257,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
 
         // Must return n20_crypto_error_unexpected_null_slice_e if a buffer in
         // the message has a size but nullptr buffer.
-        n20_slice_t buffers[]{N20_SLICE_NULL};
+        n20_slice_t buffers[]{3, nullptr};
         msg.list = buffers;
         N20_ASSERT_EQ(n20_crypto_error_unexpected_null_slice_e,
                       this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
