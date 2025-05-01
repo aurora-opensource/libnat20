@@ -28,7 +28,7 @@ extern "C" {
 /**
  * @brief Error codes that may be returned by a crypto interface implementation.
  */
-typedef enum n20_crypto_error_s {
+enum n20_crypto_error_s {
     /**
      * @brief No error occurred.
      */
@@ -206,7 +206,12 @@ typedef enum n20_crypto_error_s {
      * by an implementation.
      */
     n20_crypto_error_implementation_specific_e = 15,
-} n20_crypto_error_t;
+};
+
+/**
+ * @brief Alias for @ref n20_crypto_error_s
+ */
+typedef enum n20_crypto_error_s n20_crypto_error_t;
 
 /**
  * @brief Enumeration of supported digest algorithms.
@@ -214,7 +219,7 @@ typedef enum n20_crypto_error_s {
  * Implementations of this interface must provide
  * all of these algorithms.
  */
-typedef enum n20_crypto_digest_algorithm_s {
+enum n20_crypto_digest_algorithm_s {
     /**
      * @brief SHA 2 224.
      */
@@ -231,7 +236,12 @@ typedef enum n20_crypto_digest_algorithm_s {
      * @brief SHA 2 512.
      */
     n20_crypto_digest_algorithm_sha2_512_e,
-} n20_crypto_digest_algorithm_t;
+};
+
+/**
+ * @brief Alias for @ref n20_crypto_digest_algorithm_s
+ */
+typedef enum n20_crypto_digest_algorithm_s n20_crypto_digest_algorithm_t;
 
 /**
  * @brief Enumerations of supported key types.
@@ -239,7 +249,7 @@ typedef enum n20_crypto_digest_algorithm_s {
  * Implementations of this interface must provide
  * the following cryptographic key types.
  */
-typedef enum n20_crypto_key_type_s {
+enum n20_crypto_key_type_s {
     /**
      * @brief Secp256r1.
      *
@@ -265,7 +275,12 @@ typedef enum n20_crypto_key_type_s {
      * secret that can be used to derive other secrets and key pairs.
      */
     n20_crypto_key_type_cdi_e,
-} n20_crypto_key_type_t;
+};
+
+/**
+ * @brief Alias for @ref n20_crypto_key_type_s
+ */
+typedef enum n20_crypto_key_type_s n20_crypto_key_type_t;
 
 /**
  * @brief Opaque key handle.
@@ -289,7 +304,7 @@ typedef void* n20_crypto_key_t;
  * assure that the buffer outlives this structure as
  * long as this structure references the buffer.
  */
-typedef struct n20_crypto_slice_s {
+struct n20_crypto_slice_s {
     /**
      * @brief The size of the slice.
      */
@@ -305,7 +320,12 @@ typedef struct n20_crypto_slice_s {
      * This field may be NULL only if @ref size is `0`.
      */
     uint8_t const* buffer;
-} n20_crypto_slice_t;
+};
+
+/**
+ * @brief Alias for @ref n20_crypto_slice_s
+ */
+typedef struct n20_crypto_slice_s n20_crypto_slice_t;
 
 /**
  * @brief A list of immutable buffer slices.
@@ -320,7 +340,7 @@ typedef struct n20_crypto_slice_s {
  *
  * The gather list never takes ownership of any buffers.
  */
-typedef struct n20_crypto_gather_list_s {
+struct n20_crypto_gather_list_s {
     /**
      * @brief Number of slices in the gather list.
      */
@@ -335,13 +355,27 @@ typedef struct n20_crypto_gather_list_s {
      *
      */
     n20_crypto_slice_t* list;
-} n20_crypto_gather_list_t;
+};
 
-typedef struct n20_crypto_context_s {
+/**
+ * @brief Alias for @ref n20_crypto_gather_list_s
+ */
+typedef struct n20_crypto_gather_list_s n20_crypto_gather_list_t;
+
+/**
+ * @brief The crypto context.
+ *
+ * The crypto context is the main interface to the crypto API.
+ * It provides cryptographic operations to the higher layers of
+ * the DICE service functionality.
+ * Integrators must provide an implementation of this interface
+ * that is suitable for the target platform.
+ */
+struct n20_crypto_context_s {
     /**
      * @brief Digest a message in a one shot operation.
      *
-     * This function digests the message given by the gather list @ref msg_in.
+     * This function digests the message given by the gather list @p msg_in.
      *
      * Each buffer in the gather list is concatenated in the order they
      * appear in the list.
@@ -541,7 +575,7 @@ typedef struct n20_crypto_context_s {
      * - @ref n20_crypto_error_unexpected_null_size_e must be returned if
      *   @p signature_size_in_out is NULL.
      * - @ref n20_crypto_error_invalid_key_e must be returned
-     *   if @p key_in is not of the types @ref n20_crypto_key_type_ed25519,
+     *   if @p key_in is not of the types @ref n20_crypto_key_type_ed25519_e,
      *   @ref n20_crypto_key_type_secp256r1_e, or
      *   @ref n20_crypto_key_type_secp384r1_e.
      * - @ref n20_crypto_error_unexpected_null_data_e must be returned
@@ -580,7 +614,7 @@ typedef struct n20_crypto_context_s {
      * This function is used to bootstrap all key derivation for the
      * current DICE service level.
      *
-     * The function places the handle to the CDI into @key_out.
+     * The function places the handle to the CDI into @p key_out.
      *
      * The CDI key handle must be destroyed with @ref key_free.
      *
@@ -632,7 +666,7 @@ typedef struct n20_crypto_context_s {
      * - @ref n20_crypto_error_unexpected_null_size_e must be returned if
      *   @p public_key_size_in_out is NULL.
      * - @ref n20_crypto_error_invalid_key_e must be returned
-     *   if @p key_in is not of the types @ref n20_crypto_key_type_ed25519,
+     *   if @p key_in is not of the types @ref n20_crypto_key_type_ed25519_e,
      *   @ref n20_crypto_key_type_secp256r1_e, or
      *   @ref n20_crypto_key_type_secp384r1_e.
      * - @ref n20_crypto_error_insufficient_buffer_size_e if
@@ -676,7 +710,12 @@ typedef struct n20_crypto_context_s {
      * @param key_in The key handle to be freed.
      */
     n20_crypto_error_t (*key_free)(struct n20_crypto_context_s* ctx, n20_crypto_key_t key_in);
-} n20_crypto_context_t;
+};
+
+/**
+ * @brief Alias for @ref n20_crypto_context_s.
+ */
+typedef struct n20_crypto_context_s n20_crypto_context_t;
 
 #ifdef __cplusplus
 }

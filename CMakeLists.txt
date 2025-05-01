@@ -215,6 +215,7 @@ if (NAT20_WITH_DOCS)
     find_package(Doxygen REQUIRED dot)
 
     set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
+    set(DOXYGEN_MACRO_EXPANSION YES)
 
     doxygen_add_docs(nat20_docs
         ${LIBNAT20_PUB_HEADERS}

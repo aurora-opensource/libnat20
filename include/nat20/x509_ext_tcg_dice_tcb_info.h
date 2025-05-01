@@ -124,7 +124,7 @@ extern "C" {
  *
  * (See TCG DICE Attestation Architecture Version 1.1, Section 6.1.1.1.)
  */
-typedef struct n20_x509_ext_tcg_dice_tcb_info_operational_flags_s {
+struct n20_x509_ext_tcg_dice_tcb_info_operational_flags_s {
     /**
      * @brief The operational flags mask.
      *
@@ -134,14 +134,20 @@ typedef struct n20_x509_ext_tcg_dice_tcb_info_operational_flags_s {
      * field directly.
      */
     uint8_t operational_flags_mask[4];
-} n20_x509_ext_tcg_dice_tcb_info_operational_flags_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_tcg_dice_tcb_info_operational_flags_s
+ */
+typedef struct n20_x509_ext_tcg_dice_tcb_info_operational_flags_s
+    n20_x509_ext_tcg_dice_tcb_info_operational_flags_t;
 
 /**
  * @brief TCG DICE TCB FW ID.
  *
  * (See TCG DICE Attestation Architecture Version 1.1, Section 6.1.1.)
  */
-typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_s {
+struct n20_x509_ext_tcg_dice_tcb_info_fwid_s {
     /**
      * @brief Hash algorithm OID of the algorithm used to generate the digest.
      */
@@ -153,14 +159,19 @@ typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_s {
      * If the digest buffer is NULL, no digest is added to the extension.
      */
     n20_asn1_slice_t digest;
-} n20_x509_ext_tcg_dice_tcb_info_fwid_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_tcg_dice_tcb_info_fwid_s
+ */
+typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_s n20_x509_ext_tcg_dice_tcb_info_fwid_t;
 
 /**
  * @brief List of TCG DICE FWIDs.
  *
  * If the list is NULL, no FWIDs are inserted into the TCG DICE TCB Info extension.
  */
-typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_list_s {
+struct n20_x509_ext_tcg_dice_tcb_info_fwid_list_s {
     /**
      * @brief List of FWIDs to include in the TCG DICE TCB Info extension.
      */
@@ -169,7 +180,13 @@ typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_list_s {
      * @brief Number of FWIDs in the list.
      */
     size_t count;
-} n20_x509_ext_tcg_dice_tcb_info_fwid_list_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_tcg_dice_tcb_info_fwid_list_s
+ */
+typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_list_s
+    n20_x509_ext_tcg_dice_tcb_info_fwid_list_t;
 
 /**
  * @brief TCG DICE TCB Info X509 extension context.
@@ -186,7 +203,7 @@ typedef struct n20_x509_ext_tcg_dice_tcb_info_fwid_list_s {
  * (See TCG DICE Attestation Architecture Version 1.1, Section 6.1.1.)
  * @sa OID_TCG_DICE_TCB_INFO
  */
-typedef struct n20_x509_ext_tcg_dice_tcb_info_s {
+struct n20_x509_ext_tcg_dice_tcb_info_s {
     /**
      * @brief The entity that created the measurement of the Target Environment.
      *
@@ -257,15 +274,20 @@ typedef struct n20_x509_ext_tcg_dice_tcb_info_s {
      * If type.buffer is NULL, type is not included in the generated extension.
      */
     n20_asn1_slice_t type;
-} n20_x509_ext_tcg_dice_tcb_info_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_tcg_dice_tcb_info_s
+ */
+typedef struct n20_x509_ext_tcg_dice_tcb_info_s n20_x509_ext_tcg_dice_tcb_info_t;
 
 /**
  * @brief Renders the value of a TCG DICE TCB Info X509 extension.
  *
  * The function expects a pointer to an instance of
- * @ref n20_x509_ext_tcg_dice_tcb_info_t as @ref context argument.
+ * @ref n20_x509_ext_tcg_dice_tcb_info_t as @p context argument.
  *
- * If @ref context is NULL, nothing is rendered, which would leave
+ * If @p context is NULL, nothing is rendered, which would leave
  * the resulting TCG DICE TCB Info extension malformed.
  *
  * This function is typically not used directly but instead
@@ -290,7 +312,7 @@ extern void n20_x509_ext_tcg_dice_tcb_info_content(n20_stream_t *const s, void *
  * (See TCG DICE Attestation Architecture Version 1.1, Section 6.1.2.)
  * @sa OID_TCG_DICE_MULTI_TCB_INFO
  */
-typedef struct n20_x509_ext_tcg_dice_multi_tcb_info_s {
+struct n20_x509_ext_tcg_dice_multi_tcb_info_s {
     /**
      * @brief List of TCB Info to include in the extension.
      *
@@ -303,15 +325,20 @@ typedef struct n20_x509_ext_tcg_dice_multi_tcb_info_s {
      * @brief Number of elements in the list.
      */
     size_t count;
-} n20_x509_ext_tcg_dice_multi_tcb_info_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_tcg_dice_multi_tcb_info_s
+ */
+typedef struct n20_x509_ext_tcg_dice_multi_tcb_info_s n20_x509_ext_tcg_dice_multi_tcb_info_t;
 
 /**
  * @brief Renders the value of a TCG DICE Multi TCB Info X509 extension.
  *
  * The function expects a pointer to an instance of
- * @ref n20_x509_ext_tcg_dice_multi_tcb_info_t as @ref context argument.
+ * @ref n20_x509_ext_tcg_dice_multi_tcb_info_t as @p context argument.
  *
- * If @ref context is NULL, or the list is NULL or number of elements in the list is 0, nothing is
+ * If @p context is NULL, or the list is NULL or number of elements in the list is 0, nothing is
  * rendered, which would leave the resulting TCG DICE Multi TCB Info extension malformed.
  *
  * This function is typically not used directly but instead

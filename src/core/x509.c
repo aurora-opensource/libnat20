@@ -19,6 +19,9 @@
 #include <nat20/stream.h>
 #include <nat20/x509.h>
 
+char const *const n20_x509_no_expiration = "99991231235959Z";
+char const *const n20_x509_unix_epoch = "19700101000000Z";
+
 void n20_x509_rdn_content(n20_stream_t *const s, void *context) {
     n20_x509_rdn_t const *rdn = (n20_x509_rdn_t const *)context;
 

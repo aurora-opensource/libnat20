@@ -42,22 +42,27 @@ extern "C" {
  * (See TCG DICE Attestation Architecture Version 1.1, Section 6.3.)
  * @sa OID_TCG_DICE_TCB_FRESHNESS
  */
-typedef struct n20_x509_ext_tcg_dice_tcb_freshness_s {
+struct n20_x509_ext_tcg_dice_tcb_freshness_s {
     /**
      * @brief  Nonce used as the freshness indicator.
      *
      * If nonce.buffer is NULL, the nonce is not rendered in the extension.
      */
     n20_asn1_slice_t nonce;
-} n20_x509_ext_tcg_dice_tcb_freshness_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_tcg_dice_tcb_freshness_s
+ */
+typedef struct n20_x509_ext_tcg_dice_tcb_freshness_s n20_x509_ext_tcg_dice_tcb_freshness_t;
 
 /**
  * @brief Renders the value of a TCG DICE TCB Freshness X509 extension.
  *
  * The function expects a pointer to an instance of
- * @ref n20_x509_ext_tcg_dice_tcb_freshness_t as @ref context argument.
+ * @ref n20_x509_ext_tcg_dice_tcb_freshness_t as @p context argument.
  *
- * If @ref context is NULL, nothing is rendered, which would leave the resulting TCG DICE TCB
+ * If @p context is NULL, nothing is rendered, which would leave the resulting TCG DICE TCB
  * Freshness extension malformed.
  *
  * This function is typically not used directly but instead
