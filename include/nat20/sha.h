@@ -95,6 +95,8 @@ extern n20_sha224_sha256_state_t n20_sha224_init(void);
  *
  * The total size of the input data must not exceed 2^64 bits (2^61 bytes).
  *
+ * If @p state or @p data is NULL, the function does nothing.
+ *
  * @param state The SHA-224 state.
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
@@ -112,6 +114,8 @@ extern void n20_sha224_update(n20_sha224_sha256_state_t *state,
  * The output digest is written to the provided buffer. The pointer @p digest
  * must be dereferenceable and the size of the buffer must be at least
  * 28 bytes (SHA-224 digest size).
+ *
+ * If @p state is NULL, the function does nothing.
  *
  * @param state The SHA-224 state.
  * @param digest The output buffer for the hash digest (28 bytes).
@@ -146,6 +150,8 @@ extern n20_sha224_sha256_state_t n20_sha256_init(void);
  *
  * The total size of the input data must not exceed 2^64 bits (2^61 bytes).
  *
+ * If @p state or @p data is NULL, the function does nothing.
+ *
  * @param state The SHA-256 state.
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
@@ -163,6 +169,8 @@ extern void n20_sha256_update(n20_sha224_sha256_state_t *state,
  * The output digest is written to the provided buffer. The pointer @p digest
  * must be dereferenceable and the size of the buffer must be at least
  * 32 bytes (SHA-256 digest size).
+ *
+ * If @p state is NULL, the function does nothing.
  *
  * @param state The SHA-256 state.
  * @param digest The output buffer for the hash digest (32 bytes).
@@ -207,6 +215,8 @@ extern n20_sha384_sha512_state_t n20_sha384_init(void);
  * To compute the final digest, the state must be finalized with
  * @ref n20_sha384_finalize after all data has been processed.
  *
+ * If @p state or @p data is NULL, the function does nothing.
+ *
  * The total size of the input data must not exceed 2^64 bits (2^61 bytes).
  * @note The implementation deviates from the NIST FIPS 180-4 specification in that the
  *       maximum supported message size is limited to 2^64 bits.
@@ -228,6 +238,8 @@ extern void n20_sha384_update(n20_sha384_sha512_state_t *state,
  * The output digest is written to the provided buffer. The pointer @p digest
  * must be dereferenceable and the size of the buffer must be at least
  * 48 bytes (SHA-384 digest size).
+ *
+ * If @p state is NULL, the function does nothing.
  *
  * @param state The SHA-384 state.
  * @param digest The output buffer for the hash digest (48 bytes).
@@ -262,6 +274,8 @@ extern n20_sha384_sha512_state_t n20_sha512_init(void);
  * To compute the final digest, the state must be finalized with
  * @ref n20_sha512_finalize after all data has been processed.
  *
+ * If @p state or @p data is NULL, the function does nothing.
+ *
  * The total size of the input data must not exceed 2^64 bits (2^61 bytes).
  * @note The implementation deviates from the NIST FIPS 180-4 specification in that the
  *       maximum supported message size is limited to 2^64 bits.
@@ -283,6 +297,8 @@ extern void n20_sha512_update(n20_sha384_sha512_state_t *state,
  * The output digest is written to the provided buffer. The pointer @p digest
  * must be dereferenceable and the size of the buffer must be at least
  * 64 bytes (SHA-512 digest size).
+ *
+ * If @p state is NULL, the function does nothing.
  *
  * @param state The SHA-512 state.
  * @param digest The output buffer for the hash digest (64 bytes).

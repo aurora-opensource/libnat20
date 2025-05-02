@@ -19,6 +19,7 @@
 
 n20_sha384_sha512_state_t n20_sha512_init(void) {
     n20_sha384_sha512_state_t state = {0};
+    /* Constants from NIST FIPS 180-4, Section 5.3.5 */
     state.H[0] = 0x6a09e667f3bcc908;
     state.H[1] = 0xbb67ae8584caa73b;
     state.H[2] = 0x3c6ef372fe94f82b;
@@ -33,6 +34,7 @@ n20_sha384_sha512_state_t n20_sha512_init(void) {
 
 n20_sha384_sha512_state_t n20_sha384_init(void) {
     n20_sha384_sha512_state_t state = {0};
+    /* Constants from NIST FIPS 180-4, Section 5.3.4 */
     state.H[0] = 0xcbbb9d5dc1059ed8;
     state.H[1] = 0x629a292a367cd507;
     state.H[2] = 0x9159015a3070dd17;
@@ -45,6 +47,7 @@ n20_sha384_sha512_state_t n20_sha384_init(void) {
     return state;
 }
 
+/* Constants from NIST FIPS 180-4, Section 4.2.3 */
 uint64_t K_512[] = {0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc,
                     0x3956c25bf348b538, 0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118,
                     0xd807aa98a3030242, 0x12835b0145706fbe, 0x243185be4ee4b28c, 0x550c7dc3d5ffb4e2,
@@ -132,10 +135,15 @@ static void n20_sha512_main(n20_sha384_sha512_state_t *state) {
 }
 
 void n20_sha512_update(n20_sha384_sha512_state_t *state, uint8_t const *data, size_t data_size) {
+    if (state == NULL || data == NULL) {
+        /* No-op if no state or data is provided. */
+        return;
+    }
+
     size_t i = 0;
     state->total += data_size;
-    while (i < data_size) {
 
+    while (i < data_size) {
         /* Fill the buffer with data. */
         size_t j = state->fill;
         for (; j < 128 && i < data_size; ++j) {
@@ -157,6 +165,11 @@ void n20_sha384_update(n20_sha384_sha512_state_t *state, uint8_t const *data, si
 static void n20_sha384_sha512_finalize(n20_sha384_sha512_state_t *state,
                                        uint8_t *digest,
                                        size_t digest_size) {
+    if (state == NULL) {
+        /* No-op if no state is provided. */
+        return;
+    }
+
     size_t i = state->fill;
 
     /* Adding a 0x80 byte must always be possible because of the

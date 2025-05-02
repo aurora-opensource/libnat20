@@ -19,6 +19,7 @@
 
 n20_sha224_sha256_state_t n20_sha256_init(void) {
     n20_sha224_sha256_state_t state = {0};
+    /* Constants from NIST FIPS 180-4, Section 5.3.3 */
     state.H[0] = 0x6a09e667;
     state.H[1] = 0xbb67ae85;
     state.H[2] = 0x3c6ef372;
@@ -33,6 +34,7 @@ n20_sha224_sha256_state_t n20_sha256_init(void) {
 
 n20_sha224_sha256_state_t n20_sha224_init(void) {
     n20_sha224_sha256_state_t state = {0};
+    /* Constants from NIST FIPS 180-4, Section 5.3.2 */
     state.H[0] = 0xc1059ed8;
     state.H[1] = 0x367cd507;
     state.H[2] = 0x3070dd17;
@@ -45,6 +47,7 @@ n20_sha224_sha256_state_t n20_sha224_init(void) {
     return state;
 }
 
+/* Constants from NIST FIPS 180-4, Section 4.2.2 */
 uint32_t K_256[] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -121,10 +124,15 @@ static void n20_sha256_main(n20_sha224_sha256_state_t *state) {
 }
 
 void n20_sha256_update(n20_sha224_sha256_state_t *state, uint8_t const *data, size_t data_size) {
+    if (state != NULL || data == NULL) {
+        /* No-op if no state or data is provided. */
+        return;
+    }
+
     size_t i = 0;
     state->total += data_size;
-    while (i < data_size) {
 
+    while (i < data_size) {
         /* Fill the buffer with data. */
         size_t j = state->fill;
         for (; j < 64 && i < data_size; ++j) {
@@ -146,6 +154,12 @@ void n20_sha224_update(n20_sha224_sha256_state_t *state, uint8_t const *data, si
 static void n20_sha224_sha256_finalize(n20_sha224_sha256_state_t *state,
                                        uint8_t *digest,
                                        size_t digest_size) {
+
+    if (state == NULL) {
+        /* No-op if no state is provided. */
+        return;
+    }
+
     size_t i = state->fill;
 
     /* Adding a 0x80 byte must always be possible because of the
