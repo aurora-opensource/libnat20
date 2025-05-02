@@ -49,7 +49,7 @@ struct n20_x509_ext_tcg_dice_ueid_s {
      *
      * If ueid.buffer is NULL or ueid.size is 0, no UEID is rendered in the extension.
      */
-    n20_asn1_slice_t ueid;
+    n20_slice_t ueid;
 };
 
 /**

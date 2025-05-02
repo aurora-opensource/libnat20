@@ -158,7 +158,7 @@ struct n20_x509_ext_tcg_dice_tcb_info_fwid_s {
      *
      * If the digest buffer is NULL, no digest is added to the extension.
      */
-    n20_asn1_slice_t digest;
+    n20_slice_t digest;
 };
 
 /**
@@ -267,13 +267,13 @@ struct n20_x509_ext_tcg_dice_tcb_info_s {
      *
      * If vender_info.buffer is NULL vendor info is not included in the generated extension.
      */
-    n20_asn1_slice_t vendor_info;
+    n20_slice_t vendor_info;
     /**
      * @brief A machine readable description of the measurement.
      *
      * If type.buffer is NULL, type is not included in the generated extension.
      */
-    n20_asn1_slice_t type;
+    n20_slice_t type;
 };
 
 /**
