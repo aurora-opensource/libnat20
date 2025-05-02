@@ -123,21 +123,21 @@ static void n20_sha256_main(n20_sha224_sha256_state_t *state) {
     state->fill = 0;
 }
 
-void n20_sha256_update(n20_sha224_sha256_state_t *state, uint8_t const *data, size_t data_size) {
-    if (state != NULL || data == NULL) {
+void n20_sha256_update(n20_sha224_sha256_state_t *state, n20_slice_t const data) {
+    if (state == NULL || data.buffer == NULL) {
         /* No-op if no state or data is provided. */
         return;
     }
 
     size_t i = 0;
-    state->total += data_size;
+    state->total += data.size;
 
-    while (i < data_size) {
+    while (i < data.size) {
         /* Fill the buffer with data. */
         size_t j = state->fill;
-        for (; j < 64 && i < data_size; ++j) {
+        for (; j < 64 && i < data.size; ++j) {
             state->W[j >> 2] <<= 8;
-            state->W[j >> 2] |= data[i++];
+            state->W[j >> 2] |= data.buffer[i++];
         }
         if (j < 64) {
             state->fill = j;
@@ -148,7 +148,7 @@ void n20_sha256_update(n20_sha224_sha256_state_t *state, uint8_t const *data, si
     }
 }
 
-void n20_sha224_update(n20_sha224_sha256_state_t *state, uint8_t const *data, size_t data_size)
+void n20_sha224_update(n20_sha224_sha256_state_t *state, n20_slice_t const data)
     __attribute__((alias("n20_sha256_update")));
 
 static void n20_sha224_sha256_finalize(n20_sha224_sha256_state_t *state,

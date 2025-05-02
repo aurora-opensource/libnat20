@@ -48,7 +48,7 @@ TEST_P(Sha256TestFixture, Sha256DigestTest) {
     auto [_, msg, want_digest] = GetParam();
 
     n20_sha224_sha256_state_t state = n20_sha256_init();
-    n20_sha256_update(&state, msg.data(), msg.size());
+    n20_sha256_update(&state, {msg.size(), msg.data()});
     std::vector<uint8_t> got_digest(32);
     n20_sha256_finalize(&state, got_digest.data());
     EXPECT_EQ(got_digest, want_digest) << "Expected digest: " << hexdump(want_digest) << std::endl
@@ -69,7 +69,7 @@ TEST_P(Sha224TestFixture, Sha224DigestTest) {
     auto [_, msg, want_digest] = GetParam();
 
     n20_sha224_sha256_state_t state = n20_sha224_init();
-    n20_sha224_update(&state, msg.data(), msg.size());
+    n20_sha224_update(&state, {msg.size(), msg.data()});
     std::vector<uint8_t> got_digest(28);
     n20_sha224_finalize(&state, got_digest.data());
     EXPECT_EQ(got_digest, want_digest) << "Expected digest: " << hexdump(want_digest) << std::endl
@@ -90,7 +90,7 @@ TEST_P(Sha512TestFixture, Sha512DigestTest) {
     auto [_, msg, want_digest] = GetParam();
 
     n20_sha384_sha512_state_t state = n20_sha512_init();
-    n20_sha512_update(&state, msg.data(), msg.size());
+    n20_sha512_update(&state, {msg.size(), msg.data()});
     std::vector<uint8_t> got_digest(64);
     n20_sha512_finalize(&state, got_digest.data());
     EXPECT_EQ(got_digest, want_digest) << "Expected digest: " << hexdump(want_digest) << std::endl
@@ -109,7 +109,7 @@ TEST_P(Sha384TestFixture, Sha384DigestTest) {
     auto [_, msg, want_digest] = GetParam();
 
     n20_sha384_sha512_state_t state = n20_sha384_init();
-    n20_sha384_update(&state, msg.data(), msg.size());
+    n20_sha384_update(&state, {msg.size(), msg.data()});
     std::vector<uint8_t> got_digest(48);
     n20_sha384_finalize(&state, got_digest.data());
     EXPECT_EQ(got_digest, want_digest) << "Expected digest: " << hexdump(want_digest) << std::endl

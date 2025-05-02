@@ -134,21 +134,21 @@ static void n20_sha512_main(n20_sha384_sha512_state_t *state) {
     state->fill = 0;
 }
 
-void n20_sha512_update(n20_sha384_sha512_state_t *state, uint8_t const *data, size_t data_size) {
-    if (state == NULL || data == NULL) {
+void n20_sha512_update(n20_sha384_sha512_state_t *state, n20_slice_t const data) {
+    if (state == NULL || data.buffer == NULL) {
         /* No-op if no state or data is provided. */
         return;
     }
 
     size_t i = 0;
-    state->total += data_size;
+    state->total += data.size;
 
-    while (i < data_size) {
+    while (i < data.size) {
         /* Fill the buffer with data. */
         size_t j = state->fill;
-        for (; j < 128 && i < data_size; ++j) {
+        for (; j < 128 && i < data.size; ++j) {
             state->W[j >> 3] <<= 8;
-            state->W[j >> 3] |= data[i++];
+            state->W[j >> 3] |= data.buffer[i++];
         }
         if (j < 128) {
             state->fill = j;
@@ -159,7 +159,7 @@ void n20_sha512_update(n20_sha384_sha512_state_t *state, uint8_t const *data, si
     }
 }
 
-void n20_sha384_update(n20_sha384_sha512_state_t *state, uint8_t const *data, size_t data_size)
+void n20_sha384_update(n20_sha384_sha512_state_t *state, n20_slice_t const data)
     __attribute__((alias("n20_sha512_update")));
 
 static void n20_sha384_sha512_finalize(n20_sha384_sha512_state_t *state,
