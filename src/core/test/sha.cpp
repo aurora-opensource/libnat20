@@ -34,11 +34,6 @@ static std::string hexdump(std::vector<uint8_t> const& data) {
     return s.str();
 }
 
-template <size_t N>
-static std::string hexdump(uint8_t const (&data)[N]) {
-    return hexdump(std::vector<uint8_t>(data, data + N));
-}
-
 class Sha256TestFixture : public testing::TestWithParam<
                               std::tuple<std::string, std::vector<uint8_t>, std::vector<uint8_t>>> {
 };

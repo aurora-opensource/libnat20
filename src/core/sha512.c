@@ -214,10 +214,10 @@ static void n20_sha384_sha512_finalize(n20_sha384_sha512_state_t *state,
     }
 }
 
-void n20_sha512_finalize(n20_sha384_sha512_state_t *state, uint8_t *digest) {
+void n20_sha512_finalize(n20_sha384_sha512_state_t *state, uint8_t digest[64]) {
     n20_sha384_sha512_finalize(state, digest, 64);
 }
 
-void n20_sha384_finalize(n20_sha384_sha512_state_t *state, uint8_t *digest) {
+void n20_sha384_finalize(n20_sha384_sha512_state_t *state, uint8_t digest[48]) {
     n20_sha384_sha512_finalize(state, digest, 48);
 }

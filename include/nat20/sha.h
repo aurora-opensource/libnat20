@@ -116,7 +116,7 @@ extern void n20_sha224_update(n20_sha224_sha256_state_t *state,
  * @param state The SHA-224 state.
  * @param digest The output buffer for the hash digest (28 bytes).
  */
-extern void n20_sha224_finalize(n20_sha224_sha256_state_t *state, uint8_t *digest);
+extern void n20_sha224_finalize(n20_sha224_sha256_state_t *state, uint8_t digest[28]);
 
 /**
  * @brief Initializes the state for SHA-256 computation.
@@ -167,7 +167,7 @@ extern void n20_sha256_update(n20_sha224_sha256_state_t *state,
  * @param state The SHA-256 state.
  * @param digest The output buffer for the hash digest (32 bytes).
  */
-extern void n20_sha256_finalize(n20_sha224_sha256_state_t *state, uint8_t *digest);
+extern void n20_sha256_finalize(n20_sha224_sha256_state_t *state, uint8_t digest[32]);
 
 /**
  * @brief State structure for SHA-384 and SHA-512 computations.
@@ -232,7 +232,7 @@ extern void n20_sha384_update(n20_sha384_sha512_state_t *state,
  * @param state The SHA-384 state.
  * @param digest The output buffer for the hash digest (48 bytes).
  */
-extern void n20_sha384_finalize(n20_sha384_sha512_state_t *state, uint8_t *digest);
+extern void n20_sha384_finalize(n20_sha384_sha512_state_t *state, uint8_t digest[48]);
 
 /**
  * @brief Initializes the state for SHA-512 computation.
@@ -287,7 +287,7 @@ extern void n20_sha512_update(n20_sha384_sha512_state_t *state,
  * @param state The SHA-512 state.
  * @param digest The output buffer for the hash digest (64 bytes).
  */
-extern void n20_sha512_finalize(n20_sha384_sha512_state_t *state, uint8_t *digest);
+extern void n20_sha512_finalize(n20_sha384_sha512_state_t *state, uint8_t digest[64]);
 
 /** @} */ /* End of SHA group */
 

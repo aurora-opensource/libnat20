@@ -199,10 +199,10 @@ static void n20_sha224_sha256_finalize(n20_sha224_sha256_state_t *state,
     }
 }
 
-void n20_sha256_finalize(n20_sha224_sha256_state_t *state, uint8_t *digest) {
+void n20_sha256_finalize(n20_sha224_sha256_state_t *state, uint8_t digest[32]) {
     n20_sha224_sha256_finalize(state, digest, 32);
 }
 
-void n20_sha224_finalize(n20_sha224_sha256_state_t *state, uint8_t *digest) {
+void n20_sha224_finalize(n20_sha224_sha256_state_t *state, uint8_t digest[28]) {
     n20_sha224_sha256_finalize(state, digest, 28);
 }
