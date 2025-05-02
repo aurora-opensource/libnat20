@@ -211,7 +211,7 @@ struct n20_x509_ext_tcg_dice_tcb_info_s {
      *
      * If NULL, vendor is not included in the generated extension.
      */
-    char const *vendor;
+    n20_string_slice_t vendor;
     /**
      * @brief The product name associated with the measurement of the Target Environment.
      *
@@ -219,7 +219,7 @@ struct n20_x509_ext_tcg_dice_tcb_info_s {
      *
      * If NULL, model is not included in the generated extension.
      */
-    char const *model;
+    n20_string_slice_t model;
     /**
      * @brief The revision string associated with the Target Environment.
      *
@@ -227,7 +227,7 @@ struct n20_x509_ext_tcg_dice_tcb_info_s {
      *
      * If NULL, version is not included in the generated extension.
      */
-    char const *version;
+    n20_string_slice_t version;
     /**
      * @brief The security version number associated with the Target Environment.
      */

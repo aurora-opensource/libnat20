@@ -559,10 +559,7 @@ extern void n20_asn1_octetstring(n20_stream_t *s,
 /**
  * @brief Write an UTF-8 string complete with ASN.1 header to the given stream.
  *
- * This function assumes that `str` is `'\0'` terminated and uses
- * `strlen` to determine the size of the string.
- * It writes the string without the terminating character to the
- * stream. This function assumes the string pointed to by @p str is
+ * This function assumes the string pointed to by @p str is
  * a valid UTF-8 encoding.
  * It is up to the caller to uphold this invariant. This function does
  * not perform any compliance checks.
@@ -574,14 +571,14 @@ extern void n20_asn1_octetstring(n20_stream_t *s,
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_UTF8_STRING
  */
-extern void n20_asn1_utf8_string(n20_stream_t *s, char const *str, n20_asn1_tag_info_t tag_info);
+extern void n20_asn1_utf8_string(n20_stream_t *s,
+                                 n20_string_slice_t const *str,
+                                 n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write an printable string complete with ASN.1 header to the given stream.
  *
- * This function assumes that `str` is `'\0'` terminated and uses
- * `strlen` to determine the size of the string.
- * It writes the string without the terminating character to the
+ * This function writes the string without the terminating character to the
  * stream. Printable according to ITU X.680 printable strings
  * may contain the following characters: `[A..Z][a..z][0..9][ '()+,-./:=?]`.
  * It is up to the caller to uphold this invariant. This function does
@@ -595,16 +592,12 @@ extern void n20_asn1_utf8_string(n20_stream_t *s, char const *str, n20_asn1_tag_
  * @sa N20_ASN1_TAG_PRINTABLE_STRING
  */
 extern void n20_asn1_printablestring(n20_stream_t *s,
-                                     char const *str,
+                                     n20_string_slice_t const *str,
                                      n20_asn1_tag_info_t tag_info);
 
 /**
  * @brief Write a generalized time string complete with ASN.1 header to the given stream.
  *
- * This function assumes that `str` is `'\0'` terminated and uses
- * `strlen` to determine the size of the string.
- * It writes the string without the terminating character to the
- * stream.
  * It is up to the caller to format the time string, and no checks are
  * performed on the string.
  *
@@ -616,7 +609,7 @@ extern void n20_asn1_printablestring(n20_stream_t *s,
  * @sa N20_ASN1_TAG_GENERALIZED_TIME
  */
 extern void n20_asn1_generalized_time(n20_stream_t *s,
-                                      char const *time_str,
+                                      n20_string_slice_t const *time_str,
                                       n20_asn1_tag_info_t tag_info);
 
 /**

@@ -447,7 +447,8 @@ TEST(CertTBSTest, CertTBSNonzeroEncoding) {
         .issuer_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
                                      N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
                                      N20_X509_RDN(&OID_COMMON_NAME, "Test DICE CA")),
-        .validity = {.not_before = "20200902132526Z", .not_after = "20200902132526Z"},
+        .validity = {.not_before = N20_STR_C("20200902132526Z"),
+                     .not_after = N20_STR_C("20200902132526Z")},
         .subject_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
                                       N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
                                       N20_X509_RDN(&OID_COMMON_NAME, "Test DICE CA")),
@@ -664,8 +665,8 @@ TEST_P(CertTest, CertEncoding) {
             N20_X509_RDN(&OID_COMMON_NAME, "Dunder Mifflin DICE Authority")),
         .validity =
             {
-                .not_before = nullptr,
-                .not_after = nullptr,
+                .not_before = N20_STR_NULL,
+                .not_after = N20_STR_NULL,
             },
         .subject_name = N20_X509_NAME(
             N20_X509_RDN(&OID_COUNTRY_NAME, "US"),

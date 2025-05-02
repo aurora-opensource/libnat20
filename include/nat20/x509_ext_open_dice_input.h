@@ -152,7 +152,7 @@ struct n20_x509_ext_open_dice_input_s {
      *
      * @sa n20_asn1_utf8_string
      */
-    char const *profile_name;
+    n20_string_slice_t profile_name;
 };
 
 /**
