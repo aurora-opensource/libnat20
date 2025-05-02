@@ -18,8 +18,9 @@
 
 #pragma once
 
-#include "asn1.h"
-#include "oid.h"
+#include <nat20/asn1.h>
+#include <nat20/oid.h>
+#include <nat20/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,14 +42,15 @@ extern "C" {
  * x509 certificate indicates that the certificate does not expire.
  * (See RFC5280 Section 4.1.2.5.)
  */
-extern char const *const n20_x509_no_expiration;
+extern n20_string_slice_t n20_x509_no_expiration;
+
 /**
  * @brief Generalized string representing Jan 1st 1970 00:00:00 UTC.
  *
  * This is the beginning of the UNIX epoch and is used as the default.
  * not before date for certificates.
  */
-extern char const *const n20_x509_unix_epoch;
+extern n20_string_slice_t n20_x509_unix_epoch;
 
 /**
  * @brief Representing a RelativeDistinguishedName.
@@ -82,7 +84,7 @@ struct n20_x509_rdn_s {
      *
      * @sa n20_asn1_printablestring
      */
-    char const *value;
+    n20_string_slice_t value;
 };
 
 /**
@@ -91,23 +93,20 @@ struct n20_x509_rdn_s {
 typedef struct n20_x509_rdn_s n20_x509_rdn_t;
 
 /**
- * @brief Convenience macro for initializing @ref n20_x509_rdn_t.
- *
- * # Example
+ * @brief Convenience macro for initializing @ref n20_x509_rdn_t from a string literal.
  *
  * The following example is safe. Both pointers
  * are pointing to static objects that will remain valid
  * for the entire runtime of the program.
- * If either argument is created through heap allocation,
- * the user is responsible for making sure that the arguments.
- * outlive `rdn`.
+ *
+ * # Example
  *
  * @code{.c}
  * n20_x509_rdn rdn = N20_X509_RDN(&OID_COMMON_NAME, "CommonName")
  * @endcode
  */
 #define N20_X509_RDN(type__, value__) \
-    { .type = type__, .value = value__, }
+    (n20_x509_rdn_t) { .type = type__, .value = N20_STR_C(value__) }
 
 /**
  * @brief Represents an RDNSequence.
@@ -156,7 +155,7 @@ typedef struct n20_x509_name_s n20_x509_name_t;
  * @endcode
  */
 #define N20_X509_NAME(...)                                                                 \
-    {                                                                                      \
+    (n20_x509_name_t) {                                                                    \
         .element_count = sizeof((n20_x509_rdn_t[]){__VA_ARGS__}) / sizeof(n20_x509_rdn_t), \
         .elements = {                                                                      \
             __VA_ARGS__                                                                    \
@@ -167,8 +166,8 @@ typedef struct n20_x509_name_s n20_x509_name_t;
  * @brief Renders an RDNSequence into the given stream.
  *
  * The @p name parameter should be initialized using the macros
- * @ref N20_X509_NAME and @ref N20_X509_RDN (See @ref N20_X509_NAME for
- * an example).
+ * @ref N20_X509_NAME and @ref N20_X509_RDN
+ * (See @ref N20_X509_NAME for an example).
  *
  * It is the responsibility of the caller that all pointers
  * are valid until the function call returns.
@@ -668,7 +667,7 @@ struct n20_x509_validity_s {
      * If NULL, the not before field of the certificate will be set to
      * @ref n20_x509_unix_epoch.
      */
-    char const *not_before;
+    n20_string_slice_t not_before;
 
     /**
      * @brief The certificate shall not be valid after.
@@ -678,7 +677,7 @@ struct n20_x509_validity_s {
      * If NULL, the not after field of the certificate will be set to
      * @ref n20_x509_no_expiration.
      */
-    char const *not_after;
+    n20_string_slice_t not_after;
 };
 
 /**

@@ -275,7 +275,7 @@ TEST_P(X509ExtOpenDiceInputTest, OpenDiceInputEncoding) {
     inputs.mode = mode;
 
     if (optional_profile.has_value()) {
-        inputs.profile_name = optional_profile.value().c_str();
+        inputs.profile_name = {optional_profile.value().size(), optional_profile.value().c_str()};
     }
 
     n20_x509_extension_t extensions[] = {
