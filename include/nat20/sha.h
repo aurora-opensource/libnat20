@@ -26,9 +26,9 @@
 
 #pragma once
 
+#include <nat20/types.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <nat20/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,8 +102,7 @@ extern n20_sha224_sha256_state_t n20_sha224_init(void);
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
  */
-extern void n20_sha224_update(n20_sha224_sha256_state_t *state,
-                              n20_slice_t const data);
+extern void n20_sha224_update(n20_sha224_sha256_state_t *state, n20_slice_t const data);
 
 /**
  * @brief Finalizes the SHA-224 computation and produces the hash digest.
@@ -156,8 +155,7 @@ extern n20_sha224_sha256_state_t n20_sha256_init(void);
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
  */
-extern void n20_sha256_update(n20_sha224_sha256_state_t *state,
-                              n20_slice_t const data);
+extern void n20_sha256_update(n20_sha224_sha256_state_t *state, n20_slice_t const data);
 
 /**
  * @brief Finalizes the SHA-256 computation and produces the hash digest.
@@ -224,8 +222,7 @@ extern n20_sha384_sha512_state_t n20_sha384_init(void);
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
  */
-extern void n20_sha384_update(n20_sha384_sha512_state_t *state,
-                              n20_slice_t const data);
+extern void n20_sha384_update(n20_sha384_sha512_state_t *state, n20_slice_t const data);
 
 /**
  * @brief Finalizes the SHA-384 computation and produces the hash digest.
@@ -282,8 +279,7 @@ extern n20_sha384_sha512_state_t n20_sha512_init(void);
  * @param data The input data.
  * @param data_size The size of the input data in bytes.
  */
-extern void n20_sha512_update(n20_sha384_sha512_state_t *state,
-                              n20_slice_t const data);
+extern void n20_sha512_update(n20_sha384_sha512_state_t *state, n20_slice_t const data);
 
 /**
  * @brief Finalizes the SHA-512 computation and produces the hash digest.
