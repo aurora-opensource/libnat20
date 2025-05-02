@@ -154,7 +154,6 @@ void n20_sha224_update(n20_sha224_sha256_state_t *state, n20_slice_t const data)
 static void n20_sha224_sha256_finalize(n20_sha224_sha256_state_t *state,
                                        uint8_t *digest,
                                        size_t digest_size) {
-
     if (state == NULL) {
         /* No-op if no state is provided. */
         return;
