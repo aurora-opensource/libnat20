@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <gtest/gtest.h>
 
 #include <string>
@@ -23,7 +22,7 @@
 
 /*
  * The following test vectors are from the cryptographic algorithm validation program:
- * FIPS 180-4 SHA256 byte oriented messages. 
+ * FIPS 180-4 SHA256 byte oriented messages.
  * https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program/secure-hashing#shavs
  */
 static auto sha256TestVectors = testing::Values<
