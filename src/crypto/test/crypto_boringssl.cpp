@@ -34,7 +34,7 @@ uint8_t const test_cdi[] = {
     0xca, 0x35, 0x6b, 0xc3, 0xc5, 0x0e, 0x17, 0xc6, 0x21, 0xad, 0x1d, 0x32, 0xbd, 0x6e, 0x35, 0x08};
 
 n20_crypto_error_t CryptoImplBSSL::open(n20_crypto_context_t** ctx) {
-    n20_crypto_slice_t cdi = {sizeof(test_cdi), const_cast<uint8_t*>(&test_cdi[0])};
+    n20_slice_t cdi = {sizeof(test_cdi), const_cast<uint8_t*>(&test_cdi[0])};
     return n20_crypto_open_boringssl(ctx, &cdi);
 }
 n20_crypto_error_t CryptoImplBSSL::close(n20_crypto_context_t* ctx) {

@@ -74,7 +74,7 @@ struct n20_x509_ext_open_dice_input_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    n20_asn1_slice_t code_hash;
+    n20_slice_t code_hash;
 
     /**
      * @brief Additional data used in the code input to the DICE.
@@ -87,7 +87,7 @@ struct n20_x509_ext_open_dice_input_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    n20_asn1_slice_t code_descriptor;
+    n20_slice_t code_descriptor;
     /**
      * @brief Digest of the configuration descriptor used as input to the DICE.
      *
@@ -100,7 +100,7 @@ struct n20_x509_ext_open_dice_input_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    n20_asn1_slice_t configuration_hash;
+    n20_slice_t configuration_hash;
     /**
      * @brief The configuration data used to calculate the digest used for the configuration input
      * to the DICE.
@@ -113,7 +113,7 @@ struct n20_x509_ext_open_dice_input_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    n20_asn1_slice_t configuration_descriptor;
+    n20_slice_t configuration_descriptor;
     /**
      * @brief Digest of the authority used as input to the DICE.
      *
@@ -121,7 +121,7 @@ struct n20_x509_ext_open_dice_input_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    n20_asn1_slice_t authority_hash;
+    n20_slice_t authority_hash;
     /**
      * @brief Additional data used in the authority input to the DICE.
      *
@@ -133,7 +133,7 @@ struct n20_x509_ext_open_dice_input_s {
      * assure that the buffer outlives the instance
      * of this structure.
      */
-    n20_asn1_slice_t authority_descriptor;
+    n20_slice_t authority_descriptor;
     /**
      * @brief The DICE mode input.
      *

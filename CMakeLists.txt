@@ -64,6 +64,7 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/oid.h
     include/nat20/sha.h
     include/nat20/stream.h
+    include/nat20/types.h
     include/nat20/x509_ext_open_dice_input.h
     include/nat20/x509_ext_tcg_dice_tcb_freshness.h
     include/nat20/x509_ext_tcg_dice_tcb_info.h

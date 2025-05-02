@@ -22,8 +22,7 @@
 extern "C" {
 #endif
 
-n20_crypto_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx,
-                                             n20_crypto_slice_t const* cdi);
+n20_crypto_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx, n20_slice_t const* cdi);
 
 n20_crypto_error_t n20_crypto_close_boringssl(n20_crypto_context_t* ctx);
 
