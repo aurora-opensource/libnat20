@@ -105,6 +105,16 @@ set(LIBNAT20_TEST_SOURCES
     src/core/test/x509_ext_tcg_dice_ueid.cpp
 )
 
+set(LIBNAT20_SERVICE_SOURCES
+    # Add service source files here.
+    src/service/service.c
+)
+
+set(LIBNAT20_SERVICE_PUB_HEADERS
+    # Add service public headers here.
+    include/nat20/service/service.h
+)
+
 set(LIBNAT20_DOC_PAGES
     # Add additional input files for doxygen here.
     README.md
@@ -158,6 +168,31 @@ target_compile_options(nat20
 target_include_directories(nat20
     PUBLIC include
 )
+
+###################################################################################################
+
+###################################################################################################
+# The nat20_service library is also part of the product of this project.
+# It will always be compiled.
+add_library(nat20_service STATIC)
+
+target_sources(nat20_service
+    PRIVATE ${LIBNAT20_SERVICE_SOURCES}
+    INTERFACE ${LIBNAT20_SERVICE_PUB_HEADERS}
+)
+
+target_compile_options(nat20_service
+    PRIVATE -pedantic
+    PRIVATE -Wall
+    PRIVATE -Wextra
+    PRIVATE -Werror
+)
+
+target_include_directories(nat20_service
+    PUBLIC include
+)
+
+target_link_libraries(nat20_service nat20)
 
 ###################################################################################################
 
