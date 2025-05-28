@@ -61,12 +61,6 @@ uint8_t const test_cdi[] = {
     0xbb, 0xe0, 0x21, 0xf5, 0x87, 0x1c, 0x6c, 0x0c, 0x30, 0x2b, 0x32, 0x4f, 0x4c, 0x44, 0xd1, 0x26,
     0xca, 0x35, 0x6b, 0xc3, 0xc5, 0x0e, 0x17, 0xc6, 0x21, 0xad, 0x1d, 0x32, 0xbd, 0x6e, 0x35, 0x08};
 
-uint8_t const test_cdi2[] = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-
 class NameTest : public testing::TestWithParam<std::tuple<n20_x509_name_t*, std::vector<uint8_t>>> {
 };
 
@@ -463,7 +457,34 @@ TEST(CertTBSTest, CertTBSNonzeroEncoding) {
 class CertTest : public testing::TestWithParam<std::tuple<n20_crypto_key_type_t,
                                                           n20_x509_algorithm_identifier_t,
                                                           n20_x509_algorithm_identifier_t,
-                                                          bool>> {};
+                                                          bool>> {
+   protected:
+    n20_crypto_context_t* crypto_ctx;
+    n20_crypto_key_t cdi;
+
+    void SetUp() override {
+        EXPECT_EQ(n20_error_ok_e, n20_crypto_boringssl_open(&crypto_ctx));
+        n20_slice_t cdi_slice = {sizeof(test_cdi), const_cast<uint8_t*>(&test_cdi[0])};
+        EXPECT_EQ(n20_error_ok_e, n20_crypto_boringssl_make_secret(crypto_ctx, &cdi_slice, &cdi));
+    }
+
+    void TearDown() override {
+        EXPECT_EQ(n20_error_ok_e, n20_crypto_boringssl_close(crypto_ctx));
+        EXPECT_EQ(n20_error_ok_e, crypto_ctx->key_free(crypto_ctx, cdi));
+    }
+
+    n20_crypto_key_t GetSigningKey(n20_crypto_key_type_t key_type, std::string label) {
+        n20_crypto_key_t signing_key = nullptr;
+        n20_slice_t label_slice = {label.size(), reinterpret_cast<uint8_t*>(label.data())};
+        n20_crypto_gather_list_t context = {
+            .count = 1,
+            .list = &label_slice,
+        };
+        EXPECT_EQ(n20_error_ok_e,
+                  crypto_ctx->kdf(crypto_ctx, cdi, key_type, &context, &signing_key));
+        return signing_key;
+    }
+};
 
 INSTANTIATE_TEST_CASE_P(
     X509CertTest,
@@ -585,25 +606,13 @@ TEST_P(CertTest, CertEncoding) {
         GetParam();
 
     // Create a key with test_cdi.
-    n20_crypto_context_t* ctx = nullptr;
-    n20_slice_t cdi_slice{.size = sizeof(test_cdi), .buffer = test_cdi};
-    n20_error_t err = n20_crypto_open_boringssl(&ctx, &cdi_slice);
-    ASSERT_EQ(n20_error_ok_e, err);
-
-    n20_crypto_key_t cdi_key = nullptr;
-    err = ctx->get_cdi(ctx, &cdi_key);
-    ASSERT_EQ(n20_error_ok_e, err);
-
-    n20_crypto_gather_list_t empty_context{.count = 0, .list = nullptr};
-
-    n20_crypto_key_t signing_key = nullptr;
-    err = ctx->kdf(ctx, cdi_key, key_type, &empty_context, &signing_key);
-    ASSERT_EQ(n20_error_ok_e, err);
+    n20_crypto_key_t signing_key = GetSigningKey(key_type, "signing key 1");
 
     uint8_t public_key_buffer[128];
     uint8_t* public_key = &public_key_buffer[1];
     size_t public_key_size = sizeof(public_key_buffer) - 1;
-    err = ctx->key_get_public_key(ctx, signing_key, public_key, &public_key_size);
+    auto err =
+        crypto_ctx->key_get_public_key(crypto_ctx, signing_key, public_key, &public_key_size);
     ASSERT_EQ(n20_error_ok_e, err);
 
     if (key_type != n20_crypto_key_type_ed25519_e) {
@@ -683,10 +692,9 @@ TEST_P(CertTest, CertEncoding) {
     // Sign the to-be-signed part of the certificate.
     uint8_t signature[128];
     size_t signature_size = sizeof(signature);
-    err = ctx->sign(ctx, signing_key, &tbs_der_gather, signature, &signature_size);
+    err = crypto_ctx->sign(crypto_ctx, signing_key, &tbs_der_gather, signature, &signature_size);
     ASSERT_EQ(n20_error_ok_e, err);
-    ctx->key_free(ctx, signing_key);
-    n20_crypto_close_boringssl(ctx);
+    crypto_ctx->key_free(crypto_ctx, signing_key);
 
     switch (key_type) {
         case n20_crypto_key_type_secp256r1_e:
@@ -752,24 +760,13 @@ TEST_P(CertTest, CertEncoding) {
     // Now create a certificate signed with a different key. It is expected to fail the
     // verification.
 
-    // Create a key with test_cdi2.
-    n20_crypto_context_t* ctx2 = nullptr;
-    n20_slice_t cdi_slice2{.size = sizeof(test_cdi2), .buffer = test_cdi2};
-    err = n20_crypto_open_boringssl(&ctx2, &cdi_slice2);
-    ASSERT_EQ(n20_error_ok_e, err);
-
-    n20_crypto_key_t cdi_key2 = nullptr;
-    err = ctx2->get_cdi(ctx2, &cdi_key2);
-    ASSERT_EQ(n20_error_ok_e, err);
-
-    n20_crypto_key_t signing_key2 = nullptr;
-    err = ctx2->kdf(ctx2, cdi_key2, key_type, &empty_context, &signing_key2);
-    ASSERT_EQ(n20_error_ok_e, err);
+    // Create another signing key.
+    n20_crypto_key_t signing_key2 = GetSigningKey(key_type, "signing key 2");
 
     uint8_t public_key_buffer2[128];
     uint8_t* public_key2 = &public_key_buffer2[1];
     size_t public_key_size2 = sizeof(public_key_buffer2) - 1;
-    err = ctx2->key_get_public_key(ctx2, signing_key2, public_key2, &public_key_size2);
+    err = crypto_ctx->key_get_public_key(crypto_ctx, signing_key2, public_key2, &public_key_size2);
     ASSERT_EQ(n20_error_ok_e, err);
 
     if (key_type != n20_crypto_key_type_ed25519_e) {
@@ -791,10 +788,10 @@ TEST_P(CertTest, CertEncoding) {
     // Sign the to-be-signed part of the certificate.
     uint8_t signature2[128];
     size_t signature_size2 = sizeof(signature2);
-    err = ctx2->sign(ctx2, signing_key2, &tbs_der_gather2, signature2, &signature_size2);
+    err =
+        crypto_ctx->sign(crypto_ctx, signing_key2, &tbs_der_gather2, signature2, &signature_size2);
     ASSERT_EQ(n20_error_ok_e, err);
-    ctx2->key_free(ctx2, signing_key2);
-    n20_crypto_close_boringssl(ctx2);
+    crypto_ctx->key_free(crypto_ctx, signing_key2);
 
     switch (key_type) {
         case n20_crypto_key_type_secp256r1_e:
