@@ -107,11 +107,13 @@ set(LIBNAT20_TEST_SOURCES
 
 set(LIBNAT20_SERVICE_SOURCES
     # Add service source files here.
+    src/service/gnostic.c
     src/service/service.c
 )
 
 set(LIBNAT20_SERVICE_PUB_HEADERS
     # Add service public headers here.
+    include/nat20/service/gnostic.h
     include/nat20/service/service.h
 )
 
