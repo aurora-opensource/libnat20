@@ -23,9 +23,13 @@
 extern "C" {
 #endif
 
-n20_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx, n20_slice_t const* cdi);
+n20_error_t n20_crypto_boringssl_open(n20_crypto_context_t** ctx);
 
-n20_error_t n20_crypto_close_boringssl(n20_crypto_context_t* ctx);
+n20_error_t n20_crypto_boringssl_close(n20_crypto_context_t* ctx);
+
+n20_error_t n20_crypto_boringssl_make_secret(struct n20_crypto_context_s* ctx,
+                                             n20_slice_t const* secret_in,
+                                             n20_crypto_key_t* key_out);
 
 #ifdef __cplusplus
 }
