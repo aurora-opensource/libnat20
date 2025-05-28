@@ -1,0 +1,219 @@
+/*
+ * Copyright 2025 Aurora Operations, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @brief Error codes that may be returned by a libnat20 service function.
+ *
+ * This includes errors related to crypto operations, service context issues,
+ * and other service-related errors.
+ *
+ * The error codes permitted by the crypto backend implementation are n20_error_ok_e
+ * and n20_error_crypto_*_e.
+ */
+enum n20_error_s {
+    /**
+     * @brief No error occurred.
+     */
+    n20_error_ok_e = 0,
+    /**
+     * @brief The crypto context given to an interface was invalid.
+     *
+     * Implementations must return this error if the context given is
+     * NULL.
+     * Implementation may deploy additional techniques to determine
+     * if the context given is valid.
+     */
+    n20_error_crypto_invalid_context_e = 0x10001,
+    /**
+     * @brief Indicates that an input key argument was NULL.
+     *
+     * Interface function implementations that expect a `key_in`
+     * parameter return this error said parameter receives a NULL
+     * argument.
+     *
+     * @sa n20_crypto_context_t.kdf
+     * @sa n20_crypto_context_t.sign
+     */
+    n20_error_crypto_unexpected_null_key_in_e = 0x10002,
+    /**
+     * @brief Indicates that an output key argument was NULL.
+     *
+     * Interface function implementations that expect a `key_out`
+     * parameter return this error said parameter receives a NULL
+     * argument.
+     *
+     * @sa n20_crypto_context_t.kdf
+     * @sa n20_crypto_context_t.get_cdi
+     */
+    n20_error_crypto_unexpected_null_key_out_e = 0x10003,
+    /**
+     * @brief Indicates that a size output argument was NULL.
+     *
+     * Interface function implementations that expect a `*_size_in_out`
+     * parameter return this error said parameter receives a NULL
+     * argument.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.key_public_key
+     */
+    n20_error_crypto_unexpected_null_size_e = 0x10004,
+    /**
+     * @brief Indicates that the user data input argument was NULL.
+     *
+     * Functions that receive unformatted user data, like
+     * the message for `sign` and `digest` or the
+     * the key derivation context of `kdf` return this
+     * error if the data parameter receives a NULL argument.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.kdf
+     */
+    n20_error_crypto_unexpected_null_data_e = 0x10005,
+    /**
+     * @brief Indicates that the user data input argument was NULL.
+     *
+     * Functions that receive unformatted user data, like
+     * the message for `sign` and `digest` or the
+     * the key derivation context of `kdf` return this
+     * error if the if @ref n20_crypto_gather_list_t.count is
+     * non zero but @ref n20_crypto_gather_list_t.list is NULL.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.kdf
+     */
+    n20_error_crypto_unexpected_null_list_e = 0x10006,
+    /**
+     * @brief Indicates that the user data input argument was NULL.
+     *
+     * Functions that receive unformatted user data, like
+     * the message for `sign` and `digest` or the
+     * the key derivation context of `kdf` return this
+     * error the gather list contains a slice
+     * with @ref n20_slice_t.size non zero but
+     * @ref n20_slice_t.buffer is NULL.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.kdf
+     * @sa n20_crypto_context_t.sign
+     */
+    n20_error_crypto_unexpected_null_slice_e = 0x10007,
+    /**
+     * @brief This should not be used outside of development.
+     *
+     * During development of a new crypto interface implementation
+     * this error can be returned by yet unimplemented functions.
+     * It may never be returned in complete implementations.
+     *
+     * It may be used in the future to toggle tests depending on
+     * unimplemented functions in debug builds. Release builds
+     * must never tolerate unimplemented errors however.
+     */
+    n20_error_crypto_not_implemented_e = 0x10008,
+    /**
+     * @brief Indicates that an unkown algorithm was selected.
+     *
+     * Interface functions that expect an algorithm selector
+     * return this error if the selected algorithm is
+     * outside of the selected range.
+     *
+     * @sa n20_crypto_context_t.digest
+     */
+    n20_error_crypto_unkown_algorithm_e = 0x10009,
+    /**
+     * @brief Indicates that the key input argument is unsuitable for the requested operation.
+     *
+     * Interface functions that expect a `key_in` argument
+     * must check if the given key is suitable for the requested
+     * operation and return this error if it is not.
+     *
+     * @sa n20_crypto_context_t.kdf
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.key_public_key
+     */
+    n20_error_crypto_invalid_key_e = 0x1000a,
+    /**
+     * @brief Indicates that the requested key type is out of range.
+     *
+     * Interface functions that expect a `key_type_in` argument
+     * return this error if the selected key type is outside of
+     * defined range.
+     *
+     * @sa n20_crypto_context_t.kdf
+     */
+    n20_error_crypto_invalid_key_type_e = 0x1000b,
+    /**
+     * @brief Indicates that the user supplied buffer is insufficient.
+     *
+     * Interface functions that require the user to allocate an output buffer
+     * return this error if the supplied buffer size is too small or
+     * if the output buffer argument was NULL.
+     *
+     * Important: If this error is returned, the corresponding `*_size_in_out`
+     * parameter must be set to the maximal required buffer size required by
+     * the implementation to successfully complete the function call.
+     * This must always be possible because if the `*_size_in_out` argument was
+     * NULL, the function must have returned
+     * @ref n20_error_crypto_unexpected_null_size_e.
+     *
+     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_context_t.sign
+     * @sa n20_crypto_context_t.key_public_key
+     */
+    n20_error_crypto_insufficient_buffer_size_e = 0x1000c,
+    /**
+     * @brief Indicates that an unexpected null pointer was received as argument.
+     *
+     * This generic variant of the error should not be used by
+     * implementations of any of the interface functions, rather it is returned
+     * by implementation specific factory functions indicating that
+     * one of their implementation specific arguments was unexpectedly
+     * NULL.
+     */
+    n20_error_crypto_unexpected_null_e = 0x1000d,
+    /**
+     * @brief Indicates that the implementation ran out of a critical resource.
+     *
+     * Interface functions may return this error if they failed to
+     * perform an operation due to a lack of physical resources.
+     * This includes memory allocation errors.
+     */
+    n20_error_crypto_no_resources_e = 0x1000e,
+    /**
+     * @brief Indicates that an implementation specific error has occurred.
+     *
+     * This is a catch all for unexpected errors that can be encountered
+     * by an implementation.
+     */
+    n20_error_crypto_implementation_specific_e = 0x1000f,
+};
+
+/**
+ * @brief Alias for @ref n20_error_s
+ */
+typedef enum n20_error_s n20_error_t;
+
+#ifdef __cplusplus
+}
+#endif

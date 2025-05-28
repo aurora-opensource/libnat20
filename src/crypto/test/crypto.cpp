@@ -61,10 +61,10 @@ class CryptoTestFixture : public ::testing::Test {
    public:
     using impl = T;
 
-    void SetUp() override { ASSERT_EQ(n20_crypto_error_ok_e, impl::open(&ctx)); }
+    void SetUp() override { ASSERT_EQ(n20_error_ok_e, impl::open(&ctx)); }
 
     void TearDown() override {
-        ASSERT_EQ(n20_crypto_error_ok_e, impl::close(ctx));
+        ASSERT_EQ(n20_error_ok_e, impl::close(ctx));
         ctx = nullptr;
     }
 };
@@ -74,15 +74,15 @@ TYPED_TEST_SUITE_P(CryptoTestFixture);
 TYPED_TEST_P(CryptoTestFixture, OpenClose) {
     // If this point is reached the fixture has already successfully
     // Opened the implementation. So let's close it.
-    ASSERT_EQ(n20_crypto_error_ok_e, TypeParam::close(this->ctx));
+    ASSERT_EQ(n20_error_ok_e, TypeParam::close(this->ctx));
 
-    // Does the implementation correctly return n20_crypto_error_unexpected_null_e
+    // Does the implementation correctly return n20_error_crypto_unexpected_null_e
     // if passed a nullptr?
-    ASSERT_EQ(n20_crypto_error_unexpected_null_e, TypeParam::open(nullptr));
-    ASSERT_EQ(n20_crypto_error_unexpected_null_e, TypeParam::close(nullptr));
+    ASSERT_EQ(n20_error_crypto_unexpected_null_e, TypeParam::open(nullptr));
+    ASSERT_EQ(n20_error_crypto_unexpected_null_e, TypeParam::close(nullptr));
 
     // Okay, let's open it again to restore the invariant of the fixture.
-    ASSERT_EQ(n20_crypto_error_ok_e, TypeParam::open(&this->ctx));
+    ASSERT_EQ(n20_error_ok_e, TypeParam::open(&this->ctx));
 }
 
 constexpr uint8_t test_vector_sha224_abc[] = {
@@ -172,7 +172,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestTestVectorTest) {
         n20_crypto_gather_list_t msg = {1, buffers};
         std::vector<uint8_t> digest(test_case.want.size());
         size_t buffer_size = digest.size();
-        ASSERT_EQ(n20_crypto_error_ok_e,
+        ASSERT_EQ(n20_error_ok_e,
                   this->ctx->digest(this->ctx, test_case.alg, &msg, digest.data(), &buffer_size))
             << test_case.name;
         ASSERT_EQ(digest.size(), buffer_size) << test_case.name;
@@ -194,7 +194,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
         // If null is given as output buffer, the function must return
         // the required buffer size for the algorithm.
         // It must also tolerate that nullptr is passed as msg.
-        N20_ASSERT_EQ(n20_crypto_error_insufficient_buffer_size_e,
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
                       this->ctx->digest(this->ctx, alg, nullptr, nullptr, &got_size));
         N20_ASSERT_EQ(want_size, got_size);
 
@@ -204,7 +204,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
         got_size = 4;
         std::vector<uint8_t> const want_buffer = {0xde, 0xad, 0xbe, 0xef};
         std::vector<uint8_t> buffer = want_buffer;
-        N20_ASSERT_EQ(n20_crypto_error_insufficient_buffer_size_e,
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
                       this->ctx->digest(this->ctx, alg, nullptr, buffer.data(), &got_size));
         N20_ASSERT_EQ(want_size, got_size);
         N20_ASSERT_EQ(want_buffer, buffer);
@@ -219,7 +219,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
         n20_slice_t buffers[]{N20_SLICE_NULL};
         n20_crypto_gather_list_t msg = {1, buffers};
 
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
         N20_ASSERT_EQ(want_size, got_size);
     }
@@ -234,32 +234,32 @@ TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
              tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e},
          }) {
         // Digest must return invalid context if nullptr is given as context.
-        N20_ASSERT_EQ(n20_crypto_error_invalid_context_e,
+        N20_ASSERT_EQ(n20_error_crypto_invalid_context_e,
                       this->ctx->digest(nullptr, alg, nullptr, nullptr, nullptr));
 
-        // Must return n20_crypto_error_unexpected_null_size_e if a valid context
+        // Must return n20_error_crypto_unexpected_null_size_e if a valid context
         // was given but no digest_size_in_out.
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_size_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_size_e,
                       this->ctx->digest(this->ctx, alg, nullptr, nullptr, nullptr));
 
-        // Must return n20_crypto_error_unexpected_null_data_e if sufficient
+        // Must return n20_error_crypto_unexpected_null_data_e if sufficient
         // buffer given, but no message.
         auto buffer = std::vector<uint8_t>(80);
         size_t got_size = buffer.size();
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_data_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_data_e,
                       this->ctx->digest(this->ctx, alg, nullptr, buffer.data(), &got_size));
 
-        // Must return n20_crypto_error_unexpected_null_list_e if
+        // Must return n20_error_crypto_unexpected_null_list_e if
         // the gatherlist buffer count is not 0 but the list is NULL.
         n20_crypto_gather_list_t msg = {1, nullptr};
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_list_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_list_e,
                       this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
 
-        // Must return n20_crypto_error_unexpected_null_slice_e if a buffer in
+        // Must return n20_error_crypto_unexpected_null_slice_e if a buffer in
         // the message has a size but nullptr buffer.
         n20_slice_t buffers[]{3, nullptr};
         msg.list = buffers;
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_slice_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_slice_e,
                       this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
     }
 }
@@ -284,7 +284,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
         n20_slice_t buffers[3]{{sizeof msg1, msg1}, {sizeof msg2, msg2}, N20_SLICE_NULL};
         n20_crypto_gather_list_t msg = {3, buffers};
 
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
 
         // Save the first result to compare it with the following computations.
@@ -294,7 +294,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
         buffers[2] = buffers[1];
         buffers[1] = N20_SLICE_NULL;
 
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
 
         // Must result in the same digest as the first computation.
@@ -304,7 +304,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
         buffers[1] = buffers[0];
         buffers[0] = N20_SLICE_NULL;
 
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
 
         // Must result in the same digest as the first computation.
@@ -314,7 +314,7 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
         // even if not null.
         buffers[0] = N20_SLICE_NULL;
 
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
 
         // Must result in the same digest as the first computation.
@@ -421,7 +421,7 @@ bool verify(EVP_PKEY_PTR_t const& key,
 TYPED_TEST_P(CryptoTestFixture, KDFTest) {
     n20_crypto_key_t cdi;
 
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
 
     using tc = std::tuple<std::string, n20_crypto_key_type_t>;
     for (auto [n20_test_name, key_type] : {
@@ -444,11 +444,11 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         // If the signature verifies successfully we can be reasonably
         // certain that the derived keys were indeed the same.
         n20_crypto_key_t derived_key_sign;
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_sign));
 
         n20_crypto_key_t derived_key_verify;
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_verify));
 
         // ##### Sign the message. #########
@@ -459,13 +459,13 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
 
         // Get the maximal signature size and allocate the buffer.
         size_t sig_size = 0;
-        N20_ASSERT_EQ(n20_crypto_error_insufficient_buffer_size_e,
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
                       this->ctx->sign(this->ctx, derived_key_sign, &message, nullptr, &sig_size));
         std::vector<uint8_t> signature(sig_size);
 
         // Do the actual signing.
         N20_ASSERT_EQ(
-            n20_crypto_error_ok_e,
+            n20_error_ok_e,
             this->ctx->sign(this->ctx, derived_key_sign, &message, signature.data(), &sig_size));
         N20_ASSERT_LE(sig_size, signature.size());
         signature.resize(sig_size);
@@ -476,7 +476,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         // This turns the context into "this context is the other".
         context.list[1].size = 0;
         n20_crypto_key_t derived_key_other;
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_other));
 
         // 96 is large enough for all implemented algorithms. So
@@ -484,7 +484,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         sig_size = 96;
         std::vector<uint8_t> other_signature(sig_size);
         N20_ASSERT_EQ(
-            n20_crypto_error_ok_e,
+            n20_error_ok_e,
             this->ctx->sign(
                 this->ctx, derived_key_other, &message, other_signature.data(), &sig_size));
         N20_ASSERT_LE(sig_size, other_signature.size());
@@ -495,10 +495,10 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         // Now get the public key from derived_key_verify.
         size_t pub_key_size = 0;
         N20_ASSERT_EQ(
-            n20_crypto_error_insufficient_buffer_size_e,
+            n20_error_crypto_insufficient_buffer_size_e,
             this->ctx->key_get_public_key(this->ctx, derived_key_verify, nullptr, &pub_key_size));
         std::vector<uint8_t> pub_key(pub_key_size);
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->key_get_public_key(
                           this->ctx, derived_key_verify, pub_key.data(), &pub_key_size));
         N20_ASSERT_EQ(pub_key.size(), pub_key_size);
@@ -545,23 +545,23 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         N20_ASSERT_FALSE(verify(evp_pub_key, message_vector, other_signature));
 
         // Cleanup derived keys.
-        N20_ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, derived_key_sign));
-        N20_ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, derived_key_verify));
-        N20_ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, derived_key_other));
+        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, derived_key_sign));
+        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, derived_key_verify));
+        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, derived_key_other));
     }
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, cdi));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, cdi));
 }
 
 TYPED_TEST_P(CryptoTestFixture, GetCDIErrorsTest) {
-    ASSERT_EQ(n20_crypto_error_invalid_context_e, this->ctx->get_cdi(nullptr, nullptr));
+    ASSERT_EQ(n20_error_crypto_invalid_context_e, this->ctx->get_cdi(nullptr, nullptr));
 
-    ASSERT_EQ(n20_crypto_error_unexpected_null_key_out_e, this->ctx->get_cdi(this->ctx, nullptr));
+    ASSERT_EQ(n20_error_crypto_unexpected_null_key_out_e, this->ctx->get_cdi(this->ctx, nullptr));
 }
 
 TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
     n20_crypto_key_t cdi;
 
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
 
     using tc = std::tuple<std::string, n20_crypto_key_type_t>;
     for (auto [n20_test_name, key_type] : {
@@ -571,61 +571,61 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
              tc{"secp384r1", n20_crypto_key_type_secp384r1_e},
          }) {
 
-        N20_ASSERT_EQ(n20_crypto_error_invalid_context_e,
+        N20_ASSERT_EQ(n20_error_crypto_invalid_context_e,
                       this->ctx->kdf(nullptr, nullptr, key_type, nullptr, nullptr));
 
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_key_in_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_key_in_e,
                       this->ctx->kdf(this->ctx, nullptr, key_type, nullptr, nullptr));
 
         // Derive each key type that would be ineligible to derive a key from
         // and use it as `key_in` for the KDF. The kdf must diagnose it
-        // as n20_crypto_error_invalid_key_e.
+        // as n20_error_crypto_invalid_key_e.
         n20_slice_t context_buffers[] = {
             {3, (uint8_t*)"foo"},
         };
         n20_crypto_gather_list_t context = {1, context_buffers};
         n20_crypto_key_t invalid_key = nullptr;
         N20_ASSERT_EQ(
-            n20_crypto_error_ok_e,
+            n20_error_ok_e,
             this->ctx->kdf(this->ctx, cdi, n20_crypto_key_type_ed25519_e, &context, &invalid_key));
-        N20_ASSERT_EQ(n20_crypto_error_invalid_key_e,
+        N20_ASSERT_EQ(n20_error_crypto_invalid_key_e,
                       this->ctx->kdf(this->ctx, invalid_key, key_type, nullptr, nullptr));
-        N20_ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
+        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
 
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->kdf(
                           this->ctx, cdi, n20_crypto_key_type_secp256r1_e, &context, &invalid_key));
-        N20_ASSERT_EQ(n20_crypto_error_invalid_key_e,
+        N20_ASSERT_EQ(n20_error_crypto_invalid_key_e,
                       this->ctx->kdf(this->ctx, invalid_key, key_type, nullptr, nullptr));
-        N20_ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
+        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
 
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->kdf(
                           this->ctx, cdi, n20_crypto_key_type_secp384r1_e, &context, &invalid_key));
-        N20_ASSERT_EQ(n20_crypto_error_invalid_key_e,
+        N20_ASSERT_EQ(n20_error_crypto_invalid_key_e,
                       this->ctx->kdf(this->ctx, invalid_key, key_type, nullptr, nullptr));
-        N20_ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
+        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
 
-        // Must return n20_crypto_error_unexpected_null_key_out_e if no buffer is
+        // Must return n20_error_crypto_unexpected_null_key_out_e if no buffer is
         // given to return the derived key.
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_key_out_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_key_out_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, nullptr, nullptr));
 
         n20_crypto_key_t key_out = nullptr;
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_data_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_data_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, nullptr, &key_out));
 
-        // Must return n20_crypto_error_unexpected_null_list_e if the gather list
+        // Must return n20_error_crypto_unexpected_null_list_e if the gather list
         // pointer is NULL.
         n20_crypto_gather_list_t invalid_context = {1, nullptr};
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_list_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_list_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &invalid_context, &key_out));
 
         n20_slice_t invalid_context_buffers[] = {
             {3, nullptr},
         };
         invalid_context.list = invalid_context_buffers;
-        N20_ASSERT_EQ(n20_crypto_error_unexpected_null_slice_e,
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_slice_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &invalid_context, &key_out));
     }
 
@@ -635,28 +635,28 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
     };
     n20_crypto_gather_list_t context = {1, context_buffers};
 
-    ASSERT_EQ(n20_crypto_error_invalid_key_type_e,
+    ASSERT_EQ(n20_error_crypto_invalid_key_type_e,
               this->ctx->kdf(this->ctx, cdi, (n20_crypto_key_type_t)-1, &context, &out_key));
 
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, cdi));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, cdi));
 }
 
 TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
     n20_crypto_key_t cdi;
 
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
 
-    ASSERT_EQ(n20_crypto_error_invalid_context_e,
+    ASSERT_EQ(n20_error_crypto_invalid_context_e,
               this->ctx->sign(nullptr, nullptr, nullptr, nullptr, nullptr));
 
-    ASSERT_EQ(n20_crypto_error_unexpected_null_key_in_e,
+    ASSERT_EQ(n20_error_crypto_unexpected_null_key_in_e,
               this->ctx->sign(this->ctx, nullptr, nullptr, nullptr, nullptr));
 
-    ASSERT_EQ(n20_crypto_error_unexpected_null_size_e,
+    ASSERT_EQ(n20_error_crypto_unexpected_null_size_e,
               this->ctx->sign(this->ctx, cdi, nullptr, nullptr, nullptr));
 
     size_t signature_size = 0;
-    ASSERT_EQ(n20_crypto_error_invalid_key_e,
+    ASSERT_EQ(n20_error_crypto_invalid_key_e,
               this->ctx->sign(this->ctx, cdi, nullptr, nullptr, &signature_size));
 
     using tc = std::tuple<std::string, n20_crypto_key_type_t, size_t>;
@@ -671,63 +671,63 @@ TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
         };
         n20_crypto_gather_list_t context = {1, context_buffers};
         n20_crypto_key_t signing_key = nullptr;
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &context, &signing_key));
 
-        // Must return n20_crypto_error_insufficient_buffer_size_e if out buffer is NULL.
+        // Must return n20_error_crypto_insufficient_buffer_size_e if out buffer is NULL.
         signature_size = 30000;
-        N20_ASSERT_EQ(n20_crypto_error_insufficient_buffer_size_e,
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
                       this->ctx->sign(this->ctx, signing_key, nullptr, nullptr, &signature_size));
 
         // Must return the correct expected signature size.
         N20_ASSERT_EQ(want_signature_size, signature_size);
 
-        // Must return n20_crypto_error_insufficient_buffer_size_e if buffer given but
+        // Must return n20_error_crypto_insufficient_buffer_size_e if buffer given but
         // size is too small.
         uint8_t signature_buffer[104];
         signature_size = want_signature_size - 1;
         N20_ASSERT_EQ(
-            n20_crypto_error_insufficient_buffer_size_e,
+            n20_error_crypto_insufficient_buffer_size_e,
             this->ctx->sign(this->ctx, signing_key, nullptr, signature_buffer, &signature_size));
 
         // Must return the correct expected signature size.
         N20_ASSERT_EQ(want_signature_size, signature_size);
 
         N20_ASSERT_EQ(
-            n20_crypto_error_unexpected_null_data_e,
+            n20_error_crypto_unexpected_null_data_e,
             this->ctx->sign(this->ctx, signing_key, nullptr, signature_buffer, &signature_size));
 
         n20_crypto_gather_list_t message = {1, nullptr};
         N20_ASSERT_EQ(
-            n20_crypto_error_unexpected_null_list_e,
+            n20_error_crypto_unexpected_null_list_e,
             this->ctx->sign(this->ctx, signing_key, &message, signature_buffer, &signature_size));
 
         n20_slice_t msg_buffers[] = {{5, nullptr}};
         message.list = msg_buffers;
         N20_ASSERT_EQ(
-            n20_crypto_error_unexpected_null_slice_e,
+            n20_error_crypto_unexpected_null_slice_e,
             this->ctx->sign(this->ctx, signing_key, &message, signature_buffer, &signature_size));
     }
 
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, cdi));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, cdi));
 }
 
 TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
     n20_crypto_key_t cdi;
 
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
 
-    ASSERT_EQ(n20_crypto_error_invalid_context_e,
+    ASSERT_EQ(n20_error_crypto_invalid_context_e,
               this->ctx->key_get_public_key(nullptr, nullptr, nullptr, nullptr));
 
-    ASSERT_EQ(n20_crypto_error_unexpected_null_key_in_e,
+    ASSERT_EQ(n20_error_crypto_unexpected_null_key_in_e,
               this->ctx->key_get_public_key(this->ctx, nullptr, nullptr, nullptr));
 
-    ASSERT_EQ(n20_crypto_error_unexpected_null_size_e,
+    ASSERT_EQ(n20_error_crypto_unexpected_null_size_e,
               this->ctx->key_get_public_key(this->ctx, cdi, nullptr, nullptr));
 
     size_t public_key_size = 0;
-    ASSERT_EQ(n20_crypto_error_invalid_key_e,
+    ASSERT_EQ(n20_error_crypto_invalid_key_e,
               this->ctx->key_get_public_key(this->ctx, cdi, nullptr, &public_key_size));
 
     using tc = std::tuple<std::string, n20_crypto_key_type_t, size_t>;
@@ -741,50 +741,49 @@ TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
         char const context_str[] = "public key errors test context";
         n20_slice_t context_buffers[] = {sizeof(context_str) - 1, (uint8_t* const)&context_str[0]};
         n20_crypto_gather_list_t context = {1, context_buffers};
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, &context, &key));
+        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->kdf(this->ctx, cdi, key_type, &context, &key));
 
-        // Must return n20_crypto_error_insufficient_buffer_size_e if public_key_out
+        // Must return n20_error_crypto_insufficient_buffer_size_e if public_key_out
         // is nullptr.
         public_key_size = 100;
-        N20_ASSERT_EQ(n20_crypto_error_insufficient_buffer_size_e,
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
                       this->ctx->key_get_public_key(this->ctx, key, nullptr, &public_key_size));
-        // If n20_crypto_error_insufficient_buffer_size_e was returned public_key_size
+        // If n20_error_crypto_insufficient_buffer_size_e was returned public_key_size
         // must contain the correct maximal required buffer size.
         N20_ASSERT_EQ(want_key_size, public_key_size);
 
-        // Must return n20_crypto_error_insufficient_buffer_size_e if
+        // Must return n20_error_crypto_insufficient_buffer_size_e if
         // *public_key_size_in_out is too small even if a buffer was given.
         public_key_size = want_key_size - 1;
         uint8_t public_key_buffer[100];
         N20_ASSERT_EQ(
-            n20_crypto_error_insufficient_buffer_size_e,
+            n20_error_crypto_insufficient_buffer_size_e,
             this->ctx->key_get_public_key(this->ctx, key, public_key_buffer, &public_key_size));
 
-        // If n20_crypto_error_insufficient_buffer_size_e was returned public_key_size
+        // If n20_error_crypto_insufficient_buffer_size_e was returned public_key_size
         // must contain the correct maximal required buffer size.
         N20_ASSERT_EQ(want_key_size, public_key_size);
 
-        // Must return n20_crypto_error_ok_e if the the buffer size is sufficient.
+        // Must return n20_error_ok_e if the the buffer size is sufficient.
         uint8_t large_public_key_buffer[256];
         public_key_size = sizeof(large_public_key_buffer);
-        N20_ASSERT_EQ(n20_crypto_error_ok_e,
+        N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->key_get_public_key(
                           this->ctx, key, large_public_key_buffer, &public_key_size));
 
-        // If n20_crypto_error_ok_e was returned public_key_size must contain the correct maximal
+        // If n20_error_ok_e was returned public_key_size must contain the correct maximal
         // required buffer size.
         N20_ASSERT_EQ(want_key_size, public_key_size);
 
-        N20_ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, key));
+        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, key));
     }
 
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, cdi));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, cdi));
 }
 
 TYPED_TEST_P(CryptoTestFixture, KeyFreeErrorsTest) {
-    ASSERT_EQ(n20_crypto_error_invalid_context_e, this->ctx->key_free(nullptr, nullptr));
-    ASSERT_EQ(n20_crypto_error_ok_e, this->ctx->key_free(this->ctx, nullptr));
+    ASSERT_EQ(n20_error_crypto_invalid_context_e, this->ctx->key_free(nullptr, nullptr));
+    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, nullptr));
 }
 
 REGISTER_TYPED_TEST_SUITE_P(CryptoTestFixture,
