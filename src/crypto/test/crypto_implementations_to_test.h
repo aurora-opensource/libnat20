@@ -33,6 +33,8 @@
 #include "crypto_boringssl.h"
 #endif
 
+#include "crypto_nat20.h"
+
 using FullCryptoImplementationsToTest = testing::Types<
 // Add crypto implementations to the list in order to run
 // the crypto test against them.
@@ -44,7 +46,9 @@ using FullCryptoImplementationsToTest = testing::Types<
     // End of list.
     >;
 
-using DigestOnlyCryptoImplementationsToTest = testing::Types<>;
+using DigestOnlyCryptoImplementationsToTest = testing::Types<
+    CryptoImplNat20
+>;
 
 #endif
 
