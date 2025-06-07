@@ -213,6 +213,12 @@ enum n20_error_s {
      * by an implementation.
      */
     n20_error_crypto_implementation_specific_e = 0x100f,
+    /**
+     * @brief Indicates that an output buffer was expected but NULL was given.
+     *
+     * TODO: Document which functions may return this error.
+     */
+    n20_error_crypto_unexpected_null_output_buffer_e = 0x1010,
 };
 
 /**
