@@ -99,6 +99,8 @@ set(LIBNAT20_CRYPTO_BSSL_SOURCES
 set(LIBNAT20_CRYPTO_TEST_SOURCES
     src/crypto/test/test.cpp
     src/crypto/test/crypto.cpp
+    src/crypto/test/test_vector_reader.cpp
+    src/crypto/test/test_vectors.cpp
 )
 
 ###################################################################################################
@@ -184,6 +186,12 @@ if (NAT20_WITH_TESTS)
     FetchContent_MakeAvailable(googletest)
 
     enable_testing()
+
+    file(INSTALL
+        "src/crypto/test/test_data/"
+        DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/test_data/crypto"
+        FILES_MATCHING PATTERN "*"
+    )
 
     add_executable(nat20_test_bin)
     target_sources(nat20_test_bin
