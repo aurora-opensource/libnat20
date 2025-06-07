@@ -136,7 +136,7 @@ struct n20_crypto_gather_list_s {
      * This structure does not take ownership of the array.
      *
      */
-    n20_slice_t* list;
+    n20_slice_t const* list;
 };
 
 /**
@@ -144,20 +144,13 @@ struct n20_crypto_gather_list_s {
  */
 typedef struct n20_crypto_gather_list_s n20_crypto_gather_list_t;
 
-/**
- * @brief The crypto context.
- *
- * The crypto context is the main interface to the crypto API.
- * It provides cryptographic operations to the higher layers of
- * the DICE service functionality.
- * Integrators must provide an implementation of this interface
- * that is suitable for the target platform.
- */
-struct n20_crypto_context_s {
+struct n20_crypto_digest_context_s {
     /**
      * @brief Digest a message in a one shot operation.
      *
      * This function digests the message given by the gather list @p msg_in.
+     * @p msg_in may point to an array of gather lists. @p msg_count gives
+     * the number of gather lists in the array.
      *
      * Each buffer in the gather list is concatenated in the order they
      * appear in the list.
@@ -212,17 +205,62 @@ struct n20_crypto_context_s {
      * @param ctx The crypto context.
      * @param alg_in Designates the desired digest algorithm.
      * @param msg_in The message that is to be digested.
+     * @param msg_count The number of gather lists in the @p msg_in array.
      * @param digest_out A buffer with sufficient capacity to hold
      *        @p digest_size_in_out (on input) bytes or NULL.
      * @param digest_size_in_out On input the capacity of the given buffer.
      *        On output the size of the digest.
      */
-    n20_error_t (*digest)(struct n20_crypto_context_s* ctx,
+    n20_error_t (*digest)(struct n20_crypto_digest_context_s* ctx,
                           n20_crypto_digest_algorithm_t alg_in,
                           n20_crypto_gather_list_t const* msg_in,
+                          size_t msg_count,
                           uint8_t* digest_out,
                           size_t* digest_size_in_out);
 
+    n20_error_t (*hmac)(struct n20_crypto_digest_context_s* ctx,
+                        n20_crypto_digest_algorithm_t alg_in,
+                        n20_slice_t const key,
+                        n20_crypto_gather_list_t const* msg_in,
+                        uint8_t* mac_out,
+                        size_t* mac_size_in_out);
+
+    n20_error_t (*hkdf)(struct n20_crypto_digest_context_s* ctx,
+                        n20_crypto_digest_algorithm_t alg_in,
+                        n20_slice_t const ikm,
+                        n20_slice_t const salt,
+                        n20_slice_t const info,
+                        size_t key_octets,
+                        uint8_t* out);
+
+    n20_error_t (*hkdf_extract)(struct n20_crypto_digest_context_s* ctx,
+                                n20_crypto_digest_algorithm_t alg_in,
+                                n20_slice_t const ikm,
+                                n20_slice_t const salt,
+                                uint8_t* out,
+                                size_t* out_size_in_out);
+
+    n20_error_t (*hkdf_expand)(struct n20_crypto_digest_context_s* ctx,
+                               n20_crypto_digest_algorithm_t alg_in,
+                               n20_slice_t const prk,
+                               n20_slice_t const info,
+                               size_t key_octets,
+                               uint8_t* out);
+};
+
+typedef struct n20_crypto_digest_context_s n20_crypto_digest_context_t;
+
+/**
+ * @brief The crypto context.
+ *
+ * The crypto context is the main interface to the crypto API.
+ * It provides cryptographic operations to the higher layers of
+ * the DICE service functionality.
+ * Integrators must provide an implementation of this interface
+ * that is suitable for the target platform.
+ */
+struct n20_crypto_context_s {
+    n20_crypto_digest_context_t digest_ctx;
     /**
      * @brief Derive a key from an opaque secret and context.
      *
