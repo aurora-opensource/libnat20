@@ -72,6 +72,7 @@ set(LIBNAT20_PUB_HEADERS
 
 set(LIBNAT20_CRYPTO_NAT20_SOURCES
     # Add the core library source files here.
+    src/crypto/nat20/crypto.c
     src/crypto/nat20/sha256.c
     src/crypto/nat20/sha512.c
 )
@@ -79,6 +80,7 @@ set(LIBNAT20_CRYPTO_NAT20_SOURCES
 set(LIBNAT20_CRYPTO_NAT20_PUB_HEADERS
     # Add the public headers here.
     # These files will be included in the generation of the API documentation.
+    include/nat20/crypto/nat20/crypto.h
     include/nat20/crypto/nat20/sha.h
 )
 

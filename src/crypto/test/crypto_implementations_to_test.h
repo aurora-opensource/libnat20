@@ -33,6 +33,8 @@
 #include "crypto_boringssl.h"
 #endif
 
+#include "crypto_nat20.h"
+
 template <typename... T>
 struct TestList {};
 
@@ -47,7 +49,9 @@ using FullCryptoImplementationsToTest = TestList<
     // End of list.
     >;
 
-using DigestOnlyCryptoImplementationsToTest = TestList<>;
+using DigestOnlyCryptoImplementationsToTest = TestList<
+    CryptoImplNat20
+>;
 
 #endif
 
