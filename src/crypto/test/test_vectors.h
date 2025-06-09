@@ -37,3 +37,12 @@ extern std::vector<std::tuple<std::string,
                               std::vector<uint8_t>,
                               std::vector<uint8_t>>>
     hmacTestVectors;
+
+extern std::vector<std::tuple<std::string,
+                              n20_crypto_digest_algorithm_t,
+                              std::vector<uint8_t>,
+                              std::vector<uint8_t>,
+                              std::vector<uint8_t>,
+                              std::vector<uint8_t>,
+                              std::vector<uint8_t>>>
+    hkdfTestVectors;
