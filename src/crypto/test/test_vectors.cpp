@@ -80,3 +80,13 @@ using HmacTestVectorReader = TestVectorReader<Name, Algorithm, Key, Message, Mac
 
 std::vector<HmacTestVectorReader::tuple_type> hmacTestVectors =
     HmacTestVectorReader::read_all_vectors_from_file("test_data/test_data/hmac_test_vectors.txt");
+
+DEFINE_FIELD(Ikm, std::vector<uint8_t>, hex_string_parser, "Ikm")
+DEFINE_FIELD(Salt, std::vector<uint8_t>, hex_string_parser, "Salt")
+DEFINE_FIELD(Prk, std::vector<uint8_t>, hex_string_parser, "Prk")
+DEFINE_FIELD(Info, std::vector<uint8_t>, hex_string_parser, "Info")
+
+using HkdfTestVectorReader = TestVectorReader<Name, Algorithm, Ikm, Salt, Info, Prk, Key>;
+
+std::vector<HkdfTestVectorReader::tuple_type> hkdfTestVectors =
+    HkdfTestVectorReader::read_all_vectors_from_file("test_data/test_data/hkdf_test_vectors.txt");
