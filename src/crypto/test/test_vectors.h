@@ -25,3 +25,15 @@ extern std::vector<std::tuple<std::string,
                               std::vector<uint8_t>,
                               std::vector<uint8_t>>>
     sha2TestVectors;
+
+/*
+ * The following test vectors are from the cryptographic algorithm validation program:
+ * FIPS 198-1 Keyed-Hash message authentication code (HMAC).
+ * https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program/message-authentication
+ */
+extern std::vector<std::tuple<std::string,
+                              n20_crypto_digest_algorithm_t,
+                              std::vector<uint8_t>,
+                              std::vector<uint8_t>,
+                              std::vector<uint8_t>>>
+    hmacTestVectors;
