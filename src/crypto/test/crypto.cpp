@@ -161,7 +161,6 @@ TYPED_TEST_P(CryptoDigestFixture, SHA2TestVectorTest) {
     }
 }
 
-
 TYPED_TEST_P(CryptoDigestFixture, HmacTest) {
     for (auto [n20_test_name, alg, key, msg, want_hmac] : hmacTestVectors) {
 
@@ -181,7 +180,65 @@ TYPED_TEST_P(CryptoDigestFixture, HmacTest) {
         got_hmac.resize(want_hmac.size());
         N20_ASSERT_EQ(want_hmac, got_hmac) << "Expected HMAC: " << hex(want_hmac) << std::endl
                                            << "Actual HMAC: " << hex(got_hmac) << std::endl;
+    }
+}
 
+TYPED_TEST_P(CryptoDigestFixture, HkdfTest) {
+    for (auto [n20_test_name, alg, ikm, salt, info, _, want_key] : hkdfTestVectors) {
+
+        n20_slice_t ikm_slice = {ikm.size(), ikm.data()};
+        n20_slice_t salt_slice = {salt.size(), salt.data()};
+        n20_slice_t info_slice = {info.size(), info.data()};
+
+        std::vector<uint8_t> got_key(want_key.size());
+
+        auto rc = this->digest_ctx->hkdf(this->digest_ctx,
+                                         alg,
+                                         ikm_slice,
+                                         salt_slice,
+                                         info_slice,
+                                         got_key.size(),
+                                         got_key.data());
+
+        N20_ASSERT_EQ(rc, n20_error_ok_e);
+        N20_ASSERT_EQ(want_key, got_key) << "Expected key: " << hex(want_key) << std::endl
+                                         << "Actual key: " << hex(got_key) << std::endl;
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfExtactTest) {
+    for (auto [n20_test_name, alg, ikm, salt, _info, want_prk, _want_key] : hkdfTestVectors) {
+
+        n20_slice_t ikm_slice = {ikm.size(), ikm.data()};
+        n20_slice_t salt_slice = {salt.size(), salt.data()};
+
+        std::vector<uint8_t> got_prk(want_prk.size());
+
+        size_t got_size = want_prk.size();
+
+        auto rc = this->digest_ctx->hkdf_extract(
+            this->digest_ctx, alg, ikm_slice, salt_slice, got_prk.data(), &got_size);
+
+        N20_ASSERT_EQ(rc, n20_error_ok_e);
+        N20_ASSERT_EQ(want_prk, got_prk) << "Expected PRK: " << hex(want_prk) << std::endl
+                                         << "Actual PRK: " << hex(got_prk) << std::endl;
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfExpandTest) {
+    for (auto [n20_test_name, alg, _ikm, _salt, info, prk, want_key] : hkdfTestVectors) {
+
+        n20_slice_t info_slice = {info.size(), info.data()};
+        n20_slice_t prk_slice = {prk.size(), prk.data()};
+
+        std::vector<uint8_t> got_key(want_key.size());
+
+        auto rc = this->digest_ctx->hkdf_expand(
+            this->digest_ctx, alg, prk_slice, info_slice, want_key.size(), got_key.data());
+
+        N20_ASSERT_EQ(rc, n20_error_ok_e);
+        N20_ASSERT_EQ(want_key, got_key) << "Expected key: " << hex(want_key) << std::endl
+                                         << "Actual key: " << hex(got_key) << std::endl;
     }
 }
 
@@ -807,7 +864,10 @@ REGISTER_TYPED_TEST_SUITE_P(CryptoDigestFixture,
                             DigestErrorsTest,
                             DigestSkipEmpty,
                             SHA2TestVectorTest,
-                            HmacTest);
+                            HmacTest,
+                            HkdfTest,
+                            HkdfExtactTest,
+                            HkdfExpandTest);
 
 REGISTER_TYPED_TEST_SUITE_P(CryptoTestFixture,
                             OpenClose,
