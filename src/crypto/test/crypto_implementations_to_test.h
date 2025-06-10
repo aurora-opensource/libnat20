@@ -33,7 +33,10 @@
 #include "crypto_boringssl.h"
 #endif
 
-using CryptoImplementationsToTest = ::testing::Types<
+template <typename... T>
+struct TestList {};
+
+using FullCryptoImplementationsToTest = TestList<
 // Add crypto implementations to the list in order to run
 // the crypto test against them.
 
@@ -44,4 +47,22 @@ using CryptoImplementationsToTest = ::testing::Types<
     // End of list.
     >;
 
+using DigestOnlyCryptoImplementationsToTest = TestList<>;
+
 #endif
+
+template <typename T, typename U>
+struct ConcatenateTestLists {};
+
+template <typename... T1, typename... T2>
+struct ConcatenateTestLists<TestList<T1...>, TestList<T2...>> {
+    using type = TestList<T1..., T2...>;
+};
+
+template <typename T>
+struct ToTestTypes {};
+
+template <typename... T>
+struct ToTestTypes<TestList<T...>> {
+    using type = testing::Types<T...>;
+};
