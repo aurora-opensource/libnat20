@@ -46,8 +46,6 @@ set(LIBNAT20_SOURCES
     # Add the core library source files here.
     src/core/asn1.c
     src/core/oid.c
-    src/core/sha256.c
-    src/core/sha512.c
     src/core/stream.c
     src/core/x509_ext_open_dice_input.c
     src/core/x509_ext_tcg_dice_tcb_freshness.c
@@ -63,7 +61,6 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/crypto.h
     include/nat20/error.h
     include/nat20/oid.h
-    include/nat20/sha.h
     include/nat20/stream.h
     include/nat20/types.h
     include/nat20/x509_ext_open_dice_input.h
@@ -73,11 +70,23 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/x509.h
 )
 
+set(LIBNAT20_CRYPTO_NAT20_SOURCES
+    # Add the core library source files here.
+    src/crypto/nat20/sha256.c
+    src/crypto/nat20/sha512.c
+)
+
+set(LIBNAT20_CRYPTO_NAT20_PUB_HEADERS
+    # Add the public headers here.
+    # These files will be included in the generation of the API documentation.
+    include/nat20/crypto/nat20/sha.h
+)
+
+
 set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
     src/core/test/test.cpp
     src/core/test/asn1.cpp
-    src/core/test/sha.cpp
     src/core/test/stream.cpp
     src/core/test/x509.cpp
     src/core/test/x509_ext_open_dice_input.cpp
@@ -137,6 +146,29 @@ target_compile_options(nat20
 )
 
 target_include_directories(nat20
+    PUBLIC include
+)
+
+###################################################################################################
+
+###################################################################################################
+# The nat20 library is the core product of this project.
+# It will always be compiled.
+add_library(nat20_crypto_nat20 STATIC)
+
+target_sources(nat20_crypto_nat20
+    PRIVATE ${LIBNAT20_CRYPTO_NAT20_SOURCES}
+    INTERFACE ${LIBNAT20_CRYPTO_NAT20_PUB_HEADERS}
+)
+
+target_compile_options(nat20_crypto_nat20
+    PRIVATE -pedantic
+    PRIVATE -Wall
+    PRIVATE -Wextra
+    PRIVATE -Werror
+)
+
+target_include_directories(nat20_crypto_nat20
     PUBLIC include
 )
 
@@ -236,6 +268,12 @@ if (NAT20_WITH_TESTS)
     )
     target_link_libraries(nat20_crypto_test_bin nat20_crypto_boringssl)
     add_definitions(-DN20_CONFIG_ENABLE_CRYPTO_TEST_IMPL=1)
+
+    target_sources(nat20_crypto_test_bin
+        PRIVATE src/crypto/test/crypto_nat20.cpp
+    )
+    target_link_libraries(nat20_crypto_test_bin nat20_crypto_nat20)
+
 
 endif() # NAT20_WITH_TESTS
 
