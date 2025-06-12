@@ -385,10 +385,11 @@ TEST(CertTBSTest, CertTBSZeroEncoding) {
     n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_cert_tbs(&s, &tbs);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
-    ASSERT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_ZERO.size());
+    EXPECT_EQ(n20_stream_byte_count(&s), ENCODED_CERT_TBS_ZERO.size());
     std::vector<uint8_t> got =
         std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
-    ASSERT_EQ(ENCODED_CERT_TBS_ZERO, got);
+    ASSERT_EQ(ENCODED_CERT_TBS_ZERO, got)
+        << "Got: " << hex(got) << "\nExpected: " << hex(ENCODED_CERT_TBS_ZERO);
 }
 
 // clang-format off
@@ -430,8 +431,10 @@ TEST(CertTBSTest, CertTBSNonzeroEncoding) {
                                          0x40, 0xa2, 0x92, 0xf7, 0x93, 0xde, 0x30, 0xf8,
                                          0x0a, 0x23, 0xa8, 0x31, 0x21, 0x5d, 0xd0, 0x07,
                                          0xd8, 0x63, 0x24, 0x2e, 0xff, 0x68, 0x21, 0x85};
+
+    uint8_t serial_number = 1;
     n20_x509_tbs_t tbs = {
-        .serial_number = 1,
+        .serial_number = {.size = 1, .buffer = &serial_number},
         .signature_algorithm =
             {
                 .oid = &OID_ED25519,
@@ -607,13 +610,12 @@ void n20_x509_rs_content(n20_stream_t* const s, void* context) {
     n20_x509_rs_t const* rs = (n20_x509_rs_t const*)context;
 
     n20_asn1_integer(s,
-                     rs->signature + rs->signature_size / 2,
-                     rs->signature_size / 2,
+                     {rs->signature_size / 2, rs->signature + rs->signature_size / 2},
                      false,
                      false,
                      n20_asn1_tag_info_no_override());
     n20_asn1_integer(
-        s, rs->signature, rs->signature_size / 2, false, false, n20_asn1_tag_info_no_override());
+        s, {rs->signature_size / 2, rs->signature}, false, false, n20_asn1_tag_info_no_override());
 }
 
 void n20_x509_rs(n20_stream_t* const s, n20_x509_rs_t const* const rs) {
@@ -666,8 +668,9 @@ TEST_P(CertTest, CertEncoding) {
             .context = &basic_constraints,
         },
     };
+    uint8_t serial_number = 1;
     n20_x509_tbs_t tbs = {
-        .serial_number = 1,
+        .serial_number = {.size = 1, .buffer = &serial_number},
         .signature_algorithm = signature_algorithm,
         .issuer_name = N20_X509_NAME(
             N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
