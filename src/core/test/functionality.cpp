@@ -255,11 +255,12 @@ TEST_F(FunctionalityTest, TestOpenDiceAttestationCertificate) {
     std::vector<uint8_t> code_descriptor_hash(32);
     size_t code_descriptor_hash_size = code_descriptor_hash.size();
     ASSERT_EQ(n20_error_ok_e,
-              crypto_ctx->digest(crypto_ctx,
-                                 n20_crypto_digest_algorithm_sha2_256_e,
-                                 &code_descriptor_gather_list,
-                                 code_descriptor_hash.data(),
-                                 &code_descriptor_hash_size));
+              crypto_ctx->digest_ctx.digest(&crypto_ctx->digest_ctx,
+                                            n20_crypto_digest_algorithm_sha2_256_e,
+                                            &code_descriptor_gather_list,
+                                            1,
+                                            code_descriptor_hash.data(),
+                                            &code_descriptor_hash_size));
 
     auto configuration_descriptor = make_configuration_descriptor(1, true, "they/them");
     n20_slice_t configuration_descriptor_slice = {
@@ -272,11 +273,12 @@ TEST_F(FunctionalityTest, TestOpenDiceAttestationCertificate) {
     std::vector<uint8_t> configuration_descriptor_hash(32);
     size_t configuration_descriptor_hash_size = configuration_descriptor_hash.size();
     ASSERT_EQ(n20_error_ok_e,
-              crypto_ctx->digest(crypto_ctx,
-                                 n20_crypto_digest_algorithm_sha2_256_e,
-                                 &configuration_descriptor_gather_list,
-                                 configuration_descriptor_hash.data(),
-                                 &configuration_descriptor_hash_size));
+              crypto_ctx->digest_ctx.digest(&crypto_ctx->digest_ctx,
+                                            n20_crypto_digest_algorithm_sha2_256_e,
+                                            &configuration_descriptor_gather_list,
+                                            1,
+                                            configuration_descriptor_hash.data(),
+                                            &configuration_descriptor_hash_size));
     ASSERT_EQ(configuration_descriptor_hash_size, 32);
     n20_crypto_key_type_t parent_key_type = n20_crypto_key_type_ed25519_e;
     n20_crypto_key_type_t key_type = n20_crypto_key_type_ed25519_e;

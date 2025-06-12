@@ -89,7 +89,7 @@ const n20_slice_t ATTEST_KEY_PAIR_STR_SLICE = {
     .size = 15,
 };
 
-n20_error_t n20_compress_input(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_compress_input(n20_crypto_digest_context_t *crypto_ctx,
                                n20_open_dice_input_t const *context,
                                n20_compressed_input_t digest) {
     // Check if the crypto context is valid
@@ -114,7 +114,7 @@ n20_error_t n20_compress_input(n20_crypto_context_t *crypto_ctx,
 
     size_t digest_size = N20_FUNC_COMPRESSED_INPUT_SIZE;
     n20_error_t err = crypto_ctx->digest(
-        crypto_ctx, N20_FUNC_COMPRESSED_INPUT_ALGORITHM, &input, digest, &digest_size);
+        crypto_ctx, N20_FUNC_COMPRESSED_INPUT_ALGORITHM, &input, 1, digest, &digest_size);
     if (err != n20_error_ok_e) {
         return err;
     }
@@ -525,7 +525,7 @@ n20_error_t n20_opendice_attestation_key_and_certificate(n20_crypto_context_t *c
 
     uint8_t input_digest[N20_FUNC_COMPRESSED_INPUT_SIZE];
 
-    n20_error_t err = n20_compress_input(crypto_ctx, context, input_digest);
+    n20_error_t err = n20_compress_input(&crypto_ctx->digest_ctx, context, input_digest);
     if (err != n20_error_ok_e) {
         return err;
     }

@@ -97,7 +97,7 @@ typedef struct n20_dice_context_s {
     n20_string_slice_t profile_name;
 } n20_open_dice_input_t;
 
-n20_error_t n20_compress_input(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_compress_input(n20_crypto_digest_context_t *crypto_ctx,
                                n20_open_dice_input_t const *context,
                                n20_compressed_input_t digest);
 
