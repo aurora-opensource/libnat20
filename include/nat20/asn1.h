@@ -463,7 +463,7 @@ extern void n20_asn1_object_identifier(n20_stream_t *s,
 /**
  * @brief Write an integer complete with ASN.1 header to the given stream.
  *
- * The function expects a buffer `n` of length `len` bytes which
+ * The function expects a buffer slice @p n which
  * it will interpret as integer according to the parameters `little_endian`
  * and `two_complement`. It will format an ASN1 INTEGER into the stream using
  * DER, i.e., leading zero bytes (unsigned) or bytes that have all bits set
@@ -472,16 +472,14 @@ extern void n20_asn1_object_identifier(n20_stream_t *s,
  * If `n` is NULL this function behaves like @ref n20_asn1_null.
  *
  * @param s The stream that is to be updated.
- * @param n The buffer holding the integer.
- * @param len The size of the buffer in bytes.
+ * @param n The buffer slice holding the integer.
  * @param little_endian Indicates if the byteorder of the integer in the given buffer.
  * @param two_complement If `true` the buffer is interpreted as signed 2-complement integer.
  * @param tag_info Tag info override.
  * @sa N20_ASN1_TAG_INTEGER
  */
 extern void n20_asn1_integer(n20_stream_t *s,
-                             uint8_t const *n,
-                             size_t len,
+                             n20_slice_t const n,
                              bool little_endian,
                              bool two_complement,
                              n20_asn1_tag_info_t tag_info);
