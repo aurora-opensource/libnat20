@@ -296,7 +296,7 @@ TEST_P(IntegerTest, IntegerEncodingBigEndian) {
         n20_stream_t s;
         uint8_t buffer[128];
         n20_stream_init(&s, buffer, sizeof(buffer));
-        n20_asn1_integer(&s, bytes.data(), bytes.size(), false, two_complement, tag_info);
+        n20_asn1_integer(&s, {bytes.size(), bytes.data()}, false, two_complement, tag_info);
         ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
         ASSERT_EQ(n20_stream_byte_count(&s), expected_patched.size());
         std::vector<uint8_t> got = std::vector<uint8_t>(
@@ -317,7 +317,7 @@ TEST_P(IntegerTest, IntegerEncodingLittleEndian) {
         n20_stream_t s;
         uint8_t buffer[128];
         n20_stream_init(&s, buffer, sizeof(buffer));
-        n20_asn1_integer(&s, bytes_reversed.data(), bytes.size(), true, two_complement, tag_info);
+        n20_asn1_integer(&s, {bytes.size(), bytes_reversed.data()}, true, two_complement, tag_info);
         ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
         ASSERT_EQ(n20_stream_byte_count(&s), expected_patched.size());
         std::vector<uint8_t> got = std::vector<uint8_t>(
