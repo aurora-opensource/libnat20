@@ -318,23 +318,23 @@ n20_error_t n20_signer_callback(void *ctx,
 void n20_init_x509_name(n20_x509_name_t *name, n20_name_t const *n) {
     size_t i = 0;
     if (n->country_name.buffer != NULL) {
-        name->elements[i++] = (n20_x509_rdn_t){&OID_COUNTRY_NAME, n->country_name};
+        name->elements[i++] = (n20_x509_rdn_t){&OID_COUNTRY_NAME, .string = n->country_name};
     }
     if (n->locality_name.buffer != NULL) {
-        name->elements[i++] = (n20_x509_rdn_t){&OID_LOCALITY_NAME, n->locality_name};
+        name->elements[i++] = (n20_x509_rdn_t){&OID_LOCALITY_NAME, .string = n->locality_name};
     }
     if (n->organization_name.buffer != NULL) {
-        name->elements[i++] = (n20_x509_rdn_t){&OID_ORGANIZATION_NAME, n->organization_name};
+        name->elements[i++] = (n20_x509_rdn_t){&OID_ORGANIZATION_NAME, .string = n->organization_name};
     }
     if (n->organization_unit_name.buffer != NULL) {
         name->elements[i++] =
-            (n20_x509_rdn_t){&OID_ORGANIZATION_UNIT_NAME, n->organization_unit_name};
+            (n20_x509_rdn_t){&OID_ORGANIZATION_UNIT_NAME, .string = n->organization_unit_name};
     }
     if (n->common_name.buffer != NULL) {
-        name->elements[i++] = (n20_x509_rdn_t){&OID_COMMON_NAME, n->common_name};
+        name->elements[i++] = (n20_x509_rdn_t){&OID_COMMON_NAME, .string = n->common_name};
     }
     if (n->serial_number.buffer != NULL) {
-        name->elements[i++] = (n20_x509_rdn_t){&OID_SERIAL_NUMBER, n->serial_number};
+        name->elements[i++] = (n20_x509_rdn_t){&OID_SERIAL_NUMBER, .string = n->serial_number};
     }
     name->element_count = i;
 }
