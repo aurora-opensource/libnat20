@@ -22,10 +22,43 @@
 n20_string_slice_t n20_x509_no_expiration = {.buffer = "99991231235959Z", .size = 15};
 n20_string_slice_t n20_x509_unix_epoch = {.buffer = "19700101000000Z", .size = 15};
 
+static uint8_t const nibble2ascii[16] = {
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
+static void n20_x509_serial_as_hex_content(n20_stream_t *const s, void *ctx) {
+    n20_slice_t const *slice = (n20_slice_t const *)ctx;
+    if (slice != NULL && slice->buffer != NULL) {
+        for (size_t i = slice->size - 1; i < slice->size; --i) {
+            uint8_t c = slice->buffer[i];
+            // Print the bytes in reverse order as hex.
+            n20_stream_prepend(s, &nibble2ascii[c & 0x0f], 1);
+            n20_stream_prepend(s, &nibble2ascii[c >> 4], 1);
+        }
+    }
+}
+
+static void n20_x509_serial_as_hex_string(n20_stream_t *const s,
+                                          n20_slice_t const *const slice,
+                                          n20_asn1_tag_info_t const tag_info) {
+
+    n20_asn1_header_with_content(s,
+                                 N20_ASN1_CLASS_UNIVERSAL,
+                                 /*constructed=*/false,
+                                 N20_ASN1_TAG_PRINTABLE_STRING,
+                                 n20_x509_serial_as_hex_content,
+                                 (void *)slice,
+                                 tag_info);
+}
+
 void n20_x509_rdn_content(n20_stream_t *const s, void *context) {
     n20_x509_rdn_t const *rdn = (n20_x509_rdn_t const *)context;
 
-    n20_asn1_printablestring(s, &rdn->value, n20_asn1_tag_info_no_override());
+    if (n20_asn1_oid_equals(rdn->type, &OID_SERIAL_NUMBER)) {
+        // Special case for serial number, which is printed as a hex string.
+        n20_x509_serial_as_hex_string(s, &rdn->bytes, n20_asn1_tag_info_no_override());
+    } else {
+        n20_asn1_printablestring(s, &rdn->string, n20_asn1_tag_info_no_override());
+    }
     n20_asn1_object_identifier(s, rdn->type, n20_asn1_tag_info_no_override());
 }
 
