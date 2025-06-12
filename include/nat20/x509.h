@@ -84,7 +84,10 @@ struct n20_x509_rdn_s {
      *
      * @sa n20_asn1_printablestring
      */
-    n20_string_slice_t value;
+    union {
+        n20_string_slice_t string;
+        n20_slice_t bytes;
+    };
 };
 
 /**
@@ -106,7 +109,7 @@ typedef struct n20_x509_rdn_s n20_x509_rdn_t;
  * @endcode
  */
 #define N20_X509_RDN(type__, value__) \
-    (n20_x509_rdn_t) { .type = type__, .value = N20_STR_C(value__) }
+    (n20_x509_rdn_t) { .type = type__, .string = N20_STR_C(value__) }
 
 /**
  * @brief Represents an RDNSequence.
