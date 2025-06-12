@@ -18,6 +18,7 @@
 #include <nat20/asn1.h>
 #include <nat20/oid.h>
 #include <nat20/stream.h>
+#include <nat20/types.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -173,8 +174,7 @@ void n20_asn1_object_identifier(n20_stream_t *const s,
 }
 
 struct n20_asn1_number_s {
-    uint8_t const *n;
-    size_t size;
+    n20_slice_t n;
     bool little_endian;
     bool two_complement;
 };
@@ -184,8 +184,8 @@ static void n20_asn1_integer_internal_content(n20_stream_t *const s, void *ctx) 
 
     // n is never NULL because all of the call sites are in this
     // compilation unit and assure that it is never NULL.
-    uint8_t const *msb = number->n;
-    uint8_t const *end = number->n + number->size;
+    uint8_t const *msb = number->n.buffer;
+    uint8_t const *end = number->n.buffer + number->n.size;
     ssize_t inc = 1;
     int add_extra = 0;
     uint8_t extra = 0;
@@ -197,7 +197,7 @@ static void n20_asn1_integer_internal_content(n20_stream_t *const s, void *ctx) 
         // - point the most significant pointer to the last byte.
         msb = end - 1;
         // - point the end pointer one position before the first byte.
-        end = number->n - 1;
+        end = number->n.buffer - 1;
         // Now the rest of the algorithm traverses the buffer in reverse order.
     }
 
@@ -232,20 +232,18 @@ static void n20_asn1_integer_internal_content(n20_stream_t *const s, void *ctx) 
 }
 
 void n20_asn1_integer(n20_stream_t *const s,
-                      uint8_t const *const n,
-                      size_t const len,
+                      n20_slice_t const n,
                       bool const little_endian,
                       bool const two_complement,
                       n20_asn1_tag_info_t const tag_info) {
     // If the integer n is NULL, write an ASN1 NULL and return.
-    if (n == NULL) {
+    if (n.buffer == NULL) {
         n20_asn1_null(s, n20_asn1_tag_info_no_override());
         return;
     }
 
     struct n20_asn1_number_s number = {
         .n = n,
-        .size = len,
         .little_endian = little_endian,
         .two_complement = two_complement,
     };
@@ -261,8 +259,7 @@ void n20_asn1_integer(n20_stream_t *const s,
 
 void n20_asn1_uint64(n20_stream_t *const s, uint64_t const n, n20_asn1_tag_info_t const tag_info) {
     n20_asn1_integer(s,
-                     (uint8_t *)&n,
-                     sizeof(n),
+                     (n20_slice_t){sizeof(n), (uint8_t const *)&n},
                      LITTLE_ENDIAN == BYTE_ORDER,
                      /*two_complement=*/false,
                      tag_info);
@@ -270,8 +267,7 @@ void n20_asn1_uint64(n20_stream_t *const s, uint64_t const n, n20_asn1_tag_info_
 
 void n20_asn1_int64(n20_stream_t *const s, int64_t const n, n20_asn1_tag_info_t const tag_info) {
     n20_asn1_integer(s,
-                     (uint8_t *)&n,
-                     sizeof(n),
+                     (n20_slice_t){sizeof(n), (uint8_t const *)&n},
                      LITTLE_ENDIAN == BYTE_ORDER,
                      /*two_complement=*/true,
                      tag_info);

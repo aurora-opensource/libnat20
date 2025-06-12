@@ -211,7 +211,7 @@ typedef struct n20_name_t {
     n20_string_slice_t organization_name;
     n20_string_slice_t organization_unit_name;
     n20_string_slice_t common_name;
-    n20_string_slice_t serial_number;
+    n20_slice_t serial_number;
 } n20_name_t;
 
 extern void n20_init_x509_name(n20_x509_name_t *name, n20_name_t const *n);

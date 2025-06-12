@@ -334,7 +334,7 @@ void n20_init_x509_name(n20_x509_name_t *name, n20_name_t const *n) {
         name->elements[i++] = (n20_x509_rdn_t){&OID_COMMON_NAME, .string = n->common_name};
     }
     if (n->serial_number.buffer != NULL) {
-        name->elements[i++] = (n20_x509_rdn_t){&OID_SERIAL_NUMBER, .string = n->serial_number};
+        name->elements[i++] = (n20_x509_rdn_t){&OID_SERIAL_NUMBER, .bytes = n->serial_number};
     }
     name->element_count = i;
 }
@@ -415,8 +415,7 @@ n20_error_t n20_prepare_x509_cert(n20_open_dice_input_t const *context,
         .not_after = N20_STR_NULL,
     };
 
-    /* TODO: The serial number should be the CDI_ID. */
-    tbs.serial_number = 1;
+    tbs.serial_number = subject_name->serial_number;
 
     err = n20_init_algorithm_identifier(&tbs.signature_algorithm, issuer_key_type);
     if (err != n20_error_ok_e) {
@@ -569,6 +568,8 @@ n20_error_t n20_opendice_attestation_key_and_certificate(n20_crypto_context_t *c
         public_key_size += 1;
     }
 
+    uint8_t serial_number = 1;
+
     return n20_prepare_x509_cert(context,
                                  &(n20_signer_t){
                                      .crypto_ctx = crypto_ctx,
@@ -582,6 +583,10 @@ n20_error_t n20_opendice_attestation_key_and_certificate(n20_crypto_context_t *c
                                      .organization_name = N20_STR_C("Test DICE CA"),
                                      .organization_unit_name = N20_STR_NULL,
                                      .common_name = N20_STR_C("DICE Layer 0"),
+                                     .serial_number = {
+                                         .buffer = (uint8_t *)&serial_number,
+                                         .size = sizeof(serial_number),
+                                     },
                                  },
                                  key_type,
                                  &(n20_name_t){
@@ -590,6 +595,10 @@ n20_error_t n20_opendice_attestation_key_and_certificate(n20_crypto_context_t *c
                                      .organization_name = N20_STR_C("Test DICE CA"),
                                      .organization_unit_name = N20_STR_NULL,
                                      .common_name = N20_STR_C("DICE Layer 1"),
+                                     .serial_number = {
+                                         .buffer = (uint8_t *)&serial_number,
+                                         .size = sizeof(serial_number),
+                                     },
                                  },
                                  public_key,
                                  public_key_size,
