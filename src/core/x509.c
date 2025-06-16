@@ -269,7 +269,19 @@ void n20_x509_cert_tbs_content(n20_stream_t *const s, void *context) {
 
     // The following optional fields are not implemented yet.
     // subjectUniqueID [2] IMPLICIT UniqueIdentifier OPTIONAL
+    if (tbs->subject_unique_id.size > 0) {
+        n20_asn1_bitstring(s,
+                           tbs->subject_unique_id.buffer,
+                           tbs->subject_unique_id.size * 8,
+                           n20_asn1_tag_info_implicit(2));
+    }
     // issuerUniqueID [1] IMPLICIT UniqueIdentifier OPTIONAL
+    if (tbs->issuer_unique_id.size > 0) {
+        n20_asn1_bitstring(s,
+                           tbs->issuer_unique_id.buffer,
+                           tbs->issuer_unique_id.size * 8,
+                           n20_asn1_tag_info_implicit(1));
+    }
 
     // subjectPublicKeyInfo SubjectPublicKeyInfo
     n20_x509_public_key_info(s, &tbs->subject_public_key_info);
