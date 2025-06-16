@@ -783,7 +783,8 @@ struct n20_x509_tbs_s {
      * @sa n20_x509_public_key_info_t
      */
     n20_x509_public_key_info_t subject_public_key_info;
-
+    n20_slice_t issuer_unique_id;  /**< @brief Optional issuer unique ID. */
+    n20_slice_t subject_unique_id; /**< @brief Optional subject unique ID. */
     /**
      * @brief The X509 v3 extensions.
      *
