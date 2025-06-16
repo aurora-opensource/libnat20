@@ -62,6 +62,8 @@ enum n20_error_s {
     n20_error_client_slot_index_out_of_range_e = 7,
     n20_error_client_slot_empty_e = 8,
     n20_error_missing_callback_function_or_context_e = 9,
+    n20_error_parent_path_size_exceeds_max_e = 10,
+    n20_error_missing_parent_service_e = 11,
     /**
      * @brief The crypto context given to an interface was invalid.
      *
