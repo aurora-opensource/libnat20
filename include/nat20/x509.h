@@ -18,8 +18,9 @@
 
 #pragma once
 
-#include "asn1.h"
-#include "oid.h"
+#include <nat20/asn1.h>
+#include <nat20/oid.h>
+#include <nat20/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,14 +42,15 @@ extern "C" {
  * x509 certificate indicates that the certificate does not expire.
  * (See RFC5280 Section 4.1.2.5.)
  */
-static char const *const n20_x509_no_expiration = "99991231235959Z";
+extern n20_string_slice_t n20_x509_no_expiration;
+
 /**
  * @brief Generalized string representing Jan 1st 1970 00:00:00 UTC.
  *
  * This is the beginning of the UNIX epoch and is used as the default.
  * not before date for certificates.
  */
-static char const *const n20_x509_unix_epoch = "19700101000000Z";
+extern n20_string_slice_t n20_x509_unix_epoch;
 
 /**
  * @brief Representing a RelativeDistinguishedName.
@@ -69,7 +71,7 @@ static char const *const n20_x509_unix_epoch = "19700101000000Z";
  *
  * (See RFC5280 Section 4.1.2.4.)
  */
-typedef struct n20_x509_rdn_s {
+struct n20_x509_rdn_s {
     /**
      * @brief The object identifier of the RDNSequence element.
      */
@@ -82,27 +84,29 @@ typedef struct n20_x509_rdn_s {
      *
      * @sa n20_asn1_printablestring
      */
-    char const *value;
-} n20_x509_rdn_t;
+    n20_string_slice_t value;
+};
 
 /**
- * @brief Convenience macro for initializing @ref n20_x509_rdn_t.
- *
- * # Example
+ * @brief Alias for @ref n20_x509_rdn_s
+ */
+typedef struct n20_x509_rdn_s n20_x509_rdn_t;
+
+/**
+ * @brief Convenience macro for initializing @ref n20_x509_rdn_t from a string literal.
  *
  * The following example is safe. Both pointers
  * are pointing to static objects that will remain valid
  * for the entire runtime of the program.
- * If either argument is created through heap allocation,
- * the user is responsible for making sure that the arguments.
- * outlive `rdn`.
+ *
+ * # Example
  *
  * @code{.c}
  * n20_x509_rdn rdn = N20_X509_RDN(&OID_COMMON_NAME, "CommonName")
  * @endcode
  */
 #define N20_X509_RDN(type__, value__) \
-    { .type = type__, .value = value__, }
+    (n20_x509_rdn_t) { .type = type__, .value = N20_STR_C(value__) }
 
 /**
  * @brief Represents an RDNSequence.
@@ -117,7 +121,7 @@ typedef struct n20_x509_rdn_s {
  * structure using the macros @ref N20_X509_RDN and @ref N20_X509_NAME
  * (See @ref N20_X509_NAME for an example).
  */
-typedef struct n20_x509_name_s {
+struct n20_x509_name_s {
     /**
      * @brief Number of actual elements in the sequence.
      *
@@ -128,7 +132,12 @@ typedef struct n20_x509_name_s {
      * @brief Holds the elements of the RDNSequence.
      */
     n20_x509_rdn_t elements[N20_X509_NAME_MAX_NAME_ELEMENTS];
-} n20_x509_name_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_name_s
+ */
+typedef struct n20_x509_name_s n20_x509_name_t;
 
 /**
  * @brief Convenience macro for initializing an instance of @ref n20_x509_name.
@@ -146,7 +155,7 @@ typedef struct n20_x509_name_s {
  * @endcode
  */
 #define N20_X509_NAME(...)                                                                 \
-    {                                                                                      \
+    (n20_x509_name_t) {                                                                    \
         .element_count = sizeof((n20_x509_rdn_t[]){__VA_ARGS__}) / sizeof(n20_x509_rdn_t), \
         .elements = {                                                                      \
             __VA_ARGS__                                                                    \
@@ -156,20 +165,20 @@ typedef struct n20_x509_name_s {
 /**
  * @brief Renders an RDNSequence into the given stream.
  *
- * The @ref name parameter should be initialized using the macros
- * @ref N20_X509_NAME and @ref N20_X509_RDN (See @ref N20_X509_NAME for
- * an example).
+ * The @p name parameter should be initialized using the macros
+ * @ref N20_X509_NAME and @ref N20_X509_RDN
+ * (See @ref N20_X509_NAME for an example).
  *
  * It is the responsibility of the caller that all pointers
  * are valid until the function call returns.
  *
  * Passing NULL pointers is well defined, however, the
  * rendered output may be nonsensical.
- * E.g.: If @ref name is NULL, this function renders an
+ * E.g.: If @p name is NULL, this function renders an
  * ASN1 NULL, i.e., `0x05 0x00`, which is not a valid
  * RDNSequence.
  *
- * If @ref name.element_count is greater than
+ * If @p name->element_count is greater than
  * @ref N20_X509_NAME_MAX_NAME_ELEMENTS `ASN1 NULL` is rendered.
  *
  * @param s The stream that is to be updated.
@@ -185,7 +194,7 @@ extern void n20_x509_name(n20_stream_t *s, n20_x509_name_t const *name);
  * is given as a rendering callback of the form
  * @ref n20_asn1_content_cb_t.
  */
-typedef struct n20_x509_extension_s {
+struct n20_x509_extension_s {
     /**
      * @brief The object identifier indicating the type of the
      * extension.
@@ -221,7 +230,12 @@ typedef struct n20_x509_extension_s {
      * @ref content_cb as is.
      */
     void *context;
-} n20_x509_extension_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_extension_s
+ */
+typedef struct n20_x509_extension_s n20_x509_extension_t;
 
 /**
  * @brief Represents a set of x509 v3 extensions.
@@ -231,7 +245,7 @@ typedef struct n20_x509_extension_s {
  *
  * @sa n20_x509_extension
  */
-typedef struct n20_x509_extensions_s {
+struct n20_x509_extensions_s {
     /**
      * @brief The number of extensions in @ref extensions.
      *
@@ -255,7 +269,12 @@ typedef struct n20_x509_extensions_s {
      * of this structure.
      */
     n20_x509_extension_t const *extensions;
-} n20_x509_extensions_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_extensions_s
+ */
+typedef struct n20_x509_extensions_s n20_x509_extensions_t;
 
 /**
  * @brief Renders the extensions field of an X509 certificate.
@@ -266,7 +285,7 @@ typedef struct n20_x509_extensions_s {
  * inside of the sequence in the same order in which they appear in
  * @ref n20_x509_extensions_t.extensions.
  *
- * If @ref exts is NULL or `exts->extensions_count == 0` or `exts->extensions == NULL`
+ * If @p exts is NULL or `exts->extensions_count == 0` or `exts->extensions == NULL`
  * this function becomes a no-op, i.e., nothing is rendered to the stream.
  *
  * # Example
@@ -328,7 +347,7 @@ extern void n20_x509_extension(n20_stream_t *const s, n20_x509_extensions_t cons
  * (See RFC5280 Section 4.2.1.9.)
  * @sa OID_BASIC_CONSTRAINTS
  */
-typedef struct n20_x509_ext_basic_constraints_s {
+struct n20_x509_ext_basic_constraints_s {
     /**
      * @brief Indicates that the certificate subject is a CA.
      */
@@ -347,16 +366,21 @@ typedef struct n20_x509_ext_basic_constraints_s {
      * (See RFC5280 Section 4.2.1.9.)
      */
     uint32_t path_length;
-} n20_x509_ext_basic_constraints_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_basic_constraints_s
+ */
+typedef struct n20_x509_ext_basic_constraints_s n20_x509_ext_basic_constraints_t;
 
 /**
  * @brief Renders the value of a basic constraints extension.
  *
  * The function expects a pointer to an instance of
  * @ref n20_x509_ext_basic_constraints_t
- * as @ref context argument.
+ * as @p context argument.
  *
- * If @ref context is NULL, nothing is rendered, which would leave
+ * If @p context is NULL, nothing is rendered, which would leave
  * the resulting basic constraints extension malformed.
  *
  * This function is typically not used directly but instead
@@ -461,7 +485,7 @@ extern void n20_x509_ext_basic_constraints_content(n20_stream_t *const s, void *
  * (See RFC5280 Section 4.2.1.3.)
  * @sa OID_KEY_USAGE
  */
-typedef struct n20_x509_ext_key_usage_s {
+struct n20_x509_ext_key_usage_s {
     /**
      * @brief The key usage mask.
      *
@@ -470,15 +494,20 @@ typedef struct n20_x509_ext_key_usage_s {
      * There is no need accessing this field directly.
      */
     uint8_t key_usage_mask[2];
-} n20_x509_ext_key_usage_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_key_usage_s
+ */
+typedef struct n20_x509_ext_key_usage_s n20_x509_ext_key_usage_t;
 
 /**
  * @brief Renders the value of a key usage extension.
  *
  * The function expects a pointer to an instance of
- * @ref n20_x509_ext_key_usage_t as @ref context argument.
+ * @ref n20_x509_ext_key_usage_t as @p context argument.
  *
- * If @ref context is NULL, nothing is rendered, which would leave
+ * If @p context is NULL, nothing is rendered, which would leave
  * the resulting key usage extension malformed.
  *
  * This function is typically not used directly but instead
@@ -495,7 +524,7 @@ extern void n20_x509_ext_key_usage_content(n20_stream_t *const s, void *context)
  * and this enum is the tag indicating which variant of the
  * union is populated.
  */
-typedef enum n20_x509_algorithm_parameter_variants_s {
+enum n20_x509_algorithm_parameter_variants_s {
     /**
      * @brief Indicates that the parameter shall be omitted.
      *
@@ -518,7 +547,12 @@ typedef enum n20_x509_algorithm_parameter_variants_s {
      * parameters, E.g.: @ref OID_SECP256R1 or @ref OID_SECP384R1
      */
     n20_x509_pv_ec_curve_e = 2,
-} n20_x509_algorithm_parameter_variants_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_algorithm_parameter_variants_s
+ */
+typedef enum n20_x509_algorithm_parameter_variants_s n20_x509_algorithm_parameter_variants_t;
 
 /**
  * @brief Tagged union that represents the algorithm parameters.
@@ -528,7 +562,7 @@ typedef enum n20_x509_algorithm_parameter_variants_s {
  * It is a tagged union, where @ref variant serves as the tag.
  * See @ref n20_x509_algorithm_parameter_variants_t for options.
  */
-typedef struct n20_x509_algorithm_parameters_s {
+struct n20_x509_algorithm_parameters_s {
     /**
      * @brief Indicates the type of the parameter.
      *
@@ -545,7 +579,12 @@ typedef struct n20_x509_algorithm_parameters_s {
          */
         n20_asn1_object_identifier_t *ec_curve;
     };
-} n20_x509_algorithm_parameters_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_algorithm_parameters_s
+ */
+typedef struct n20_x509_algorithm_parameters_s n20_x509_algorithm_parameters_t;
 
 /**
  * @brief Represents an algorithm identifier.
@@ -553,7 +592,7 @@ typedef struct n20_x509_algorithm_parameters_s {
  * The algorithm identifier is used to express the public key
  * and signature algorithms in an X509 certificate.
  */
-typedef struct n20_x509_algorithm_identifier_s {
+struct n20_x509_algorithm_identifier_s {
     /**
      * @brief The algorithm type.
      */
@@ -564,7 +603,12 @@ typedef struct n20_x509_algorithm_identifier_s {
      * See @ref n20_x509_algorithm_parameters_t for more details.
      */
     n20_x509_algorithm_parameters_t params;
-} n20_x509_algorithm_identifier_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_algorithm_identifier_s
+ */
+typedef struct n20_x509_algorithm_identifier_s n20_x509_algorithm_identifier_t;
 
 /**
  * @brief Represents the public key info of an X509 certificate.
@@ -579,7 +623,7 @@ typedef struct n20_x509_algorithm_identifier_s {
  * - NIST curves: See RFC5490
  * - RSA: See RFC8017
  */
-typedef struct n20_x509_public_key_info_s {
+struct n20_x509_public_key_info_s {
     /**
      * @brief Describes the key algorithm for the associated public key material.
      */
@@ -604,12 +648,17 @@ typedef struct n20_x509_public_key_info_s {
      * the target outlives instances of this structure.
      */
     uint8_t const *public_key;
-} n20_x509_public_key_info_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_public_key_info_s
+ */
+typedef struct n20_x509_public_key_info_s n20_x509_public_key_info_t;
 
 /**
  * @brief Represents the validity field of an X509 certificate.
  */
-typedef struct n20_x509_validity_s {
+struct n20_x509_validity_s {
     /**
      * @brief The certificate shall not be valid before.
      *
@@ -618,7 +667,7 @@ typedef struct n20_x509_validity_s {
      * If NULL, the not before field of the certificate will be set to
      * @ref n20_x509_unix_epoch.
      */
-    char const *not_before;
+    n20_string_slice_t not_before;
 
     /**
      * @brief The certificate shall not be valid after.
@@ -628,9 +677,13 @@ typedef struct n20_x509_validity_s {
      * If NULL, the not after field of the certificate will be set to
      * @ref n20_x509_no_expiration.
      */
-    char const *not_after;
+    n20_string_slice_t not_after;
+};
 
-} n20_x509_validity_t;
+/**
+ * @brief Alias for @ref n20_x509_validity_s
+ */
+typedef struct n20_x509_validity_s n20_x509_validity_t;
 
 /**
  * @brief Represents the to-be-signed section of an X509 certificate.
@@ -644,7 +697,7 @@ typedef struct n20_x509_validity_s {
  * are not yet implemented.
  *
  */
-typedef struct n20_x509_tbs_s {
+struct n20_x509_tbs_s {
     /**
      * @brief The certificate's serial number.
      *
@@ -698,7 +751,12 @@ typedef struct n20_x509_tbs_s {
      * @sa n20_x509_extensions_t
      */
     n20_x509_extensions_t extensions;
-} n20_x509_tbs_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_tbs_s
+ */
+typedef struct n20_x509_tbs_s n20_x509_tbs_t;
 
 /**
  * @brief Represents a full X509 certificate.
@@ -707,7 +765,7 @@ typedef struct n20_x509_tbs_s {
  * @ref n20_x509_tbs_t as well as the signature algorithm identifier
  * and the signature.
  */
-typedef struct n20_x509_s {
+struct n20_x509_s {
     /**
      * @brief A representation of the to-be-signed section of the certificate.
      *
@@ -760,17 +818,22 @@ typedef struct n20_x509_s {
      * the target buffer outlives the instance of this structure.
      */
     uint8_t const *signature;
-} n20_x509_t;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_s
+ */
+typedef struct n20_x509_s n20_x509_t;
 
 /**
  * @brief Render the TBSCertificate of an X509 certificate.
  *
  * Renders the given TBSCertificate to the given stream.
  *
- * @ref tbs must be valid for the duration of the function call.
+ * @p tbs must be valid for the duration of the function call.
  * And no ownership is assumed.
  *
- * If @ref tbs is NULL an empty sequence is rendered.
+ * If @p tbs is NULL an empty sequence is rendered.
  *
  * @param s The stream to be updated.
  * @param tbs Pointer to @ref n20_x509_tbs_t holding the certificate content
@@ -785,10 +848,10 @@ extern void n20_x509_cert_tbs(n20_stream_t *const s, n20_x509_tbs_t const *tbs);
  *
  * Renders the given x509 certificate to the given stream.
  *
- * @ref x509 must be valid for the duration of the function call.
+ * @p x509 must be valid for the duration of the function call.
  * And no ownership is assumed.
  *
- * If @ref x509 is NULL an empty sequence is rendered.
+ * If @p x509 is NULL an empty sequence is rendered.
  *
  * @param s The stream to be updated.
  * @param x509 Pointer to an instance of @ref n20_x509_t holding the

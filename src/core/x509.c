@@ -19,10 +19,13 @@
 #include <nat20/stream.h>
 #include <nat20/x509.h>
 
+n20_string_slice_t n20_x509_no_expiration = {.buffer = "99991231235959Z", .size = 15};
+n20_string_slice_t n20_x509_unix_epoch = {.buffer = "19700101000000Z", .size = 15};
+
 void n20_x509_rdn_content(n20_stream_t *const s, void *context) {
     n20_x509_rdn_t const *rdn = (n20_x509_rdn_t const *)context;
 
-    n20_asn1_printablestring(s, rdn->value, n20_asn1_tag_info_no_override());
+    n20_asn1_printablestring(s, &rdn->value, n20_asn1_tag_info_no_override());
     n20_asn1_object_identifier(s, rdn->type, n20_asn1_tag_info_no_override());
 }
 
@@ -200,12 +203,12 @@ void n20_x509_validity_content(n20_stream_t *const s, void *context) {
     // not after
     n20_asn1_generalized_time(
         s,
-        validity->not_after != NULL ? validity->not_after : n20_x509_no_expiration,
+        validity->not_after.buffer != NULL ? &validity->not_after : &n20_x509_no_expiration,
         n20_asn1_tag_info_no_override());
     // not before
     n20_asn1_generalized_time(
         s,
-        validity->not_before != NULL ? validity->not_before : n20_x509_unix_epoch,
+        validity->not_before.buffer != NULL ? &validity->not_before : &n20_x509_unix_epoch,
         n20_asn1_tag_info_no_override());
 }
 

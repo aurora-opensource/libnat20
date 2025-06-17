@@ -42,23 +42,28 @@ extern "C" {
  * (See TCG DICE Attestation Architecture Version 1.1, Section 6.1.4.)
  * @sa OID_TCG_DICE_UEID
  */
-typedef struct n20_x509_ext_tcg_dice_ueid_s {
+struct n20_x509_ext_tcg_dice_ueid_s {
     /**
      * @brief  Universal Entity ID (UEID) that identifies the device containing the private key and
      * is identified by the certificate’s subjectPublicKey.
      *
      * If ueid.buffer is NULL or ueid.size is 0, no UEID is rendered in the extension.
      */
-    n20_asn1_slice_t ueid;
-} n20_x509_ext_tcg_dice_ueid_t;
+    n20_slice_t ueid;
+};
+
+/**
+ * @brief Alias for @ref n20_x509_ext_tcg_dice_ueid_s
+ */
+typedef struct n20_x509_ext_tcg_dice_ueid_s n20_x509_ext_tcg_dice_ueid_t;
 
 /**
  * @brief Renders the value of a TCG DICE UEID X509 extension.
  *
  * The function expects a pointer to an instance of
- * @ref n20_x509_ext_tcg_dice_ueid_t as @ref context argument.
+ * @ref n20_x509_ext_tcg_dice_ueid_t as @p context argument.
  *
- * If @ref context is NULL, nothing is rendered, which would leave the resulting TCG DICE UEID
+ * If @p context is NULL, nothing is rendered, which would leave the resulting TCG DICE UEID
  * extension malformed.
  *
  * This function is typically not used directly but instead

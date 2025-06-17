@@ -63,6 +63,7 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/crypto.h
     include/nat20/oid.h
     include/nat20/stream.h
+    include/nat20/types.h
     include/nat20/x509_ext_open_dice_input.h
     include/nat20/x509_ext_tcg_dice_tcb_freshness.h
     include/nat20/x509_ext_tcg_dice_tcb_info.h
@@ -218,6 +219,7 @@ if (NAT20_WITH_DOCS)
     find_package(Doxygen REQUIRED dot)
 
     set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
+    set(DOXYGEN_MACRO_EXPANSION YES)
 
     doxygen_add_docs(nat20_docs
         ${LIBNAT20_PUB_HEADERS}

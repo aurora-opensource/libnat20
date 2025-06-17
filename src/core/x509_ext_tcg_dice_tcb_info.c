@@ -94,18 +94,18 @@ static void n20_x509_ext_tcg_dice_tcb_info_sequence_content(n20_stream_t *const 
     n20_asn1_int64(s, tcg_dice_tcb_info->svn, n20_asn1_tag_info_implicit(3));
 
     // version [2] IMPLICIT UTF8String OPTIONAL
-    if (NULL != tcg_dice_tcb_info->version) {
-        n20_asn1_utf8_string(s, tcg_dice_tcb_info->version, n20_asn1_tag_info_implicit(2));
+    if (NULL != tcg_dice_tcb_info->version.buffer) {
+        n20_asn1_utf8_string(s, &tcg_dice_tcb_info->version, n20_asn1_tag_info_implicit(2));
     }
 
     // model [1] IMPLICIT UTF8String OPTIONAL
-    if (NULL != tcg_dice_tcb_info->model) {
-        n20_asn1_utf8_string(s, tcg_dice_tcb_info->model, n20_asn1_tag_info_implicit(1));
+    if (NULL != tcg_dice_tcb_info->model.buffer) {
+        n20_asn1_utf8_string(s, &tcg_dice_tcb_info->model, n20_asn1_tag_info_implicit(1));
     }
 
     // vendor [0] IMPLICIT UTF8String OPTIONAL
-    if (NULL != tcg_dice_tcb_info->vendor) {
-        n20_asn1_utf8_string(s, tcg_dice_tcb_info->vendor, n20_asn1_tag_info_implicit(0));
+    if (NULL != tcg_dice_tcb_info->vendor.buffer) {
+        n20_asn1_utf8_string(s, &tcg_dice_tcb_info->vendor, n20_asn1_tag_info_implicit(0));
     }
 }
 

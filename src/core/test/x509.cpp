@@ -34,7 +34,6 @@
 
 #include <iomanip>
 #include <memory>
-#include <optional>
 #include <ostream>
 #include <sstream>
 #include <vector>
@@ -89,11 +88,11 @@ uint8_t const test_cdi2[] = {
 class NameTest : public testing::TestWithParam<std::tuple<n20_x509_name_t*, std::vector<uint8_t>>> {
 };
 
-n20_x509_name_t NAME_EMPTY = {.element_count = 0, .elements = nullptr};
+n20_x509_name_t NAME_EMPTY = {.element_count = 0, .elements = {}};
 n20_x509_name_t NAME_ONE = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"));
 n20_x509_name_t NAME_TWO = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
                                          N20_X509_RDN(&OID_LOCALITY_NAME, "Pittsburgh"));
-n20_x509_name_t NAME_NINE = {.element_count = 9, .elements = nullptr};
+n20_x509_name_t NAME_NINE = {.element_count = 9, .elements = {}};
 
 std::vector<uint8_t> const ENCODED_NAME_NULL = {0x30, 0x02, 0x05, 0x00};
 std::vector<uint8_t> const ENCODED_NAME_EMPTY = {0x30, 0x00};
@@ -448,7 +447,8 @@ TEST(CertTBSTest, CertTBSNonzeroEncoding) {
         .issuer_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
                                      N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
                                      N20_X509_RDN(&OID_COMMON_NAME, "Test DICE CA")),
-        .validity = {.not_before = "20200902132526Z", .not_after = "20200902132526Z"},
+        .validity = {.not_before = N20_STR_C("20200902132526Z"),
+                     .not_after = N20_STR_C("20200902132526Z")},
         .subject_name = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
                                       N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
                                       N20_X509_RDN(&OID_COMMON_NAME, "Test DICE CA")),
@@ -604,7 +604,7 @@ TEST_P(CertTest, CertEncoding) {
 
     // Create a key with test_cdi.
     n20_crypto_context_t* ctx = nullptr;
-    n20_crypto_slice_t cdi_slice{.size = sizeof(test_cdi), .buffer = test_cdi};
+    n20_slice_t cdi_slice{.size = sizeof(test_cdi), .buffer = test_cdi};
     n20_crypto_error_t err = n20_crypto_open_boringssl(&ctx, &cdi_slice);
     ASSERT_EQ(n20_crypto_error_ok_e, err);
 
@@ -665,8 +665,8 @@ TEST_P(CertTest, CertEncoding) {
             N20_X509_RDN(&OID_COMMON_NAME, "Dunder Mifflin DICE Authority")),
         .validity =
             {
-                .not_before = nullptr,
-                .not_after = nullptr,
+                .not_before = N20_STR_NULL,
+                .not_after = N20_STR_NULL,
             },
         .subject_name = N20_X509_NAME(
             N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
@@ -695,8 +695,7 @@ TEST_P(CertTest, CertEncoding) {
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
 
-    n20_crypto_slice_t tbs_der_slice{.size = n20_stream_byte_count(&s),
-                                     .buffer = n20_stream_data(&s)};
+    n20_slice_t tbs_der_slice{.size = n20_stream_byte_count(&s), .buffer = n20_stream_data(&s)};
     n20_crypto_gather_list_t tbs_der_gather{.count = 1, .list = &tbs_der_slice};
 
     // Sign the to-be-signed part of the certificate.
@@ -718,6 +717,8 @@ TEST_P(CertTest, CertEncoding) {
             memcpy(signature, n20_stream_data(&s), n20_stream_byte_count(&s));
             signature_size = n20_stream_byte_count(&s);
         }
+        default:
+            break;
     }
 
     // Assemble the full certificate and DER encode it.
@@ -771,7 +772,7 @@ TEST_P(CertTest, CertEncoding) {
 
     // Create a key with test_cdi2.
     n20_crypto_context_t* ctx2 = nullptr;
-    n20_crypto_slice_t cdi_slice2{.size = sizeof(test_cdi2), .buffer = test_cdi2};
+    n20_slice_t cdi_slice2{.size = sizeof(test_cdi2), .buffer = test_cdi2};
     err = n20_crypto_open_boringssl(&ctx2, &cdi_slice2);
     ASSERT_EQ(n20_crypto_error_ok_e, err);
 
@@ -802,8 +803,7 @@ TEST_P(CertTest, CertEncoding) {
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
     ASSERT_FALSE(n20_stream_has_write_position_overflow(&s));
 
-    n20_crypto_slice_t tbs_der_slice2{.size = n20_stream_byte_count(&s),
-                                      .buffer = n20_stream_data(&s)};
+    n20_slice_t tbs_der_slice2{.size = n20_stream_byte_count(&s), .buffer = n20_stream_data(&s)};
     n20_crypto_gather_list_t tbs_der_gather2{.count = 1, .list = &tbs_der_slice2};
 
     // Sign the to-be-signed part of the certificate.
@@ -825,6 +825,8 @@ TEST_P(CertTest, CertEncoding) {
             memcpy(signature2, n20_stream_data(&s), n20_stream_byte_count(&s));
             signature_size2 = n20_stream_byte_count(&s);
         }
+        default:
+            break;
     }
 
     // Assemble the full certificate and DER encode it.

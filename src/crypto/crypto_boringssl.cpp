@@ -854,7 +854,7 @@ static n20_crypto_context_t bssl_ctx{n20_crypto_boringssl_digest,
                                      n20_crypto_boringssl_key_free};
 
 extern "C" n20_crypto_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx,
-                                                        n20_crypto_slice_t const* cdi) {
+                                                        n20_slice_t const* cdi) {
     if (ctx == NULL || cdi == NULL || cdi->buffer == NULL || cdi->size == 0) {
         return n20_crypto_error_unexpected_null_e;
     }

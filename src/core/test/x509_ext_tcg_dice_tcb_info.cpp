@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "nat20/oid.h"
+#include "nat20/types.h"
 #include "nat20/x509.h"
 
 class X509ExtTcgTcbInfoTest
@@ -62,8 +63,8 @@ n20_x509_ext_tcg_dice_tcb_info_fwid_t TEST_FWID_1 = {
     .hash_algo = OID_SHA256,
     .digest =
         {
-            .buffer = TEST_DIGEST_1.data(),
             .size = TEST_DIGEST_1.size(),
+            .buffer = TEST_DIGEST_1.data(),
         },
 };
 
@@ -71,8 +72,8 @@ n20_x509_ext_tcg_dice_tcb_info_fwid_t TEST_FWID_2 = {
     .hash_algo = OID_SHA512,
     .digest =
         {
-            .buffer = TEST_DIGEST_2.data(),
             .size = TEST_DIGEST_2.size(),
+            .buffer = TEST_DIGEST_2.data(),
         },
 };
 
@@ -308,23 +309,15 @@ TEST_P(X509ExtTcgTcbInfoTest, TcgTcbInfoEncoding) {
     n20_x509_ext_tcg_dice_tcb_info_t tcb_info;
     std::memset(&tcb_info, 0, sizeof(tcb_info));
 
-    if (optional_vendor.has_value()) {
-        tcb_info.vendor = optional_vendor.value().c_str();
-    } else {
-        tcb_info.vendor = nullptr;
-    }
-
-    if (optional_model.has_value()) {
-        tcb_info.model = optional_model.value().c_str();
-    } else {
-        tcb_info.model = nullptr;
-    }
-
-    if (optional_version.has_value()) {
-        tcb_info.version = optional_version.value().c_str();
-    } else {
-        tcb_info.version = nullptr;
-    }
+    auto to_string_slice = [](std::optional<std::string> const& str) -> n20_string_slice_t {
+        if (str.has_value()) {
+            return n20_string_slice_t{str->size(), str->data()};
+        }
+        return N20_STR_NULL;
+    };
+    tcb_info.vendor = to_string_slice(optional_vendor);
+    tcb_info.model = to_string_slice(optional_model);
+    tcb_info.version = to_string_slice(optional_version);
 
     tcb_info.svn = svn;
     tcb_info.layer = layer;
@@ -408,9 +401,9 @@ TEST(X509ExtTcgTcbInfoTest, NullPointer) {
 TEST(X509ExtTcgMultiTcbInfoTest, TcgTcbMultiInfoEncoding) {
     n20_x509_ext_tcg_dice_tcb_info_t list[] = {
         {
-            .vendor = "aurora",
-            .model = "perseus",
-            .version = "1.0.5",
+            .vendor = N20_STR_C("aurora"),
+            .model = N20_STR_C("perseus"),
+            .version = N20_STR_C("1.0.5"),
             .svn = 5,
             .layer = 6,
             .index = 7,
@@ -419,19 +412,19 @@ TEST(X509ExtTcgMultiTcbInfoTest, TcgTcbMultiInfoEncoding) {
             .flags_mask = TEST_FLAGS_MASK,
             .vendor_info =
                 {
-                    .buffer = TEST_VENDOR_INFO.data(),
                     .size = TEST_VENDOR_INFO.size(),
+                    .buffer = TEST_VENDOR_INFO.data(),
                 },
             .type =
                 {
-                    .buffer = TEST_TYPE.data(),
                     .size = TEST_TYPE.size(),
+                    .buffer = TEST_TYPE.data(),
                 },
         },
         {
-            .vendor = nullptr,
-            .model = nullptr,
-            .version = nullptr,
+            .vendor = N20_STR_NULL,
+            .model = N20_STR_NULL,
+            .version = N20_STR_NULL,
             .svn = 5,
             .layer = 6,
             .index = 7,
@@ -444,13 +437,13 @@ TEST(X509ExtTcgMultiTcbInfoTest, TcgTcbMultiInfoEncoding) {
             .flags_mask = TEST_FLAGS_MASK,
             .vendor_info =
                 {
-                    .buffer = nullptr,
                     .size = 0,
+                    .buffer = nullptr,
                 },
             .type =
                 {
-                    .buffer = nullptr,
                     .size = 0,
+                    .buffer = nullptr,
                 },
         },
     };
