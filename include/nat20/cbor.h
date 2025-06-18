@@ -18,6 +18,7 @@
 
 #include <nat20/stream.h>
 #include <nat20/types.h>
+#include <nat20/crypto.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -204,6 +205,160 @@ extern void n20_cbor_write_array_header(n20_stream_t *s, size_t size);
  * @param size The number of key-value pairs in the map.
  */
 extern void n20_cbor_write_map_header(n20_stream_t *s, size_t size);
+
+/**
+ * @brief Mode inputs to the DICE.
+ */
+enum n20_cwt_open_dice_modes_s {
+    /**
+     * @brief No security features (e.g. verified boot) have been configured on the device.
+     */
+    n20_cwt_open_dice_not_configured_e = 0,
+    /**
+     * @brief Device is operating normally with security features enabled.
+     */
+    n20_cwt_open_dice_normal_e = 1,
+    /**
+     * @brief Device is in debug mode, which is a non-secure state.
+     */
+    n20_cwt_open_dice_debug_e = 2,
+    /**
+     * @brief Device is in a debug or maintenance mode.
+     */
+    n20_cwt_open_dice_recovery_e = 3,
+};
+
+typedef enum n20_cwt_open_dice_modes_s n20_cwt_open_dice_modes_t;
+
+struct n20_cwt_s {
+    n20_string_slice_t issuer;
+    n20_string_slice_t subject;
+};
+
+typedef struct n20_cwt_s n20_cwt_t;
+
+enum n20_cose_key_ops_s {
+    n20_cose_key_op_sign_e = 1,         // Key used for signing
+    n20_cose_key_op_verify_e = 2,       // Key used for verifying signatures
+    n20_cose_key_op_encrypt_e = 3,      // Key used for encryption
+    n20_cose_key_op_decrypt_e = 4,      // Key used for decryption
+    n20_cose_key_op_wrap_e = 5,         // Key used for wrapping keys
+    n20_cose_key_op_unwrap_e = 6,       // Key used for unwrapping keys
+    n20_cose_key_op_derive_key_e = 7,   // Key used for key derivation
+    n20_cose_key_op_derive_bits_e = 8,  // Key used for deriving bits not a key
+    n20_cose_key_op_mac_sign_e = 9,     // Key used message authentication code signing
+    n20_cose_key_op_mac_verify_e = 10,  // Key used for message authentication code verification
+};
+
+typedef enum n20_cose_key_ops_s n20_cose_key_ops_t;
+typedef uint16_t n20_cose_key_ops_map_t;
+
+inline static void n20_set_cose_key_ops(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
+    *key_ops |= 1 << (unsigned int)op;
+}
+
+inline static void n20_unset_cose_key_ops(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
+    *key_ops &= ~(1 << (unsigned int)op);
+}
+
+inline static bool n20_is_cose_key_op_set(n20_cose_key_ops_map_t key_ops, n20_cose_key_ops_t op) {
+    return (key_ops & (1 << (unsigned int)op)) != 0;
+}
+
+/**
+ * @brief COSE Key structure.
+ *
+ * This structure represents a COSE key, which is used in the
+ * CBOR Object Signing and Encryption (COSE) format.
+ * It contains information about the key type, operations,
+ * public and private keys, and the algorithm used.
+ */
+struct n20_cose_key_s {
+    /**
+     * @brief Compressed COSE Key Operations.
+     *
+     * This is a bitmask representing the operations that can be performed
+     * with this key. Each bit corresponds to a specific operation, such as
+     * signing, verifying, encrypting, decrypting, wrapping, unwrapping,
+     * deriving keys, deriving bits, and message authentication code (MAC)
+     * signing and verification.
+     *
+     * @see n20_cose_key_ops_s
+     * @see n20_cose_key_ops_map_t
+     */
+    n20_cose_key_ops_map_t key_ops;
+    /**
+     * @brief Algorithm Identifier.
+     *
+     * This is an integer that identifies the algorithm used with this key.
+     * It is used to specify the cryptographic algorithm that the key is
+     * associated with, such as EdDSA, ECDSA, or AES.
+     *
+     * The values are defined in the COSE Algorithm Registry.
+     * @see https://www.iana.org/assignments/cose/cose.xhtml#cose-algorithm
+     *
+     * Relevant values include:
+     * - -9: ESP256 (ECDSA using P-256 and SHA-256)
+     * - -51: ESP384 (ECDSA using P-384 and SHA-384)
+     * - -19: Ed25519 (EdDSA using Ed25519)
+     */
+    int32_t algorithm_id;
+    n20_slice_t x;  // X coordinate for EC keys
+    n20_slice_t y;  // Y coordinate for EC keys
+    n20_slice_t d;  // Private key for EC keys
+};
+
+typedef struct n20_cose_key_s n20_cose_key_t;
+
+/**
+ * @brief Render a COSE key structure as CBOR map.
+ *
+ * This function encodes a COSE key structure into a CBOR map format.
+ * It writes the key type, operations, algorithm identifier, and
+ * coordinates (X, Y) and private key (D) if available.
+ * The function infers the key type (kty) and curve (crv) from the
+ * given algorithm id. But it is the responsibility of the caller
+ * to populate the x, y, and d fields of the key structure
+ * with the appropriate values.
+ * I.e., For an ED25519 key, the x field should contain the
+ * public key, the y field should be empty, and the d field
+ * may contain the private key. For an ECDSA key, the x and y fields
+ * must contain the public key coordinates, and the d field
+ * may contain the private key.
+ *
+ * If the key type is not supported, it writes a null value.
+ *
+ * @param s The stream to write the CBOR map to.
+ * @param key The COSE key structure to encode.
+ */
+extern void n20_cose_write_key(n20_stream_t *const s, n20_cose_key_t const *const key);
+
+struct n20_open_dice_cwt_s {
+    n20_slice_t issuer;                    // Issuer of the CWT
+    n20_slice_t subject;                   // Subject of the CWT
+    n20_slice_t code_hash;                 // Hash of the code descriptor
+    n20_slice_t code_descriptor;           // Code descriptor
+    n20_slice_t configuration_hash;        // Hash of the configuration descriptor
+    n20_slice_t configuration_descriptor;  // Configuration descriptor
+    n20_slice_t authority_hash;            // Authority hash (optional)
+    n20_slice_t authority_descriptor;      // Authority descriptor (optional)
+    n20_cwt_open_dice_modes_t mode;        // DICE mode
+    n20_cose_key_t subject_public_key;     // Public key of the subject
+    uint8_t key_usage[2];                  // Key usage flags
+};
+
+typedef struct n20_open_dice_cwt_s n20_open_dice_cwt_t;
+
+extern void n20_open_dice_cwt_write(n20_stream_t *const s, n20_open_dice_cwt_t const *const cwt);
+
+extern n20_error_t n20_cose_sign1_payload(n20_crypto_context_t *crypto_ctx,
+                                   n20_crypto_key_t const signing_key,
+                                   int32_t signing_key_algorith_id,
+                                   void (*payload_callback)(n20_stream_t *s, void *ctx),
+                                   void *payload_ctx,
+                                   uint8_t *cose_sign1,
+                                   size_t *cose_sign1_size);
+
 
 #ifdef __cplusplus
 }
