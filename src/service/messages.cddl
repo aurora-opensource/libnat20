@@ -1,0 +1,97 @@
+; Copyright 2025 Aurora Operations, Inc.
+;
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+;
+;     http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.
+
+N20_Error = (
+    1 : &N20_ErrorCode
+)
+
+N20_ErrorCode = (
+    OK : 0,
+    MISSING_CRYPTO_CONTEXT : 1,
+    INSUFFICIENT_BUFFER_SIZE : 3,
+    UNEXPECTED_NULL_BUFFER_SIZE : 4,
+    UNEXPECTED_NULL_KEY_HANDLE : 5,
+    MISSING_NODE_STATE : 6,
+    CLIENT_SLOT_INDEX_OUT_OF_RANGE : 7,
+    CLIENT_SLOT_EMPTY : 8,
+    PARENT_PATH_SIZE_EXCEEDS_MAX : 9,
+    MISSING_PARENT_SERVICE : 10,
+    MISSING_CALLBACK_FUNCTION_OR_CONTEXT : 11,
+    CRYPTO_INVALID_CONTEXT : 0x10001,
+    CRYPTO_UNEXPECTED_NULL_KEY_IN : 0x10002,
+    CRYPTO_UNEXPECTED_NULL_KEY_OUT : 0x10003,
+    CRYPTO_UNEXPECTED_NULL_SIZE : 0x10004,
+    CRYPTO_UNEXPECTED_NULL_DATA : 0x10005,
+    CRYPTO_UNEXPECTED_NULL_LIST : 0x10006,
+    CRYPTO_UNEXPECTED_NULL_SLICE : 0x10007,
+    CRYPTO_NOT_IMPLEMENTED : 0x10008,
+    CRYPTO_UNKNOWN_ALGORITHM : 0x10009,
+    CRYPTO_INVALID_KEY : 0x1000a,
+    CRYPTO_INVALID_KEY_TYPE : 0x1000b,
+    CRYPTO_INSUFFICIENT_BUFFER_SIZE : 0x1000c,
+    CRYPTO_UNEXPECTED_NULL : 0x1000d,
+    CRYPTO_NO_RESOURCES : 0x1000e,
+    CRYPTO_IMPLEMENTATION_SPECIFIC : 0x1000f,
+    CRYPTO_UNEXPECTED_NULL_OUTPUT_BUFFER : 0x10010,
+)
+
+N20_ResponsePayload = (
+    ISSUE_CDI_CERT : {
+        1 => bstr, ; certificate
+    }
+)
+
+N20_Response = {
+    ? 1 => &N20_Error, ; error code
+    ? 2 => &N20_ResponsePayload
+}
+
+N20_RequestType = (
+    PROMOTE : 0x01,
+    ISSUE_CDI_CERT : 0x02,
+)
+
+N20_Context = {
+    ? 1 => bstr, ; code hash
+    ? 2 => bstr, ; code descriptor
+    ? 3 => bstr, ; configuration hash
+    ? 4 => bstr, ; configuration descriptor
+    ? 5 => bstr, ; authority hash
+    ? 6 => bstr, ; authority descriptor
+    ? 7 => bstr, ; mode
+    ? 8 => tstr, ; profile name
+}
+
+N20_CompressedContext = {
+    1 => bstr, ; compressed context
+}
+
+N20_CompressedContextPath = [
+    *N20_CompressedContext, ; list of compressed contexts
+]
+
+N20_RequestPayload = (
+    PROMOTE : {
+        1 => N20_CompressedContext, ; compressed context,
+    },
+    ISSUE_CDI_CERT : {
+        1 => N20_Context,
+        2 => N20_CompressedContextPath, ; parent path,
+    }
+)
+
+N20_Request = {
+    1 => &N20_RequestType
+    2 => &N20_RequestPayload
+}
