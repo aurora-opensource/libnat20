@@ -60,6 +60,10 @@ enum n20_open_dice_mode_s {
      * @brief Device is in a debug or maintenance mode.
      */
     n20_open_dice_mode_recovery_e = 3,
+    /**
+     * @brief Maximum value for the mode enumeration.
+     */
+    n20_open_dice_mode_max_e = 4
 };
 
 typedef enum n20_open_dice_mode_s n20_open_dice_mode_t;
