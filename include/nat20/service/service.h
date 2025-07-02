@@ -20,6 +20,8 @@
 extern "C" {
 #endif
 
+#define N20_STATELESS_MAX_PATH_LENGTH 8
+
 #ifdef __cplusplus
 }
 #endif
