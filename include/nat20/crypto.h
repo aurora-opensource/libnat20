@@ -182,7 +182,7 @@ struct n20_crypto_context_s {
      *   specific factory and not freed.
      * - @ref n20_error_crypto_unexpected_null_size_e must be returned
      *   if @p digest_size_in_out is NULL.
-     * - @ref n20_error_crypto_unkown_algorithm_e must be returned if
+     * - @ref n20_error_crypto_unknown_algorithm_e must be returned if
      *   @p alg_in is out of range.
      * - @ref n20_error_crypto_insufficient_buffer_size_e must be returned
      *   if @p digest_out is NULL or if @p digest_size_in_out indicates

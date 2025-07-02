@@ -123,7 +123,7 @@ static n20_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_s* ctx,
 
     EVP_MD const* md = digest_enum_to_bssl_evp_md(alg_in);
     if (md == nullptr) {
-        return n20_error_crypto_unkown_algorithm_e;
+        return n20_error_crypto_unknown_algorithm_e;
     }
     size_t digest_size = digest_enum_to_size(alg_in);
 
@@ -221,7 +221,7 @@ static std::variant<n20_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
 
     auto md = digest_enum_to_bssl_evp_md(digest_algorithm);
     if (md == nullptr) {
-        return n20_error_crypto_unkown_algorithm_e;
+        return n20_error_crypto_unknown_algorithm_e;
     }
 
     auto digest_size = digest_enum_to_size(digest_algorithm);

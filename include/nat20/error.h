@@ -132,7 +132,7 @@ enum n20_error_s {
      */
     n20_error_crypto_not_implemented_e = 0x10008,
     /**
-     * @brief Indicates that an unkown algorithm was selected.
+     * @brief Indicates that an unknown algorithm was selected.
      *
      * Interface functions that expect an algorithm selector
      * return this error if the selected algorithm is
@@ -140,7 +140,7 @@ enum n20_error_s {
      *
      * @sa n20_crypto_context_t.digest
      */
-    n20_error_crypto_unkown_algorithm_e = 0x10009,
+    n20_error_crypto_unknown_algorithm_e = 0x10009,
     /**
      * @brief Indicates that the key input argument is unsuitable for the requested operation.
      *
