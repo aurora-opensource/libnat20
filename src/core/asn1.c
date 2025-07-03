@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
+#ifdef __AVR__
+#define BYTE_ORDER 0xaa55
+#define LITTLE_ENDIAN 0xaa55
+#define BIG_ENDIAN 0x55aa
+#else
 #include <endian.h>
+#endif
 #include <nat20/asn1.h>
 #include <nat20/oid.h>
 #include <nat20/stream.h>
@@ -186,7 +192,7 @@ static void n20_asn1_integer_internal_content(n20_stream_t *const s, void *ctx) 
     // compilation unit and assure that it is never NULL.
     uint8_t const *msb = number->n.buffer;
     uint8_t const *end = number->n.buffer + number->n.size;
-    ssize_t inc = 1;
+    int inc = 1;
     int add_extra = 0;
     uint8_t extra = 0;
 
