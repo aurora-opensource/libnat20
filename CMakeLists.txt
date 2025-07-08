@@ -266,6 +266,29 @@ endif()
 ###################################################################################################
 
 ###################################################################################################
+# Service binary.
+
+add_executable(nat20_service_bin)
+target_sources(nat20_service_bin
+    PRIVATE src/service/gnostic_main.c
+)
+target_link_libraries(nat20_service_bin nat20_service nat20_crypto_nat20 nat20_crypto_boringssl)
+
+###################################################################################################
+
+###################################################################################################
+# Client binary.
+
+add_executable(n20_client_stateless_bin)
+target_sources(n20_client_stateless_bin
+    PRIVATE src/service/client_stateless.c
+)
+target_link_libraries(n20_client_stateless_bin nat20_service nat20_crypto_nat20 nat20_crypto_boringssl)
+
+###################################################################################################
+
+
+###################################################################################################
 # The libnat20 test suite. It, along with its additional dependencies is only compiled
 # when selected by setting `-DNAT20_WITH_TESTS=ON` on the `cmake -B` command line.
 if (NAT20_WITH_TESTS)
