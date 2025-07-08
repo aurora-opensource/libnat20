@@ -67,6 +67,7 @@ enum n20_error_s {
     n20_error_unexpected_message_structure_e = 12,
     n20_error_unrecognized_request_type_e = 13,
     n20_error_write_position_overflow_e = 14,
+    n20_error_incompatible_compressed_input_size_e = 15,
     /**
      * @brief The crypto context given to an interface was invalid.
      *
