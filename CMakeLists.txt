@@ -99,9 +99,19 @@ set(LIBNAT20_CRYPTO_BSSL_SOURCES
 set(LIBNAT20_CRYPTO_TEST_SOURCES
     src/crypto/test/test.cpp
     src/crypto/test/crypto.cpp
-    src/crypto/test/test_vector_reader.cpp
     src/crypto/test/test_vectors.cpp
 )
+
+set(LIBNAT20_TEST_UTILS_HEADERS
+    include/nat20/testing/test_utils.h
+    include/nat20/testing/test_vector_reader.h
+)
+
+set(LIBNAT20_TEST_UTILS_SOURCES
+    src/testing/test_utils.cpp
+    src/testing/test_vector_reader.cpp
+)
+
 
 ###################################################################################################
 
@@ -193,18 +203,28 @@ if (NAT20_WITH_TESTS)
         FILES_MATCHING PATTERN "*"
     )
 
+    # Add the nat20 library test utils.
+    add_library(nat20_test_utils STATIC)
+    target_sources(nat20_test_utils
+        PRIVATE ${LIBNAT20_TEST_UTILS_SOURCES}
+        INTERFACE ${LIBNAT20_TEST_UTILS_HEADERS}
+    )
+    target_include_directories(nat20_test_utils
+        PUBLIC include
+    )
+
     add_executable(nat20_test_bin)
     target_sources(nat20_test_bin
         PRIVATE ${LIBNAT20_TEST_SOURCES}
     )
-    target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki nat20_crypto_boringssl)
+    target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki nat20_crypto_boringssl nat20_test_utils)
     add_test(NAME nat20_test COMMAND nat20_test_bin)
 
     add_executable(nat20_crypto_test_bin)
     target_sources(nat20_crypto_test_bin
         PRIVATE ${LIBNAT20_CRYPTO_TEST_SOURCES}
     )
-    target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki)
+    target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki nat20_test_utils)
     add_test(NAME nat20_crypto_test COMMAND nat20_crypto_test_bin)
 
     target_sources(nat20_crypto_test_bin
