@@ -18,10 +18,9 @@
 
 #include <gtest/gtest.h>
 #include <nat20/crypto.h>
+#include <nat20/testing/test_vector_reader.h>
 
 #include <vector>
-
-#include "test_vector_reader.h"
 
 struct algorithm_parser {
     static std::optional<n20_crypto_digest_algorithm_t> parse(std::string const& str) {
