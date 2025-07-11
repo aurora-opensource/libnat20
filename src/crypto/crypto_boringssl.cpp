@@ -117,7 +117,7 @@ static n20_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_s* ctx,
         return n20_error_crypto_invalid_context_e;
     }
 
-    if (digest_size_in_out == NULL) {
+    if (digest_size_in_out == nullptr) {
         return n20_error_crypto_unexpected_null_size_e;
     }
 
@@ -169,7 +169,7 @@ static n20_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_s* ctx,
     return n20_error_ok_e;
 }
 
-static std::variant<n20_error_t, std::vector<uint8_t> const> gather_list_to_vector(
+static std::variant<n20_error_t, std::vector<uint8_t>> gather_list_to_vector(
     n20_crypto_gather_list_t const* list) {
     std::vector<uint8_t> result;
     if (list == nullptr) {
@@ -182,7 +182,7 @@ static std::variant<n20_error_t, std::vector<uint8_t> const> gather_list_to_vect
 
     for (size_t i = 0; i < list->count; ++i) {
         if (list->list[i].size == 0) continue;
-        if (list->list[i].buffer == NULL) {
+        if (list->list[i].buffer == nullptr) {
             return n20_error_crypto_unexpected_null_slice_e;
         }
         result.insert(
@@ -234,7 +234,7 @@ static std::variant<n20_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
     if (m_octets) {
         auto h1_digest = std::vector<uint8_t>(digest_size);
         if (!EVP_Digest(
-                m_octets->data(), m_octets->size(), h1_digest.data(), &out_size, md, NULL) ||
+                m_octets->data(), m_octets->size(), h1_digest.data(), &out_size, md, nullptr) ||
             out_size != digest_size) {
             return n20_error_crypto_implementation_specific_e;
         }
@@ -247,7 +247,7 @@ static std::variant<n20_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
          *
          * First the digest is interpreted as a big-endian integer.
          */
-        auto h1_bn = BIGNUM_PTR_t(BN_bin2bn(h1_digest.data(), h1_digest.size(), NULL));
+        auto h1_bn = BIGNUM_PTR_t(BN_bin2bn(h1_digest.data(), h1_digest.size(), nullptr));
         if (h1_bn.get() == nullptr) {
             return n20_error_crypto_no_resources_e;
         }
@@ -309,7 +309,7 @@ static std::variant<n20_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
      */
     do {
         /* Update K. */
-        if (!HMAC_Init_ex(hmac_ctx.get(), K.data(), K.size(), md, NULL)) {
+        if (!HMAC_Init_ex(hmac_ctx.get(), K.data(), K.size(), md, nullptr)) {
             return n20_error_crypto_no_resources_e;
         }
 
@@ -365,7 +365,7 @@ static std::variant<n20_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
          * rather k is discarded and a new T and candidate k are generated if k
          * is outside the desired range.
          */
-        k = BIGNUM_PTR_t(BN_bin2bn(T.data(), T.size(), NULL));
+        k = BIGNUM_PTR_t(BN_bin2bn(T.data(), T.size(), nullptr));
         if (k.get() == nullptr) {
             return n20_error_crypto_no_resources_e;
         }
@@ -380,7 +380,7 @@ static std::variant<n20_error_t, BIGNUM_PTR_t> rfc6979_k_generation(
         }
 
         /* Update K. */
-        if (!HMAC_Init_ex(hmac_ctx.get(), K.data(), K.size(), md, NULL)) {
+        if (!HMAC_Init_ex(hmac_ctx.get(), K.data(), K.size(), md, nullptr)) {
             return n20_error_crypto_no_resources_e;
         }
         HMAC_Update(hmac_ctx.get(), V.data(), V.size());
@@ -414,7 +414,7 @@ static n20_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* ctx,
         return n20_error_crypto_invalid_context_e;
     }
 
-    if (key_in == NULL) {
+    if (key_in == nullptr) {
         return n20_error_crypto_unexpected_null_key_in_e;
     }
 
@@ -425,7 +425,7 @@ static n20_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* ctx,
 
     auto bssl_cdi_key = static_cast<n20_bssl_cdi_key*>(bssl_base_key);
 
-    if (key_out == NULL) {
+    if (key_out == nullptr) {
         return n20_error_crypto_unexpected_null_key_out_e;
     }
 
@@ -434,7 +434,7 @@ static n20_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* ctx,
         return *error;
     }
 
-    auto context = std::get<std::vector<uint8_t> const>(std::move(context_error));
+    auto context = std::get<std::vector<uint8_t>>(std::move(context_error));
 
     std::vector<uint8_t> derived(32);
 
@@ -452,12 +452,12 @@ static n20_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* ctx,
     switch (key_type_in) {
         case n20_crypto_key_type_ed25519_e: {
             auto key = EVP_PKEY_PTR_t(EVP_PKEY_new_raw_private_key(
-                EVP_PKEY_ED25519, NULL, derived.data(), derived.size()));
+                EVP_PKEY_ED25519, nullptr, derived.data(), derived.size()));
             if (!key) {
                 return n20_error_crypto_implementation_specific_e;
             }
             auto bssl_out = new n20_bssl_evp_pkey();
-            if (bssl_out == NULL) {
+            if (bssl_out == nullptr) {
                 return n20_error_crypto_no_resources_e;
             }
             bssl_out->type = key_type_in;
@@ -500,9 +500,9 @@ static n20_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* ctx,
             if (!EC_POINT_mul(ec_group,
                               public_key.get(),
                               std::get<BIGNUM_PTR_t>(private_key).get(),
-                              NULL,
-                              NULL,
-                              NULL)) {
+                              nullptr,
+                              nullptr,
+                              nullptr)) {
                 return n20_error_crypto_implementation_specific_e;
             }
 
@@ -600,7 +600,8 @@ static n20_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s* ctx,
 
     switch (bssl_base_key->type) {
         case n20_crypto_key_type_ed25519_e: {
-            if (1 != EVP_DigestSignInit(md_ctx.get(), NULL, md, NULL, bssl_evp_key->key.get())) {
+            if (1 !=
+                EVP_DigestSignInit(md_ctx.get(), nullptr, md, nullptr, bssl_evp_key->key.get())) {
                 return n20_error_crypto_implementation_specific_e;
             }
 
@@ -609,7 +610,7 @@ static n20_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s* ctx,
                 return *error;
             }
 
-            auto msg = std::get<std::vector<uint8_t> const>(std::move(msg_error));
+            auto msg = std::get<std::vector<uint8_t>>(std::move(msg_error));
 
             if (1 !=
                 EVP_DigestSign(
@@ -621,14 +622,15 @@ static n20_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s* ctx,
         }
         case n20_crypto_key_type_secp256r1_e:
         case n20_crypto_key_type_secp384r1_e: {
-            if (msg_in == NULL) {
+            if (msg_in == nullptr) {
                 return n20_error_crypto_unexpected_null_data_e;
             }
             if (msg_in->count != 0 && msg_in->list == nullptr) {
                 return n20_error_crypto_unexpected_null_list_e;
             }
 
-            if (1 != EVP_DigestSignInit(md_ctx.get(), NULL, md, NULL, bssl_evp_key->key.get())) {
+            if (1 !=
+                EVP_DigestSignInit(md_ctx.get(), nullptr, md, nullptr, bssl_evp_key->key.get())) {
                 return n20_error_crypto_implementation_specific_e;
             }
 
@@ -782,7 +784,7 @@ static n20_error_t n20_crypto_boringssl_key_get_public_key(struct n20_crypto_con
                 return n20_error_crypto_implementation_specific_e;
             }
 
-            uint8_t* x962_key_info = NULL;
+            uint8_t* x962_key_info = nullptr;
             int rc_der_len = i2d_PublicKey(key.get(), &x962_key_info);
             if (rc_der_len <= 0) {
                 return n20_error_crypto_no_resources_e;
@@ -828,7 +830,7 @@ static n20_error_t n20_crypto_boringssl_key_free(struct n20_crypto_context_s* ct
         return n20_error_crypto_invalid_context_e;
     }
 
-    if (key_in == NULL) {
+    if (key_in == nullptr) {
         return n20_error_ok_e;
     }
 
@@ -856,7 +858,7 @@ static n20_crypto_context_t bssl_ctx{n20_crypto_boringssl_digest,
 
 extern "C" n20_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx,
                                                  n20_slice_t const* cdi) {
-    if (ctx == NULL || cdi == NULL || cdi->buffer == NULL || cdi->size == 0) {
+    if (ctx == nullptr || cdi == nullptr || cdi->buffer == nullptr || cdi->size == 0) {
         return n20_error_crypto_unexpected_null_e;
     }
 
@@ -875,7 +877,7 @@ extern "C" n20_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx,
 }
 
 extern "C" n20_error_t n20_crypto_close_boringssl(n20_crypto_context_t* ctx) {
-    if (ctx == NULL) {
+    if (ctx == nullptr) {
         return n20_error_crypto_unexpected_null_e;
     }
 
