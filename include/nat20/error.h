@@ -27,7 +27,7 @@ extern "C" {
  * and other service-related errors.
  *
  * The error codes permitted by the crypto backend implementation are n20_error_ok_e
- * and n20_error_crypto_*_e.
+ * and n20_error_crypto_*_e. Crypto errors are in the range 0x1000 to 0x1FFF.
  */
 enum n20_error_s {
     /**
