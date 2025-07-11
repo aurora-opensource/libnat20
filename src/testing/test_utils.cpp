@@ -16,31 +16,34 @@
 
 #include <nat20/testing/test_utils.h>
 
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <vector>
-#include <cstdint>
 
 std::string hexdump(std::vector<uint8_t> const& data) {
+    if (data.empty()) {
+        return "";
+    }
+
     std::stringstream s;
-    int i;
-    for (i = 0; i < data.size() - 1; ++i) {
-        s << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
-        if (i % 16 == 15) {
+
+    s << std::hex << std::setw(2) << std::setfill('0') << (int)data[0];
+
+    for (size_t i = 1; i < data.size(); ++i) {
+        if ((i & 0x0F) == 0) {
             s << "\n";
-        } else if (i % 16 == 7) {
+        } else if ((i & 0x07) == 0) {
             s << "  ";
         } else {
             s << " ";
         }
-    }
-    if (i < data.size()) {
-        s << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
+        s << (int)data[i];
     }
     return s.str();
 }
 
-std::string hex(std::vector<uint8_t> const &data) {
+std::string hex(std::vector<uint8_t> const& data) {
     std::stringstream s;
     int i;
     for (i = 0; i < data.size(); ++i) {
