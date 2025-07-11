@@ -59,6 +59,7 @@ set(LIBNAT20_PUB_HEADERS
     # These files will be included in the generation of the API documentation.
     include/nat20/asn1.h
     include/nat20/crypto.h
+    include/nat20/error.h
     include/nat20/oid.h
     include/nat20/stream.h
     include/nat20/types.h

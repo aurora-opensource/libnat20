@@ -605,24 +605,24 @@ TEST_P(CertTest, CertEncoding) {
     // Create a key with test_cdi.
     n20_crypto_context_t* ctx = nullptr;
     n20_slice_t cdi_slice{.size = sizeof(test_cdi), .buffer = test_cdi};
-    n20_crypto_error_t err = n20_crypto_open_boringssl(&ctx, &cdi_slice);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    n20_error_t err = n20_crypto_open_boringssl(&ctx, &cdi_slice);
+    ASSERT_EQ(n20_error_ok_e, err);
 
     n20_crypto_key_t cdi_key = nullptr;
     err = ctx->get_cdi(ctx, &cdi_key);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
 
     n20_crypto_gather_list_t empty_context{.count = 0, .list = nullptr};
 
     n20_crypto_key_t signing_key = nullptr;
     err = ctx->kdf(ctx, cdi_key, key_type, &empty_context, &signing_key);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
 
     uint8_t public_key_buffer[128];
     uint8_t* public_key = &public_key_buffer[1];
     size_t public_key_size = sizeof(public_key_buffer) - 1;
     err = ctx->key_get_public_key(ctx, signing_key, public_key, &public_key_size);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
 
     if (key_type != n20_crypto_key_type_ed25519_e) {
         public_key_buffer[0] = 0x04;
@@ -702,7 +702,7 @@ TEST_P(CertTest, CertEncoding) {
     uint8_t signature[128];
     size_t signature_size = sizeof(signature);
     err = ctx->sign(ctx, signing_key, &tbs_der_gather, signature, &signature_size);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
     ctx->key_free(ctx, signing_key);
     n20_crypto_close_boringssl(ctx);
 
@@ -774,21 +774,21 @@ TEST_P(CertTest, CertEncoding) {
     n20_crypto_context_t* ctx2 = nullptr;
     n20_slice_t cdi_slice2{.size = sizeof(test_cdi2), .buffer = test_cdi2};
     err = n20_crypto_open_boringssl(&ctx2, &cdi_slice2);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
 
     n20_crypto_key_t cdi_key2 = nullptr;
     err = ctx2->get_cdi(ctx2, &cdi_key2);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
 
     n20_crypto_key_t signing_key2 = nullptr;
     err = ctx2->kdf(ctx2, cdi_key2, key_type, &empty_context, &signing_key2);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
 
     uint8_t public_key_buffer2[128];
     uint8_t* public_key2 = &public_key_buffer2[1];
     size_t public_key_size2 = sizeof(public_key_buffer2) - 1;
     err = ctx2->key_get_public_key(ctx2, signing_key2, public_key2, &public_key_size2);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
 
     if (key_type != n20_crypto_key_type_ed25519_e) {
         public_key_buffer2[0] = 0x04;
@@ -810,7 +810,7 @@ TEST_P(CertTest, CertEncoding) {
     uint8_t signature2[128];
     size_t signature_size2 = sizeof(signature2);
     err = ctx2->sign(ctx2, signing_key2, &tbs_der_gather2, signature2, &signature_size2);
-    ASSERT_EQ(n20_crypto_error_ok_e, err);
+    ASSERT_EQ(n20_error_ok_e, err);
     ctx2->key_free(ctx2, signing_key2);
     n20_crypto_close_boringssl(ctx2);
 

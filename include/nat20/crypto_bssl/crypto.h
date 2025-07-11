@@ -17,14 +17,15 @@
 #pragma once
 
 #include <nat20/crypto.h>
+#include <nat20/error.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-n20_crypto_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx, n20_slice_t const* cdi);
+n20_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx, n20_slice_t const* cdi);
 
-n20_crypto_error_t n20_crypto_close_boringssl(n20_crypto_context_t* ctx);
+n20_error_t n20_crypto_close_boringssl(n20_crypto_context_t* ctx);
 
 #ifdef __cplusplus
 }
