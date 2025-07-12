@@ -16,6 +16,7 @@
 
 #include <nat20/testing/test_utils.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
@@ -45,9 +46,9 @@ std::string hexdump(std::vector<uint8_t> const& data) {
 
 std::string hex(std::vector<uint8_t> const& data) {
     std::stringstream s;
-    int i;
-    for (i = 0; i < data.size(); ++i) {
-        s << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
+    s << std::hex;
+    for (size_t i = 0; i < data.size(); ++i) {
+        s << std::setw(2) << std::setfill('0') << (int)data[i];
     }
     return s.str();
 }
