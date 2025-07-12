@@ -197,7 +197,7 @@ if (NAT20_WITH_TESTS)
 
     enable_testing()
 
-    file(INSTALL
+    file(COPY
         "src/crypto/test/test_data/"
         DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/test_data/crypto"
         FILES_MATCHING PATTERN "*"

@@ -63,6 +63,28 @@ constexpr char const* field_key_v = field_key<Field>::value;
 
 std::optional<std::tuple<std::string, std::string>> n20_testing_next_pair(std::istream& file);
 
+enum class ErrorCode : int {
+    None,
+    EndOfFile,
+    UnexpectedKey,
+    ParsingError,
+};
+
+constexpr char const* to_string(ErrorCode code) {
+    switch (code) {
+        case ErrorCode::None:
+            return "None";
+        case ErrorCode::EndOfFile:
+            return "EndOfFile";
+        case ErrorCode::UnexpectedKey:
+            return "UnexpectedKey";
+        case ErrorCode::ParsingError:
+            return "ParsingError";
+        default:
+            return "UnknownError";
+    }
+}
+
 template <typename... Fields>
 class TestVectorReader {
    private:
@@ -74,32 +96,32 @@ class TestVectorReader {
     explicit TestVectorReader(std::ifstream& file) : file_(file) {}
 
     template <typename Field>
-    value_type_t<Field> next_field(int& errorcode) {
-        if (errorcode != 1) {
-            return {};  // Return the error code if it's not 1
+    value_type_t<Field> next_field(ErrorCode& errorcode) {
+        if (errorcode != ErrorCode::None) {
+            return {};
         }
         auto pair = n20_testing_next_pair(file_);
         if (!pair) {
-            errorcode = 0;  // No more pairs to read
+            errorcode = ErrorCode::EndOfFile;  // No more pairs to read
             return {};
         }
         auto [key, value] = *pair;
 
         if (key != field_key_v<Field>) {
-            errorcode = -2;  // Unexpected key
+            errorcode = ErrorCode::UnexpectedKey;  // Unexpected key
             return {};
         }
 
         if (auto parsed = value_parser_t<Field>::parse(value)) {
             return *parsed;  // Return the parsed value
         } else {
-            errorcode = -3;  // Parsing error
+            errorcode = ErrorCode::ParsingError;  // Parsing error
             return {};
         }
     }
 
-    std::variant<int, tuple_type> next_vector() {
-        int errorcode = 1;  // Start with a valid state
+    std::variant<ErrorCode, tuple_type> next_vector() {
+        ErrorCode errorcode = ErrorCode::None;  // Start with a valid state
 
         if (sizeof...(Fields) == 0) {
             return tuple_type{};  // No fields to read
@@ -107,8 +129,8 @@ class TestVectorReader {
 
         int i = 0;
         auto result = tuple_type{next_field<Fields>(errorcode)...};
-        if (errorcode != 1) {
-            return errorcode;  // Return the error code if it's not 1
+        if (errorcode != ErrorCode::None) {
+            return errorcode;  // Return the error code if it's not None
         }
         return result;  // Return the result of reading fields
     }
@@ -123,11 +145,12 @@ class TestVectorReader {
         while (true) {
             auto vector = reader.next_vector();
             // Check if we reached the end of the file or encountered an error
-            if (auto error = std::get_if<int>(&vector)) {
-                if (*error == 0) {
+            if (auto error = std::get_if<ErrorCode>(&vector)) {
+                if (*error == ErrorCode::EndOfFile) {
                     break;  // End of file
-                } else if (*error < 0) {
-                    throw std::runtime_error("Error reading vector: " + std::to_string(*error));
+                } else if (*error != ErrorCode::None) {
+                    throw std::runtime_error("Error reading vector: " +
+                                             std::string(to_string(*error)));
                 }
             }
             vectors.push_back(*std::get_if<tuple_type>(&vector));
