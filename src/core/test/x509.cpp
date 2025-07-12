@@ -19,6 +19,7 @@
 #include <nat20/crypto.h>
 #include <nat20/crypto_bssl/crypto.h>
 #include <nat20/oid.h>
+#include <nat20/testing/test_utils.h>
 #include <nat20/x509.h>
 #include <openssl/base.h>
 #include <openssl/digest.h>
@@ -46,25 +47,6 @@ MAKE_PTR(EVP_MD_CTX);
 MAKE_PTR(BIO);
 MAKE_PTR(X509);
 MAKE_PTR(EC_KEY);
-
-std::string hexdump(std::vector<uint8_t> const& data) {
-    std::stringstream s;
-    int i;
-    for (i = 0; i < data.size() - 1; ++i) {
-        s << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
-        if (i % 16 == 15) {
-            s << "\n";
-        } else if (i % 16 == 7) {
-            s << "  ";
-        } else {
-            s << " ";
-        }
-    }
-    if (i < data.size()) {
-        s << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
-    }
-    return s.str();
-}
 
 std::string BsslError() {
     char buffer[2000];
@@ -737,7 +719,7 @@ TEST_P(CertTest, CertEncoding) {
     uint8_t const* p = n20_stream_data(&s);
     auto x509i = X509_PTR_t(d2i_X509(nullptr, &p, (long)n20_stream_byte_count(&s)));
     ASSERT_TRUE(!!x509i) << BsslError() << "\n"
-                         << hexdump(std::vector<uint8_t>(
+                         << hex(std::vector<uint8_t>(
                                 n20_stream_data(&s),
                                 n20_stream_data(&s) + n20_stream_byte_count(&s)));
     X509_print_ex_fp(stdout, x509i.get(), 0, X509V3_EXT_DUMP_UNKNOWN);
@@ -845,7 +827,7 @@ TEST_P(CertTest, CertEncoding) {
     uint8_t const* p2 = n20_stream_data(&s);
     auto x509i2 = X509_PTR_t(d2i_X509(nullptr, &p2, (long)n20_stream_byte_count(&s)));
     ASSERT_TRUE(!!x509i2) << BsslError() << "\n"
-                          << hexdump(std::vector<uint8_t>(
+                          << hex(std::vector<uint8_t>(
                                  n20_stream_data(&s),
                                  n20_stream_data(&s) + n20_stream_byte_count(&s)));
     X509_print_ex_fp(stdout, x509i2.get(), 0, X509V3_EXT_DUMP_UNKNOWN);
@@ -867,8 +849,8 @@ TEST_P(CertTest, CertEncoding) {
         auto verify_result = bssl::CertificateVerify(cert_opts, &v_error, &v_status);
         ASSERT_FALSE(!!verify_result)
             << "raw cert:\n"
-            << hexdump(std::vector<uint8_t>(n20_stream_data(&s),
-                                            n20_stream_data(&s) + n20_stream_byte_count(&s)))
+            << hex(std::vector<uint8_t>(n20_stream_data(&s),
+                                        n20_stream_data(&s) + n20_stream_byte_count(&s)))
             << std::endl;
         ASSERT_EQ(v_error.Code(), bssl::VerifyError::StatusCode::CERTIFICATE_INVALID_SIGNATURE)
             << "Diag: " << v_error.DiagnosticString();
