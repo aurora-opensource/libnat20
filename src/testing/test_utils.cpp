@@ -38,7 +38,7 @@ std::string hexdump(std::vector<uint8_t> const& data) {
         } else {
             s << " ";
         }
-        s << (int)data[i];
+        s << std::setw(2) << std::setfill('0') << (int)data[i];
     }
     return s.str();
 }

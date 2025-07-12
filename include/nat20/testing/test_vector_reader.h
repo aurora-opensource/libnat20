@@ -127,7 +127,6 @@ class TestVectorReader {
             return tuple_type{};  // No fields to read
         }
 
-        int i = 0;
         auto result = tuple_type{next_field<Fields>(errorcode)...};
         if (errorcode != ErrorCode::None) {
             return errorcode;  // Return the error code if it's not None

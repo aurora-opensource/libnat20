@@ -20,6 +20,7 @@
 #include <nat20/crypto.h>
 #include <nat20/testing/test_vector_reader.h>
 
+#include <charconv>
 #include <vector>
 
 struct algorithm_parser {
@@ -55,8 +56,13 @@ struct hex_string_parser {
         bytes.reserve(str.size() / 2);
         for (size_t i = 0; i < str.size(); i += 2) {
             std::string byte_str = str.substr(i, 2);
-            uint8_t byte = static_cast<uint8_t>(strtol(byte_str.c_str(), nullptr, 16));
-            bytes.push_back(byte);
+            uint8_t byte_value;
+            auto [ptr, ec] =
+                std::from_chars(byte_str.data(), byte_str.data() + byte_str.size(), byte_value, 16);
+            if (ec != std::errc()) {
+                return std::nullopt;  // Invalid hex string
+            }
+            bytes.push_back(byte_value);
         }
         return bytes;  // Return the parsed bytes
     }
