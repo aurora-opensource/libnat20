@@ -96,8 +96,9 @@ TYPED_TEST_P(CryptoTestFixture, SHA2TestVectorTest) {
 
         std::vector<uint8_t> got_digest(want_digest.size());
         size_t got_size = got_digest.size();
-        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->digest(this->ctx, alg, &gather_list,
-                                                       got_digest.data(), &got_size));
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->ctx->digest(this->ctx, alg, &gather_list, got_digest.data(), &got_size));
         N20_ASSERT_EQ(want_digest.size(), got_size);
         N20_ASSERT_EQ(want_digest, got_digest);
     }

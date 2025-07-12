@@ -20,4 +20,4 @@
 #include <vector>
 
 std::string hexdump(std::vector<uint8_t> const& data);
-std::string hex(std::vector<uint8_t> const &data);
+std::string hex(std::vector<uint8_t> const& data);
