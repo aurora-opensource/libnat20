@@ -850,7 +850,7 @@ TEST_P(CertTest, CertEncoding) {
         ASSERT_FALSE(!!verify_result)
             << "raw cert:\n"
             << hex(std::vector<uint8_t>(n20_stream_data(&s),
-                                            n20_stream_data(&s) + n20_stream_byte_count(&s)))
+                                        n20_stream_data(&s) + n20_stream_byte_count(&s)))
             << std::endl;
         ASSERT_EQ(v_error.Code(), bssl::VerifyError::StatusCode::CERTIFICATE_INVALID_SIGNATURE)
             << "Diag: " << v_error.DiagnosticString();
