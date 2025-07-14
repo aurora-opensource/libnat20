@@ -239,7 +239,8 @@ endif() # NAT20_WITH_TESTS
 
 ###################################################################################################
 # The doxygen docs generation target is only created if enabled by setting `-DNAT20_WITH_DOCS=ON`
-# on the `cmake --build` command line.
+# on the `cmake -B` command line.
+
 if (NAT20_WITH_DOCS)
 
     find_package(Doxygen REQUIRED dot)
