@@ -85,6 +85,85 @@ constexpr char const* to_string(ErrorCode code) {
     }
 }
 
+/**
+ * @brief A reader for test vectors.
+ *
+ * This class reads test vectors from a file and provides methods to read specific fields.
+ * The format of the file is given by the Fields template parameters, which define the expected
+ * fields in each test vector. A field is formatted as a key-value pair of the form "key: value",
+ * where the key is defined by `field_key_v<Field>`. The value is parsed using the
+ * `value_parser_t<Field>` for each field type. Field types are defined using the `DEFINE_FIELD`
+ * macro, which associates a field name with its type and parser.
+ *
+ * ## Example Usage
+ * This example shows how to define fields and use the `TestVectorReader<Name, Vec>` to read test
+ * vectors from a file with one or more test vectors of the form:
+ * ```
+ * Name: TestName
+ * Vec: 0102030405060708090a0b0c0d0e0f
+ * ```
+ * Note that each field must appear in the order that they are defined in the parameter pack
+ * `Fields` of the `TestVectorReader` class.
+ *
+ * ### Defining Fields
+ * To define a field, use the `DEFINE_FIELD` macro:
+ * ```cpp
+ * DEFINE_FIELD(FieldName, FieldType, ParserType, Key)
+ * ```
+ * - `FieldName`: The name of the field (used as a type).
+ * - `FieldType`: The C/C++ type of the field (e.g., `std::string`, `n20_crypto_digest_algorithm_t`,
+ *    etc.).
+ * - `ParserType`: A parser class that implements a static `parse` method to convert a string to the
+ *   field type.
+ * - `Key`: The key used in the test vector file to identify this field (e.g., "Name", "Alg", "Msg",
+ * etc.).
+ *
+ * The `ParserType` should implement a static method `parse` that takes a string and returns an
+ * `std::optional<FieldType>`. If the parsing fails, it should return `std::nullopt`.
+ * Example parsers can be defined as follows:
+ * ```cpp
+ * struct string_parser {
+ *     static std::optional<std::string> parse(std::string const& str) {
+ *         return str;
+ *     }
+ * };
+ * ```
+ * A simple test vector parser with each test consisting of a test name and vector of bytes
+ * can be defined as follows:
+ * ```cpp
+ * // Define the fields Name and Vec.
+ * DEFINE_FIELD(Name, std::string, string_parser, "Name")
+ * DEFINE_FIELD(Vec, std::vector<uint8_t>, hex_string_parser, "Vec")
+ * ```
+ *
+ * ### Using the TestVectorReader
+ * After defining the fields, you can use the `TestVectorReader` to read test vectors from a file.
+ * The `TestVectorReader` is a template class that takes the defined fields as template parameters
+ * and provides methods to read the test vectors.
+ * Here is an example of how to use it:
+ * ```cpp
+ * #include <nat20/testing/test_vector_reader.h>
+ * // Specialize and instantiate the TestVectorReader with the defined fields.
+ * // The field names correspond to the first argument of the DEFINE_FIELD macro.
+ * // The tuple_type will be a std::tuple<std::string, std::vector<uint8_t>>.
+ * using TestVectorReader = TestVectorReader<Name, Vec>;
+ * // Read all vectors from a file at static initialization time.
+ * std::vector<TestVectorReader::tuple_type> test_vectors =
+ * TestVectorReader::read_all_vectors_from_file("path/to/test_vectors.txt");
+ * ```
+ *
+ * ### Using the test vectors in tests
+ * The `test_vectors` variable can be exported in in a header file while hiding the reader
+ * implementation.
+ * ```cpp
+ * extern std::vector<std::tuple<std::string, std::vector<uint8_t>>> test_vectors;
+ * ```
+ * A test can now iterate the test vectors directly or in parameterized gtests using
+ * `testing::ValuesIn(test_vectors)`. See `TEST_P` and `INSTANTIATE_TEST_SUITE_P` in the Google Test
+ * documentation for more details on parameterized tests.
+ *
+ * @tparam Fields The fields to read from the test vector.
+ */
 template <typename... Fields>
 class TestVectorReader {
    private:
