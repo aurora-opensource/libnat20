@@ -104,8 +104,8 @@ constexpr char const* field_key_v = field_key<Field>::value;
  * and returns them as a tuple.
  *
  * @param file The input file stream to read from.
- * @return std::optional<std::tuple<std::string, std::string>> The next key-value pair, or std::nullopt if
- * reading fails.
+ * @return std::optional<std::tuple<std::string, std::string>> The next key-value pair, or
+ * std::nullopt if reading fails.
  */
 std::optional<std::tuple<std::string, std::string>> n20_testing_next_pair(std::istream& file);
 
