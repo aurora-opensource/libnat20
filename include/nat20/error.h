@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+/**
+ * @file error.h
+ *
+ * @brief Error code definitions for libnat20.
+ */
+
 #pragma once
 
 #ifdef __cplusplus
