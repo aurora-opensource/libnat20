@@ -102,7 +102,7 @@ enum n20_error_s {
      * Functions that receive unformatted user data, like
      * the message for `sign` and `digest` or the
      * the key derivation context of `kdf` return this
-     * error if the if @ref n20_crypto_gather_list_t.count is
+     * error if @ref n20_crypto_gather_list_t.count is
      * non zero but @ref n20_crypto_gather_list_t.list is NULL.
      *
      * @sa n20_crypto_context_t.digest
