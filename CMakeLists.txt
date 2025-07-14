@@ -250,6 +250,7 @@ if (NAT20_WITH_DOCS)
     doxygen_add_docs(nat20_docs
         ${LIBNAT20_PUB_HEADERS}
         ${LIBNAT20_DOC_PAGES}
+        ${LIBNAT20_TEST_UTILS_HEADERS}
     )
 
 endif() # NAT20_WITH_DOCS

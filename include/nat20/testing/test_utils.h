@@ -20,5 +20,25 @@
 #include <string>
 #include <vector>
 
+/**
+ * @brief Generate a hex dump from a byte vector.
+ *
+ * This function converts a byte vector into a human readable hexadecimal string representation.
+ * It is provided for testing and debugging purposes only and should not be used in production code.
+ * The output is formatted as two groups of 8 bytes per line.
+ *
+ * @param data The byte vector to convert.
+ * @return std::string A string representation of the hex dump.
+ */
 std::string hexdump(std::vector<uint8_t> const& data);
+/**
+ * @brief Convert a byte vector to a hexadecimal string.
+ *
+ * This function converts a byte vector into a hexadecimal string representation.
+ * It is provided for testing and debugging purposes only and should not be used in production code.
+ * This function prints a continuous string of hexadecimal digits without any formatting or spaces.
+ *
+ * @param data The byte vector to convert.
+ * @return std::string A string representation of the hexadecimal data.
+ */
 std::string hex(std::vector<uint8_t> const& data);

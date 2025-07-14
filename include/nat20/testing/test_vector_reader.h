@@ -86,13 +86,37 @@ constexpr char const* to_string(ErrorCode code) {
     }
 }
 
+/**
+ * @brief A parser for string values.
+ *
+ * This parser simply returns the input string as is.
+ */
 struct string_parser {
+    /**
+     * @brief Parses a string value.
+     *
+     * @param str The input string to parse.
+     * @return std::optional<std::string> The parsed string, or std::nullopt if parsing fails.
+     */
     static std::optional<std::string> parse(std::string const& str) {
         return str;  // Simply return the string as is
     }
 };
 
+/**
+ * @brief A parser for hexadecimal strings.
+ *
+ * This parser converts a hexadecimal string into a vector of bytes.
+ * The string must have an even length, and each pair of characters
+ * represents a byte in hexadecimal format.
+ */
 struct hex_string_parser {
+    /**
+     * @brief Parses a hexadecimal string.
+     *
+     * @param str The input string to parse.
+     * @return std::optional<std::vector<uint8_t>> The parsed bytes, or std::nullopt if parsing fails.
+     */
     static std::optional<std::vector<uint8_t>> parse(std::string const& str) {
         if (str.empty()) {
             return std::vector<uint8_t>{};  // Return empty vector for empty string
@@ -204,8 +228,52 @@ class TestVectorReader {
     std::ifstream& file_;
 
    public:
+    /**
+     * @brief The type of the tuple returned by the reader.
+     *
+     * This type is a std::tuple containing the values read from each test vector
+     * in the test vector file.
+     */
     using tuple_type = std::tuple<value_type_t<Fields>...>;
 
+    /**
+     * @brief Read all test vectors from a file.
+     *
+     * This function reads all test vectors from the specified file and returns
+     * them as a vector of tuples.
+     *
+     * @param filename The name of the file to read the test vectors from.
+     * @return std::vector<tuple_type> A vector of tuples, each containing the
+     *         values read from a test vector in the file.
+     * @throws std::runtime_error If the file cannot be opened or if there is an
+     *         error reading a vector.
+     * @throws std::runtime_error If an unexpected key is encountered or if there
+     *         is a parsing error for any field.
+     */
+    static std::vector<tuple_type> read_all_vectors_from_file(std::string const& filename) {
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            throw std::runtime_error("Could not open file: " + filename);
+        }
+        TestVectorReader reader(file);
+        std::vector<tuple_type> vectors;
+        while (true) {
+            auto vector = reader.next_vector();
+            // Check if we reached the end of the file or encountered an error
+            if (auto error = std::get_if<ErrorCode>(&vector)) {
+                if (*error == ErrorCode::EndOfFile) {
+                    break;  // End of file
+                } else if (*error != ErrorCode::None) {
+                    throw std::runtime_error("Error reading vector: " +
+                                             std::string(to_string(*error)));
+                }
+            }
+            vectors.push_back(*std::get_if<tuple_type>(&vector));
+        }
+        return vectors;
+    }
+
+   private:
     explicit TestVectorReader(std::ifstream& file) : file_(file) {}
 
     template <typename Field>
@@ -245,28 +313,5 @@ class TestVectorReader {
             return errorcode;  // Return the error code if it's not None
         }
         return result;  // Return the result of reading fields
-    }
-
-    static std::vector<tuple_type> read_all_vectors_from_file(std::string const& filename) {
-        std::ifstream file(filename);
-        if (!file.is_open()) {
-            throw std::runtime_error("Could not open file: " + filename);
-        }
-        TestVectorReader reader(file);
-        std::vector<tuple_type> vectors;
-        while (true) {
-            auto vector = reader.next_vector();
-            // Check if we reached the end of the file or encountered an error
-            if (auto error = std::get_if<ErrorCode>(&vector)) {
-                if (*error == ErrorCode::EndOfFile) {
-                    break;  // End of file
-                } else if (*error != ErrorCode::None) {
-                    throw std::runtime_error("Error reading vector: " +
-                                             std::string(to_string(*error)));
-                }
-            }
-            vectors.push_back(*std::get_if<tuple_type>(&vector));
-        }
-        return vectors;
     }
 };
