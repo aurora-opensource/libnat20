@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+/** @file */
+
 #pragma once
 
 #include <charconv>
@@ -25,24 +27,57 @@
 #include <variant>
 #include <vector>
 
+/**
+ * @brief Type trait to get the value type of a field.
+ *
+ * This trait extracts the value type from a field type.
+ */
 template <typename Field>
 struct value_type {};
 
+/**
+ * @brief Alias for `value_type` that extracts the value type from a field type.
+ */
 template <typename Field>
 using value_type_t = typename value_type<Field>::type;
 
+/**
+ * @brief Type trait to get the parser type of a field.
+ *
+ * This trait extracts the parser type from a field type.
+ */
 template <typename Field>
 struct value_parser {};
 
+/**
+ * @brief Alias for `value_parser` that extracts the parser type from a field type.
+ *
+ * This alias provides a convenient way to access the parser type associated with a field.
+ */
 template <typename Field>
 using value_parser_t = typename value_parser<Field>::type;
 
+/**
+ * @brief Type trait to get the key string of a field.
+ *
+ * This trait extracts the key associated with a field type.
+ */
 template <typename Field>
 struct field_key {};
 
+/**
+ * @brief Alias for `field_key` that extracts the key string from a field type.
+ */
 template <typename Field>
 constexpr char const* field_key_v = field_key<Field>::value;
 
+/**
+ * @brief Macro to define a field in the test vector reader.
+ *
+ * This macro simplifies the creation of field types by creating the necessary
+ * specializations for `value_type`, `value_parser`, and `field_key` from the provided
+ * parameters.
+ */
 #define DEFINE_FIELD(Name, Type, Parser, Key)                                                   \
     struct Name {};                                                                             \
     template <>                                                                                 \
@@ -62,8 +97,23 @@ constexpr char const* field_key_v = field_key<Field>::value;
         static constexpr char const* value = Key;                                               \
     };
 
+/**
+ * @brief Read the next key-value pair from the test vector file.
+ *
+ * This function reads a line from the input file stream, splits it into a key and a value,
+ * and returns them as a tuple.
+ *
+ * @param file The input file stream to read from.
+ * @return std::optional<std::tuple<std::string, std::string>> The next key-value pair, or std::nullopt if
+ * reading fails.
+ */
 std::optional<std::tuple<std::string, std::string>> n20_testing_next_pair(std::istream& file);
 
+/**
+ * @brief Error codes for the test vector reader.
+ *
+ * These error codes represent various errors that can occur while reading test vectors.
+ */
 enum class ErrorCode : int {
     None,
     EndOfFile,
@@ -71,6 +121,14 @@ enum class ErrorCode : int {
     ParsingError,
 };
 
+/**
+ * @brief Converts an ErrorCode to a string representation.
+ *
+ * This function provides a string representation for each error code.
+ *
+ * @param code The error code to convert.
+ * @return A string representation of the error code.
+ */
 constexpr char const* to_string(ErrorCode code) {
     switch (code) {
         case ErrorCode::None:

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+/** @file */
+
 #pragma once
 
 #include <cstdint>
