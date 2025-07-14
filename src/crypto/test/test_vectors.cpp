@@ -20,7 +20,6 @@
 #include <nat20/crypto.h>
 #include <nat20/testing/test_vector_reader.h>
 
-#include <charconv>
 #include <vector>
 
 struct algorithm_parser {
@@ -35,36 +34,6 @@ struct algorithm_parser {
             return n20_crypto_digest_algorithm_sha2_512_e;
         }
         return std::nullopt;  // Invalid algorithm
-    }
-};
-
-struct string_parser {
-    static std::optional<std::string> parse(std::string const& str) {
-        return str;  // Simply return the string as is
-    }
-};
-
-struct hex_string_parser {
-    static std::optional<std::vector<uint8_t>> parse(std::string const& str) {
-        if (str.empty()) {
-            return std::vector<uint8_t>{};  // Return empty vector for empty string
-        }
-        if (str.size() % 2 != 0) {
-            return std::nullopt;  // Invalid hex string length
-        }
-        std::vector<uint8_t> bytes;
-        bytes.reserve(str.size() / 2);
-        for (size_t i = 0; i < str.size(); i += 2) {
-            std::string byte_str = str.substr(i, 2);
-            uint8_t byte_value;
-            auto [ptr, ec] =
-                std::from_chars(byte_str.data(), byte_str.data() + byte_str.size(), byte_value, 16);
-            if (ec != std::errc()) {
-                return std::nullopt;  // Invalid hex string
-            }
-            bytes.push_back(byte_value);
-        }
-        return bytes;  // Return the parsed bytes
     }
 };
 

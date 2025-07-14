@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <charconv>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -85,6 +86,36 @@ constexpr char const* to_string(ErrorCode code) {
     }
 }
 
+struct string_parser {
+    static std::optional<std::string> parse(std::string const& str) {
+        return str;  // Simply return the string as is
+    }
+};
+
+struct hex_string_parser {
+    static std::optional<std::vector<uint8_t>> parse(std::string const& str) {
+        if (str.empty()) {
+            return std::vector<uint8_t>{};  // Return empty vector for empty string
+        }
+        if (str.size() % 2 != 0) {
+            return std::nullopt;  // Invalid hex string length
+        }
+        std::vector<uint8_t> bytes;
+        bytes.reserve(str.size() / 2);
+        for (size_t i = 0; i < str.size(); i += 2) {
+            std::string byte_str = str.substr(i, 2);
+            uint8_t byte_value;
+            auto [ptr, ec] =
+                std::from_chars(byte_str.data(), byte_str.data() + byte_str.size(), byte_value, 16);
+            if (ec != std::errc()) {
+                return std::nullopt;  // Invalid hex string
+            }
+            bytes.push_back(byte_value);
+        }
+        return bytes;  // Return the parsed bytes
+    }
+};
+
 /**
  * @brief A reader for test vectors.
  *
@@ -135,6 +166,9 @@ constexpr char const* to_string(ErrorCode code) {
  * DEFINE_FIELD(Name, std::string, string_parser, "Name")
  * DEFINE_FIELD(Vec, std::vector<uint8_t>, hex_string_parser, "Vec")
  * ```
+ *
+ * The `string_parser` and `hex_string_parser` are provided by this implementation for convenience,
+ * but more application-specific parsers can be defined as needed.
  *
  * ### Using the TestVectorReader
  * After defining the fields, you can use the `TestVectorReader` to read test vectors from a file.
