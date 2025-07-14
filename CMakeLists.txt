@@ -59,6 +59,7 @@ set(LIBNAT20_PUB_HEADERS
     # These files will be included in the generation of the API documentation.
     include/nat20/asn1.h
     include/nat20/crypto.h
+    include/nat20/error.h
     include/nat20/oid.h
     include/nat20/stream.h
     include/nat20/types.h
@@ -210,7 +211,8 @@ endif() # NAT20_WITH_TESTS
 
 ###################################################################################################
 # The doxygen docs generation target is only created if enabled by setting `-DNAT20_WITH_DOCS=ON`
-# on the `cmake --build` command line.
+# on the `cmake -B` command line.
+
 if (NAT20_WITH_DOCS)
 
     find_package(Doxygen REQUIRED dot)

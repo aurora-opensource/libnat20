@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <nat20/error.h>
 #include <nat20/types.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -25,194 +26,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief Error codes that may be returned by a crypto interface implementation.
- */
-enum n20_crypto_error_s {
-    /**
-     * @brief No error occurred.
-     */
-    n20_crypto_error_ok_e = 0,
-    /**
-     * @brief The crypto context given to an interface was invalid.
-     *
-     * Implementations must return this error if the context given is
-     * NULL.
-     * Implementation may deploy additional techniques to determine
-     * if the context given is valid.
-     */
-    n20_crypto_error_invalid_context_e = 1,
-    /**
-     * @brief Indicates that an input key argument was NULL.
-     *
-     * Interface function implementations that expect a `key_in`
-     * parameter return this error said parameter receives a NULL
-     * argument.
-     *
-     * @sa n20_crypto_context_t.kdf
-     * @sa n20_crypto_context_t.sign
-     */
-    n20_crypto_error_unexpected_null_key_in_e = 2,
-    /**
-     * @brief Indicates that an output key argument was NULL.
-     *
-     * Interface function implementations that expect a `key_out`
-     * parameter return this error said parameter receives a NULL
-     * argument.
-     *
-     * @sa n20_crypto_context_t.kdf
-     * @sa n20_crypto_context_t.get_cdi
-     */
-    n20_crypto_error_unexpected_null_key_out_e = 3,
-    /**
-     * @brief Indicates that a size output argument was NULL.
-     *
-     * Interface function implementations that expect a `*_size_in_out`
-     * parameter return this error said parameter receives a NULL
-     * argument.
-     *
-     * @sa n20_crypto_context_t.digest
-     * @sa n20_crypto_context_t.sign
-     * @sa n20_crypto_context_t.key_public_key
-     */
-    n20_crypto_error_unexpected_null_size_e = 4,
-    /**
-     * @brief Indicates that the user data input argument was NULL.
-     *
-     * Functions that receive unformatted user data, like
-     * the message for `sign` and `digest` or the
-     * the key derivation context of `kdf` return this
-     * error if the data parameter receives a NULL argument.
-     *
-     * @sa n20_crypto_context_t.digest
-     * @sa n20_crypto_context_t.sign
-     * @sa n20_crypto_context_t.kdf
-     */
-    n20_crypto_error_unexpected_null_data_e = 5,
-    /**
-     * @brief Indicates that the user data input argument was NULL.
-     *
-     * Functions that receive unformatted user data, like
-     * the message for `sign` and `digest` or the
-     * the key derivation context of `kdf` return this
-     * error if the if @ref n20_crypto_gather_list_t.count is
-     * non zero but @ref n20_crypto_gather_list_t.list is NULL.
-     *
-     * @sa n20_crypto_context_t.digest
-     * @sa n20_crypto_context_t.sign
-     * @sa n20_crypto_context_t.kdf
-     */
-    n20_crypto_error_unexpected_null_list_e = 6,
-    /**
-     * @brief Indicates that the user data input argument was NULL.
-     *
-     * Functions that receive unformatted user data, like
-     * the message for `sign` and `digest` or the
-     * the key derivation context of `kdf` return this
-     * error the gather list contains a slice
-     * with @ref n20_slice_t.size non zero but
-     * @ref n20_slice_t.buffer is NULL.
-     *
-     * @sa n20_crypto_context_t.digest
-     * @sa n20_crypto_context_t.kdf
-     * @sa n20_crypto_context_t.sign
-     */
-    n20_crypto_error_unexpected_null_slice_e = 7,
-    /**
-     * @brief This should not be used outside of development.
-     *
-     * During development of a new crypto interface implementation
-     * this error can be returned by yet unimplemented functions.
-     * It may never be returned in complete implementations.
-     *
-     * It may be used in the future to toggle tests depending on
-     * unimplemented functions in debug builds. Release builds
-     * must never tolerate unimplemented errors however.
-     */
-    n20_crypto_error_not_implemented_e = 8,
-    /**
-     * @brief Indicates that an unkown algorithm was selected.
-     *
-     * Interface functions that expect an algorithm selector
-     * return this error if the selected algorithm is
-     * outside of the selected range.
-     *
-     * @sa n20_crypto_context_t.digest
-     */
-    n20_crypto_error_unkown_algorithm_e = 9,
-    /**
-     * @brief Indicates that the key input argument is unsuitable for the requested operation.
-     *
-     * Interface functions that expect a `key_in` argument
-     * must check if the given key is suitable for the requested
-     * operation and return this error if it is not.
-     *
-     * @sa n20_crypto_context_t.kdf
-     * @sa n20_crypto_context_t.sign
-     * @sa n20_crypto_context_t.key_public_key
-     */
-    n20_crypto_error_invalid_key_e = 10,
-    /**
-     * @brief Indicates that the requested key type is out of range.
-     *
-     * Interface functions that expect a `key_type_in` argument
-     * return this error if the selected key type is outside of
-     * defined range.
-     *
-     * @sa n20_crypto_context_t.kdf
-     */
-    n20_crypto_error_invalid_key_type_e = 11,
-    /**
-     * @brief Indicates that the user supplied buffer is insufficient.
-     *
-     * Interface functions that require the user to allocate an output buffer
-     * return this error if the supplied buffer size is too small or
-     * if the output buffer argument was NULL.
-     *
-     * Important: If this error is returned, the corresponding `*_size_in_out`
-     * parameter must be set to the maximal required buffer size required by
-     * the implementation to successfully complete the function call.
-     * This must always be possible because if the `*_size_in_out` argument was
-     * NULL, the function must have returned
-     * @ref n20_crypto_error_unexpected_null_size_e.
-     *
-     * @sa n20_crypto_context_t.digest
-     * @sa n20_crypto_context_t.sign
-     * @sa n20_crypto_context_t.key_public_key
-     */
-    n20_crypto_error_insufficient_buffer_size_e = 12,
-    /**
-     * @brief Indicates that an unexpected null pointer was received as argument.
-     *
-     * This generic variant of the error should not be used by
-     * implementations of any of the interface functions, rather it is returned
-     * by implementation specific factory functions indicating that
-     * one of their implementation specific arguments was unexpectedly
-     * NULL.
-     */
-    n20_crypto_error_unexpected_null_e = 13,
-    /**
-     * @brief Indicates that the implementation ran out of a critical resource.
-     *
-     * Interface functions may return this error if they failed to
-     * perform an operation due to a lack of physical resources.
-     * This includes memory allocation errors.
-     */
-    n20_crypto_error_no_resources_e = 14,
-    /**
-     * @brief Indicates that an implementation specific error has occurred.
-     *
-     * This is a catch all for unexpected errors that can be encountered
-     * by an implementation.
-     */
-    n20_crypto_error_implementation_specific_e = 15,
-};
-
-/**
- * @brief Alias for @ref n20_crypto_error_s
- */
-typedef enum n20_crypto_error_s n20_crypto_error_t;
 
 /**
  * @brief Enumeration of supported digest algorithms.
@@ -361,37 +174,37 @@ struct n20_crypto_context_s {
      *
      * ## Errors
      *
-     * - @ref n20_crypto_error_invalid_context_e must be returned
+     * - @ref n20_error_crypto_invalid_context_e must be returned
      *   if ctx is NULL.
      *   Additional mechanisms may be implemented to determine
      *   if the context is valid, but an implementation must
      *   accept an instance if it was created with the implementation
      *   specific factory and not freed.
-     * - @ref n20_crypto_error_unexpected_null_size_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_size_e must be returned
      *   if @p digest_size_in_out is NULL.
-     * - @ref n20_crypto_error_unkown_algorithm_e must be returned if
+     * - @ref n20_error_crypto_unknown_algorithm_e must be returned if
      *   @p alg_in is out of range.
-     * - @ref n20_crypto_error_insufficient_buffer_size_e must be returned
+     * - @ref n20_error_crypto_insufficient_buffer_size_e must be returned
      *   if @p digest_out is NULL or if @p digest_size_in_out indicates
      *   that the given buffer has insufficient capacity for the resulting
      *   digest. In this case the implementation MUST set
      *   @p digest_size_in_out to the size required by the algorithm
      *   selected in @p alg_in.
-     * - @ref n20_crypto_error_unexpected_null_data_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_data_e must be returned
      *   if none of the above conditions were met AND @p msg_in is NULL.
      *   This means that `msg_in == NULL` MUST be tolerated when
      *   querying the output buffer size.
-     * - @ref n20_crypto_error_unexpected_null_list_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_list_e must be returned
      *   if @ref n20_crypto_gather_list_t.count in @p msg_in is not `0`
      *   and @ref n20_crypto_gather_list_t.list in @p msg_in is NULL.
-     * - @ref n20_crypto_error_unexpected_null_slice_e must be returned if
+     * - @ref n20_error_crypto_unexpected_null_slice_e must be returned if
      *   the @p msg_in gather list contains a buffer that has non zero
      *   size but a buffer that is NULL.
      *
-     * Implementations may return @ref n20_crypto_error_no_resources_e if
+     * Implementations may return @ref n20_error_crypto_no_resources_e if
      * any kind of internal resource allocation failed.
      *
-     * Implementations may return @ref n20_crypto_error_implementation_specific_e.
+     * Implementations may return @ref n20_error_crypto_implementation_specific_e.
      * However, it is impossible to meaningfully recover from this error, therefore,
      * it is strongly discouraged for implementations to return this error,
      * and given the nature of the algorithms, it should never be necessary to do so.
@@ -404,11 +217,11 @@ struct n20_crypto_context_s {
      * @param digest_size_in_out On input the capacity of the given buffer.
      *        On output the size of the digest.
      */
-    n20_crypto_error_t (*digest)(struct n20_crypto_context_s* ctx,
-                                 n20_crypto_digest_algorithm_t alg_in,
-                                 n20_crypto_gather_list_t const* msg_in,
-                                 uint8_t* digest_out,
-                                 size_t* digest_size_in_out);
+    n20_error_t (*digest)(struct n20_crypto_context_s* ctx,
+                          n20_crypto_digest_algorithm_t alg_in,
+                          n20_crypto_gather_list_t const* msg_in,
+                          uint8_t* digest_out,
+                          size_t* digest_size_in_out);
 
     /**
      * @brief Derive a key from an opaque secret and context.
@@ -438,14 +251,14 @@ struct n20_crypto_context_s {
      *
      * ## Example
      * @code{.c}
-     * n20_crypto_error_t rc;
+     * n20_error_t rc;
      *
      * n20_crypto_context_s *ctx = open_my_crypto_implementation();
      *
      * // Get local cdi.
      * n20_crypto_key_t cdi = NULL;
      * rc = ctx->get_cdi(ctx, &cdi);
-     * if (rc != n20_crypto_error_ok_e) {
+     * if (rc != n20_error_ok_e) {
      *     // error handling
      * }
      *
@@ -463,7 +276,7 @@ struct n20_crypto_context_s {
      * // Perform key derivation.
      * n20_crypto_key_t derived_key = nullptr;
      * rc = ctx->kdf(ctx, cdi, n20_crypto_key_type_ed25519_e, &context, &derived_key);
-     * if (rc != n20_crypto_error_ok_e) {
+     * if (rc != n20_error_ok_e) {
      *     // error handling
      * }
      *
@@ -471,39 +284,39 @@ struct n20_crypto_context_s {
      *
      * // Clean up.
      * rc = ctx->key_free(ctx, derived_key);
-     * if (rc != n20_crypto_error_ok_e) {
+     * if (rc != n20_error_ok_e) {
      *     // error handling
      * }
      *
      * rc = ctx->key_free(ctx, cdi);
-     * if (rc != n20_crypto_error_ok_e) {
+     * if (rc != n20_error_ok_e) {
      *     // error handling
      * }
      *
      * @endcode
      *
      * ## Errors
-     * - @ref n20_crypto_error_invalid_context_e must be returned
+     * - @ref n20_error_crypto_invalid_context_e must be returned
      *   if ctx is NULL.
      *   Additional mechanisms may be implemented to determine
      *   if the context is valid, but an implementation must
      *   accept an instance if it was created with the implementation
      *   specific factory and not freed.
-     * - @ref n20_crypto_error_unexpected_null_key_in_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_key_in_e must be returned
      *   if the @p key_in is NULL.
-     * - @ref n20_crypto_error_invalid_key_e must be returned if
+     * - @ref n20_error_crypto_invalid_key_e must be returned if
      *   @p key_in is not of the type @ref n20_crypto_key_type_cdi_e.
-     * - @ref n20_crypto_error_unexpected_null_key_out_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_key_out_e must be returned
      *   if @p key_out is NULL.
-     * - @ref n20_crypto_error_unexpected_null_data_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_data_e must be returned
      *   if @p context_in is NULL.
-     * - @ref n20_crypto_error_unexpected_null_list_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_list_e must be returned
      *   if @ref n20_crypto_gather_list_t.count in @p context_in is not `0`
      *   and @ref n20_crypto_gather_list_t.list in @p context_in is NULL.
-     * - @ref n20_crypto_error_unexpected_null_slice_e must be returned if
+     * - @ref n20_error_crypto_unexpected_null_slice_e must be returned if
      *   the @p context_in gather list contains a buffer that has non zero
      *   size but a buffer that is NULL.
-     * - @ref n20_crypto_error_invalid_key_type_e must be returned
+     * - @ref n20_error_crypto_invalid_key_type_e must be returned
      *   if @p key_type_in is not in the range given by @ref n20_crypto_key_type_t.
      *
      * @param ctx The crypto context.
@@ -512,11 +325,11 @@ struct n20_crypto_context_s {
      * @param context_in A gatherlist describing the context of the to-be-derived key.
      * @param key_out Output buffer for the derived key handle.
      */
-    n20_crypto_error_t (*kdf)(struct n20_crypto_context_s* ctx,
-                              n20_crypto_key_t key_in,
-                              n20_crypto_key_type_t key_type_in,
-                              n20_crypto_gather_list_t const* context_in,
-                              n20_crypto_key_t* key_out);
+    n20_error_t (*kdf)(struct n20_crypto_context_s* ctx,
+                       n20_crypto_key_t key_in,
+                       n20_crypto_key_type_t key_type_in,
+                       n20_crypto_gather_list_t const* context_in,
+                       n20_crypto_key_t* key_out);
     /**
      * @brief Sign a message using an opaque key handle.
      *
@@ -533,34 +346,34 @@ struct n20_crypto_context_s {
      *   leading zeroes if necessary.
      *
      * ## Errors
-     * - @ref n20_crypto_error_invalid_context_e must be returned
+     * - @ref n20_error_crypto_invalid_context_e must be returned
      *   if ctx is NULL.
      *   Additional mechanisms may be implemented to determine
      *   if the context is valid, but an implementation must
      *   accept an instance if it was created with the implementation
      *   specific factory and not freed.
-     * - @ref n20_crypto_error_unexpected_null_key_in_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_key_in_e must be returned
      *   if the @p key_in is NULL.
-     * - @ref n20_crypto_error_unexpected_null_size_e must be returned if
+     * - @ref n20_error_crypto_unexpected_null_size_e must be returned if
      *   @p signature_size_in_out is NULL.
-     * - @ref n20_crypto_error_invalid_key_e must be returned
+     * - @ref n20_error_crypto_invalid_key_e must be returned
      *   if @p key_in is not of the types @ref n20_crypto_key_type_ed25519_e,
      *   @ref n20_crypto_key_type_secp256r1_e, or
      *   @ref n20_crypto_key_type_secp384r1_e.
-     * - @ref n20_crypto_error_unexpected_null_data_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_data_e must be returned
      *   if @p context_in is NULL.
-     * - @ref n20_crypto_error_insufficient_buffer_size_e if
+     * - @ref n20_error_crypto_insufficient_buffer_size_e if
      *   @p signature_out is NULL or if @p *signature_size_in_out indicates
      *   that the given buffer is too small.
-     *   If @ref n20_crypto_error_insufficient_buffer_size_e is returned
+     *   If @ref n20_error_crypto_insufficient_buffer_size_e is returned
      *   the implementation must set @p *signature_size_in_out to the maximum
      *   required buffer size for the signature algorithm requested.
-     * - @ref n20_crypto_error_unexpected_null_data_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_data_e must be returned
      *   if @p msg_in is NULL.
-     * - @ref n20_crypto_error_unexpected_null_list_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_list_e must be returned
      *   if @ref n20_crypto_gather_list_t.count in @p msg_in is not `0`
      *   and @ref n20_crypto_gather_list_t.list in @p msg_in is NULL.
-     * - @ref n20_crypto_error_unexpected_null_slice_e must be returned if
+     * - @ref n20_error_crypto_unexpected_null_slice_e must be returned if
      *   the @p msg_in gather list contains a buffer that has non zero
      *   size but a buffer that is NULL.
      *
@@ -572,11 +385,11 @@ struct n20_crypto_context_s {
      *        given buffer (in) and the size of the required/used signature
      *        buffer (out).
      */
-    n20_crypto_error_t (*sign)(struct n20_crypto_context_s* ctx,
-                               n20_crypto_key_t key_in,
-                               n20_crypto_gather_list_t const* msg_in,
-                               uint8_t* signature_out,
-                               size_t* signature_size_in_out);
+    n20_error_t (*sign)(struct n20_crypto_context_s* ctx,
+                        n20_crypto_key_t key_in,
+                        n20_crypto_gather_list_t const* msg_in,
+                        uint8_t* signature_out,
+                        size_t* signature_size_in_out);
     /**
      * @brief Return the local cdi handle.
      *
@@ -588,20 +401,20 @@ struct n20_crypto_context_s {
      * The CDI key handle must be destroyed with @ref key_free.
      *
      * ## Errors
-     * - @ref n20_crypto_error_invalid_context_e must be returned
+     * - @ref n20_error_crypto_invalid_context_e must be returned
      *   if ctx is NULL.
      *   Additional mechanisms may be implemented to determine
      *   if the context is valid, but an implementation must
      *   accept an instance if it was created with the implementation
      *   specific factory and not freed.
-     * - @ref n20_crypto_error_unexpected_null_key_out_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_key_out_e must be returned
      *   if @p key_out is NULL.
      *
      * @param ctx The crypto context.
      * @param key_out A buffer to take the opaque key handle of the root
      *        secret that is the local CDI.
      */
-    n20_crypto_error_t (*get_cdi)(struct n20_crypto_context_s* ctx, n20_crypto_key_t* key_out);
+    n20_error_t (*get_cdi)(struct n20_crypto_context_s* ctx, n20_crypto_key_t* key_out);
     /**
      * @brief Export the public key of an asymmetric key.
      *
@@ -619,29 +432,29 @@ struct n20_crypto_context_s {
      * The caller must provide a sufficiently sized buffer as @p public_key_out
      * setting @p *public_key_size_in_out to the correct buffer size.
      * The required buffer size can be queried by setting @p public_key_out
-     * to NULL. In that case @ref n20_crypto_error_insufficient_buffer_size_e
+     * to NULL. In that case @ref n20_error_crypto_insufficient_buffer_size_e
      * is returned and @p *public_key_size_in_out is set to the required buffer
      * size.
      *
      * ## Errors
-     * - @ref n20_crypto_error_invalid_context_e must be returned
+     * - @ref n20_error_crypto_invalid_context_e must be returned
      *   if ctx is NULL.
      *   Additional mechanisms may be implemented to determine
      *   if the context is valid, but an implementation must
      *   accept an instance if it was created with the implementation
      *   specific factory and not freed.
-     * - @ref n20_crypto_error_unexpected_null_key_in_e must be returned
+     * - @ref n20_error_crypto_unexpected_null_key_in_e must be returned
      *   if the @p key_in is NULL.
-     * - @ref n20_crypto_error_unexpected_null_size_e must be returned if
+     * - @ref n20_error_crypto_unexpected_null_size_e must be returned if
      *   @p public_key_size_in_out is NULL.
-     * - @ref n20_crypto_error_invalid_key_e must be returned
+     * - @ref n20_error_crypto_invalid_key_e must be returned
      *   if @p key_in is not of the types @ref n20_crypto_key_type_ed25519_e,
      *   @ref n20_crypto_key_type_secp256r1_e, or
      *   @ref n20_crypto_key_type_secp384r1_e.
-     * - @ref n20_crypto_error_insufficient_buffer_size_e if
+     * - @ref n20_error_crypto_insufficient_buffer_size_e if
      *   @p public_key_out is NULL or if @p *public_key_size_in_out indicates
      *   that the given buffer is too small.
-     *   If @ref n20_crypto_error_insufficient_buffer_size_e is returned
+     *   If @ref n20_error_crypto_insufficient_buffer_size_e is returned
      *   the implementation must set @p *public_key_size_in_out to the maximum
      *   required buffer size for the signature algorithm requested.
      *
@@ -653,10 +466,10 @@ struct n20_crypto_context_s {
      *        given buffer (in) and the size of the required/used public key
      *        buffer (out).
      */
-    n20_crypto_error_t (*key_get_public_key)(struct n20_crypto_context_s* ctx,
-                                             n20_crypto_key_t key_in,
-                                             uint8_t* public_key_out,
-                                             size_t* public_key_size_in_out);
+    n20_error_t (*key_get_public_key)(struct n20_crypto_context_s* ctx,
+                                      n20_crypto_key_t key_in,
+                                      uint8_t* public_key_out,
+                                      size_t* public_key_size_in_out);
     /**
      * @brief Destroy a key handle.
      *
@@ -665,10 +478,10 @@ struct n20_crypto_context_s {
      * Unless an invalid context is given, this function shall not fail.
      *
      * Passing NULL as @p key_in is explicitly allowed and yield
-     * @ref n20_crypto_error_ok_e.
+     * @ref n20_error_ok_e.
      *
      * ## Errors
-     * - @ref n20_crypto_error_invalid_context_e must be returned
+     * - @ref n20_error_crypto_invalid_context_e must be returned
      *   if ctx is NULL.
      *   Additional mechanisms may be implemented to determine
      *   if the context is valid, but an implementation must
@@ -678,7 +491,7 @@ struct n20_crypto_context_s {
      * @param ctx The crypto context.
      * @param key_in The key handle to be freed.
      */
-    n20_crypto_error_t (*key_free)(struct n20_crypto_context_s* ctx, n20_crypto_key_t key_in);
+    n20_error_t (*key_free)(struct n20_crypto_context_s* ctx, n20_crypto_key_t key_in);
 };
 
 /**

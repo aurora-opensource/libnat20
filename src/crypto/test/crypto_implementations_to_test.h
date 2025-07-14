@@ -22,8 +22,8 @@
 // create a class that implements the following static
 // member functions.
 // struct MyCryptoImplementation {
-//     static n20_crypto_error_t open(n20_crypto_context_t** ctx);
-//     static n20_crypto_error_t close(n20_crypto_context_t* ctx);
+//     static n20_error_t open(n20_crypto_context_t** ctx);
+//     static n20_error_t close(n20_crypto_context_t* ctx);
 // };
 // Include it here and then add the class name to the types list below.
 
