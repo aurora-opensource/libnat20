@@ -115,7 +115,8 @@ struct hex_string_parser {
      * @brief Parses a hexadecimal string.
      *
      * @param str The input string to parse.
-     * @return std::optional<std::vector<uint8_t>> The parsed bytes, or std::nullopt if parsing fails.
+     * @return std::optional<std::vector<uint8_t>> The parsed bytes, or std::nullopt if parsing
+     * fails.
      */
     static std::optional<std::vector<uint8_t>> parse(std::string const& str) {
         if (str.empty()) {
