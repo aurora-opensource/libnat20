@@ -78,7 +78,7 @@ enum n20_error_s {
      * parameter return this error said parameter receives a NULL
      * argument.
      *
-     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_digest_context_t.digest
      * @sa n20_crypto_context_t.sign
      * @sa n20_crypto_context_t.key_public_key
      */
@@ -91,7 +91,7 @@ enum n20_error_s {
      * the key derivation context of `kdf` return this
      * error if the data parameter receives a NULL argument.
      *
-     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_digest_context_t.digest
      * @sa n20_crypto_context_t.sign
      * @sa n20_crypto_context_t.kdf
      */
@@ -105,7 +105,7 @@ enum n20_error_s {
      * error if @ref n20_crypto_gather_list_t.count is
      * non zero but @ref n20_crypto_gather_list_t.list is NULL.
      *
-     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_digest_context_t.digest
      * @sa n20_crypto_context_t.sign
      * @sa n20_crypto_context_t.kdf
      */
@@ -120,7 +120,7 @@ enum n20_error_s {
      * with @ref n20_slice_t.size non zero but
      * @ref n20_slice_t.buffer is NULL.
      *
-     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_digest_context_t.digest
      * @sa n20_crypto_context_t.kdf
      * @sa n20_crypto_context_t.sign
      */
@@ -144,7 +144,7 @@ enum n20_error_s {
      * return this error if the selected algorithm is
      * outside of the selected range.
      *
-     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_digest_context_t.digest
      */
     n20_error_crypto_unknown_algorithm_e = 0x1009,
     /**
@@ -176,14 +176,18 @@ enum n20_error_s {
      * return this error if the supplied buffer size is too small or
      * if the output buffer argument was NULL.
      *
-     * Important: If this error is returned, the corresponding `*_size_in_out`
-     * parameter must be set to the maximal required buffer size required by
-     * the implementation to successfully complete the function call.
+     * Important: If this error is returned, and the function has a corresponding
+     * `*_size_in_out` parameter, it must be set to the maximal required buffer
+     * size required by the implementation to successfully complete the function call.
      * This must always be possible because if the `*_size_in_out` argument was
      * NULL, the function must have returned
      * @ref n20_error_crypto_unexpected_null_size_e.
      *
-     * @sa n20_crypto_context_t.digest
+     * @sa n20_crypto_digest_context_t.digest
+     * @sa n20_crypto_digest_context_t.hmac
+     * @sa n20_crypto_digest_context_t.hkdf
+     * @sa n20_crypto_digest_context_t.hkdf_extract
+     * @sa n20_crypto_digest_context_t.hkdf_expand
      * @sa n20_crypto_context_t.sign
      * @sa n20_crypto_context_t.key_public_key
      */
@@ -214,11 +218,53 @@ enum n20_error_s {
      */
     n20_error_crypto_implementation_specific_e = 0x100f,
     /**
-     * @brief Indicates that an output buffer was expected but NULL was given.
+     * @brief Indicates that the key slice was NULL.
      *
-     * TODO: Document which functions may return this error.
+     * This error is returned by HKDF implementations if the key slice
+     * passed to the HKDF function is NULL but the size is non-zero.
+     *
+     * @sa n20_crypto_digest_context_t.hkdf
      */
-    n20_error_crypto_unexpected_null_output_buffer_e = 0x1010,
+    n20_error_crypto_unexpected_null_slice_key_e = 0x1010,
+    /**
+     * @brief Indicates that the salt slice was NULL.
+     *
+     * This error is returned by HKDF implementations if the salt slice
+     * passed to the HKDF function is NULL but the size is non-zero.
+     *
+     * @sa n20_crypto_digest_context_t.hkdf
+     * @sa n20_crypto_digest_context_t.hkdf_extract
+     */
+    n20_error_crypto_unexpected_null_slice_salt_e = 0x1011,
+    /**
+     * @brief Indicates that the info slice was NULL.
+     *
+     * This error is returned by HKDF implementations if the info slice
+     * passed to the HKDF function is NULL but the size is non-zero.
+     *
+     * @sa n20_crypto_digest_context_t.hkdf
+     * @sa n20_crypto_digest_context_t.hkdf_extract
+     */
+    n20_error_crypto_unexpected_null_slice_info_e = 0x1012,
+    /**
+     * @brief Indicates that the IKM slice was NULL.
+     *
+     * This error is returned by HKDF implementations if the IKM slice
+     * passed to the HKDF function is NULL but the size is non-zero.
+     *
+     * @sa n20_crypto_digest_context_t.hkdf_extract
+     */
+    n20_error_crypto_unexpected_null_slice_ikm_e = 0x1013,
+    /**
+     * @brief Indicates that the PRK slice was NULL.
+     *
+     * This error is returned by HKDF implementations if the PRK slice
+     * passed to the HKDF function is NULL but the size is non-zero.
+     *
+     * @sa n20_crypto_digest_context_t.hkdf_extract
+     */
+    n20_error_crypto_unexpected_null_slice_prk_e = 0x1014,
+
 };
 
 /**

@@ -144,6 +144,14 @@ struct n20_crypto_gather_list_s {
  */
 typedef struct n20_crypto_gather_list_s n20_crypto_gather_list_t;
 
+/**
+ * @brief Context for a digest operation.
+ *
+ * This is a subset of the @ref n20_crypto_context_t
+ * that is used to perform digest operations and
+ * algorithms that are based on digest algorithms
+ * like HMAC and HKDF.
+ */
 struct n20_crypto_digest_context_s {
     /**
      * @brief Digest a message in a one shot operation.
@@ -157,7 +165,6 @@ struct n20_crypto_digest_context_s {
      *
      * Buffers with zero @ref n20_slice_s.size are allowed and treated
      * as empty. In this case the @ref n20_slice_s.buffer is ignored.
-     *
      *
      * Implementations must implement the following digests.
      * - SHA2 224
@@ -202,6 +209,32 @@ struct n20_crypto_digest_context_s {
      * it is strongly discouraged for implementations to return this error,
      * and given the nature of the algorithms, it should never be necessary to do so.
      *
+     * ## Design rationale
+     *
+     * The API uses a one shot paradigm to allow implementations to hide resource
+     * and state management from the caller, i.e., the libnat20 DICE service functionality.
+     * The latter is expected to operate in a context where dynamic memory allocation
+     * might not be available or desirable, and allocating memory for a digest context
+     * would be a burden for the implementation, especially if the context size
+     * depends on the implementation of this interface.
+     *
+     * This requires the entire message to be in memory at the time of the call.
+     * The gather list is a trade off that allows the caller to composite a message without
+     * needing to allocate a contiguous buffer for the entire message.
+     *
+     * This falls short when part of the message is already supplied as a gather list
+     * as is the case if HMAC is implemented in terms of this digest function.
+     * Allocating a new gather list is not feasible if no dynamic memory allocation
+     * is possible. Also, the length of the new gather list cannot be anticipated.
+     * Nesting of gather lists could have been chosen as a solution, but it would
+     * introduce potentially unbounded stack growth.
+     *
+     * The choice to support an array of gather lists is a compromise that allows
+     * HMAC implementation to compose a message provided as a gather list with the
+     * key as a fixed size array of two gather lists that can be placed on the stack.
+     * While not completely generic, it allows for all anticipated use cases required by
+     * the libnat20 DICE service functionality.
+     *
      * @param ctx The crypto context.
      * @param alg_in Designates the desired digest algorithm.
      * @param msg_in The message that is to be digested.
@@ -218,6 +251,62 @@ struct n20_crypto_digest_context_s {
                           uint8_t* digest_out,
                           size_t* digest_size_in_out);
 
+    /**
+     * @brief Compute a HMAC of a message.
+     *
+     * This function computes an HMAC of the message given by the gather list
+     * @p msg_in using the key given by @p key.
+     *
+     * Each buffer in the gather list is concatenated in the order they
+     * appear in the list.
+     *
+     * Buffers with zero @ref n20_slice_s.size are allowed and treated
+     * as empty. In this case the @ref n20_slice_s.buffer is ignored.
+     *
+     * Implementations must support the following algorithms:
+     * - SHA2 224
+     * - SHA2 256
+     * - SHA2 384
+     * - SHA2 512
+     *
+     * ## Errors
+     * - @ref n20_error_crypto_invalid_context_e must be returned
+     *   if ctx is NULL.
+     *   Additional mechanisms may be implemented to determine
+     *   if the context is valid, but an implementation must
+     *   accept an instance if it was created with the implementation
+     *   specific factory and not freed.
+     * - @ref n20_error_crypto_unexpected_null_size_e must be returned
+     *   if @p mac_size_in_out is NULL.
+     * - @ref n20_error_crypto_unknown_algorithm_e must be returned if
+     *   @p alg_in is out of range.
+     * - @ref n20_error_crypto_unexpected_null_slice_key_e must be returned
+     *   if @p key.buffer is NULL and @p key.size is not `0`.
+     * - @ref n20_error_crypto_insufficient_buffer_size_e must be returned
+     *   if @p mac_out is NULL or if @p mac_size_in_out indicates
+     *   that the given buffer has insufficient capacity for the resulting
+     *   MAC. In this case the implementation MUST set
+     *   @p mac_size_in_out to the size required by the algorithm
+     *   selected in @p alg_in.
+     * - @ref n20_error_crypto_unexpected_null_data_e must be returned
+     *   if none of the above conditions were met AND @p msg_in is NULL.
+     *   This means that `msg_in == NULL` MUST be tolerated when
+     *   querying the output buffer size.
+     * - @ref n20_error_crypto_unexpected_null_list_e must be returned
+     *   if @ref n20_crypto_gather_list_t.count in @p msg_in is not `0`
+     *   and @ref n20_crypto_gather_list_t.list in @p msg_in is NULL.
+     * - @ref n20_error_crypto_unexpected_null_slice_e must be returned if
+     *   the @p msg_in gather list contains a buffer that has non zero
+     *   size but a buffer that is NULL.
+     *
+     * Implementations may return @ref n20_error_crypto_no_resources_e if
+     * any kind of internal resource allocation failed.
+     *
+     * Implementations may return @ref n20_error_crypto_implementation_specific_e.
+     * However, it is impossible to meaningfully recover from this error, therefore,
+     * it is strongly discouraged for implementations to return this error,
+     * and given the nature of the algorithms, it should never be necessary to do so.
+     */
     n20_error_t (*hmac)(struct n20_crypto_digest_context_s* ctx,
                         n20_crypto_digest_algorithm_t alg_in,
                         n20_slice_t const key,
@@ -225,29 +314,158 @@ struct n20_crypto_digest_context_s {
                         uint8_t* mac_out,
                         size_t* mac_size_in_out);
 
+    /**
+     * @brief Perform a HKDF operation.
+     *
+     * This function performs a HKDF operation using the
+     * input key material @p ikm_in, the salt @p salt_in,
+     * and the info @p info_in.
+     * The output key is written to @p key_out. Callers must provide
+     * a buffer with sufficient capacity to hold the output key.
+     * The size of the output key is given by @p key_octets_in.
+     *
+     * Implementations must support the following algorithms:
+     * - SHA2 224
+     * - SHA2 256
+     * - SHA2 384
+     * - SHA2 512
+     *
+     * ## Errors
+     * - @ref n20_error_crypto_invalid_context_e must be returned
+     *   if ctx is NULL.
+     *   Additional mechanisms may be implemented to determine
+     *   if the context is valid, but an implementation must
+     *   accept an instance if it was created with the implementation
+     *   specific factory and not freed.
+     * - @ref n20_error_crypto_unknown_algorithm_e must be returned if
+     *   @p alg_in is out of range.
+     * - @ref n20_error_crypto_unexpected_null_slice_ikm_e must be returned
+     *   if @p ikm_in.buffer is NULL and @p ikm_in.size is not `0`.
+     * - @ref n20_error_crypto_unexpected_null_slice_salt_e must be returned
+     *   if @p salt_in.buffer is NULL and @p salt_in.size is not `0`.
+     * - @ref n20_error_crypto_unexpected_null_slice_info_e must be returned
+     *   if @p info_in.buffer is NULL and @p info_in.size is not `0`.
+     * - @ref n20_error_crypto_insufficient_buffer_size_e must be returned
+     *   if @p key_out is NULL and @p key_octets_in is not `0`.
+     *
+     * Implementations may return @ref n20_error_crypto_no_resources_e if
+     * any kind of internal resource allocation failed.
+     *
+     * Implementations may return @ref n20_error_crypto_implementation_specific_e.
+     * However, it is impossible to meaningfully recover from this error, therefore,
+     * it is strongly discouraged for implementations to return this error,
+     * and given the nature of the algorithms, it should never be necessary to do so.
+     */
     n20_error_t (*hkdf)(struct n20_crypto_digest_context_s* ctx,
                         n20_crypto_digest_algorithm_t alg_in,
-                        n20_slice_t const ikm,
-                        n20_slice_t const salt,
-                        n20_slice_t const info,
-                        size_t key_octets,
-                        uint8_t* out);
+                        n20_slice_t ikm_in,
+                        n20_slice_t salt_in,
+                        n20_slice_t info_in,
+                        size_t key_octets_in,
+                        uint8_t* key_out);
 
+    /**
+     * @brief Perform a HKDF_EXTRACT operation.
+     *
+     * This function performs a HKDF_EXTRACT operation using the
+     * input key material @p ikm_in and the salt @p salt_in.
+     *
+     * The output pseudorandom key is written to @p prk_out.
+     * The size of the output buffer must be provided in @p prk_size_in_out.
+     * If the output buffer is NULL, or the size is not sufficient
+     * to hold the output pseudorandom key, the implementation must
+     * set @p prk_size_in_out to the size required by the algorithm
+     * and return @ref n20_error_crypto_insufficient_buffer_size_e.
+     *
+     * Implementations must support the following algorithms:
+     * - SHA2 224
+     * - SHA2 256
+     * - SHA2 384
+     * - SHA2 512
+     *
+     * ## Errors
+     * - @ref n20_error_crypto_invalid_context_e must be returned
+     *   if ctx is NULL.
+     *   Additional mechanisms may be implemented to determine
+     *   if the context is valid, but an implementation must
+     *   accept an instance if it was created with the implementation
+     *   specific factory and not freed.
+     * - @ref n20_error_crypto_unknown_algorithm_e must be returned if
+     *   @p alg_in is out of range.
+     * - @ref n20_error_crypto_unexpected_null_slice_ikm_e must be returned
+     *   if @p ikm.buffer is NULL and @p ikm.size is not `0`.
+     * - @ref n20_error_crypto_unexpected_null_slice_salt_e must be returned
+     *   if @p salt.buffer is NULL and @p salt.size is not `0`.
+     * - @ref n20_error_crypto_insufficient_buffer_size_e must be returned
+     *   if @p prk_out is NULL or if @p prk_size_in_out is not sufficient.
+     *   In this case the implementation MUST set @p prk_size_in_out to the size
+     *   required by the algorithm selected in @p alg_in.
+     *
+     * Implementations may return @ref n20_error_crypto_no_resources_e if
+     * any kind of internal resource allocation failed.
+     *
+     * Implementations may return @ref n20_error_crypto_implementation_specific_e.
+     * However, it is impossible to meaningfully recover from this error, therefore,
+     * it is strongly discouraged for implementations to return this error,
+     * and given the nature of the algorithms, it should never be necessary to do so.
+     */
     n20_error_t (*hkdf_extract)(struct n20_crypto_digest_context_s* ctx,
                                 n20_crypto_digest_algorithm_t alg_in,
-                                n20_slice_t const ikm,
-                                n20_slice_t const salt,
-                                uint8_t* out,
-                                size_t* out_size_in_out);
+                                n20_slice_t ikm_in,
+                                n20_slice_t salt_in,
+                                uint8_t* prk_out,
+                                size_t* prk_size_in_out);
 
+    /**
+     * @brief Perform a HKDF_EXPAND operation.
+     *
+     * This function performs a HKDF_EXPAND operation using the
+     * pseudo random key material @p prk_in and the info @p info_in.
+     * The output key is written to @p key_out. Callers must provide
+     * a buffer with sufficient capacity to hold the output key.
+     * The size of the output key is given by @p key_octets.
+     *
+     * Implementations must support the following algorithms:
+     * - SHA2 224
+     * - SHA2 256
+     * - SHA2 384
+     * - SHA2 512
+     *
+     * ## Errors
+     * - @ref n20_error_crypto_invalid_context_e must be returned
+     *   if ctx is NULL.
+     *   Additional mechanisms may be implemented to determine
+     *   if the context is valid, but an implementation must
+     *   accept an instance if it was created with the implementation
+     *   specific factory and not freed.
+     * - @ref n20_error_crypto_unknown_algorithm_e must be returned if
+     *   @p alg_in is out of range.
+     * - @ref n20_error_crypto_unexpected_null_slice_prk_e must be returned
+     *   if @p prk_in.buffer is NULL and @p prk_in.size is not `0`.
+     * - @ref n20_error_crypto_unexpected_null_slice_info_e must be returned
+     *   if @p info_in.buffer is NULL and @p info_in.size is not `0`.
+     * - @ref n20_error_crypto_insufficient_buffer_size_e must be returned
+     *   if @p key_out is NULL and @p key_octets_in is not `0`.
+     *
+     * Implementations may return @ref n20_error_crypto_no_resources_e if
+     * any kind of internal resource allocation failed.
+     *
+     * Implementations may return @ref n20_error_crypto_implementation_specific_e.
+     * However, it is impossible to meaningfully recover from this error, therefore,
+     * it is strongly discouraged for implementations to return this error,
+     * and given the nature of the algorithms, it should never be necessary to do so.
+     */
     n20_error_t (*hkdf_expand)(struct n20_crypto_digest_context_s* ctx,
                                n20_crypto_digest_algorithm_t alg_in,
-                               n20_slice_t const prk,
-                               n20_slice_t const info,
-                               size_t key_octets,
-                               uint8_t* out);
+                               n20_slice_t prk_in,
+                               n20_slice_t info_in,
+                               size_t key_octets_in,
+                               uint8_t* key_out);
 };
 
+/**
+ * @brief Alias for @ref n20_crypto_digest_context_s
+ */
 typedef struct n20_crypto_digest_context_s n20_crypto_digest_context_t;
 
 /**
@@ -257,9 +475,16 @@ typedef struct n20_crypto_digest_context_s n20_crypto_digest_context_t;
  * It provides cryptographic operations to the higher layers of
  * the DICE service functionality.
  * Integrators must provide an implementation of this interface
- * that is suitable for the target platform.
+ * that is suitable for the target platform and runtime environment.
  */
 struct n20_crypto_context_s {
+    /**
+     * @brief The digest context.
+     *
+     * This context is used for performing cryptographic digest operations.
+     * It is initialized by the implementation and must have all
+     * functions implemented as described in the @ref n20_crypto_digest_context_s.
+     */
     n20_crypto_digest_context_t digest_ctx;
     /**
      * @brief Derive a key from an opaque secret and context.
