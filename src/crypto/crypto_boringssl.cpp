@@ -119,15 +119,15 @@ static n20_error_t n20_crypto_boringssl_digest(n20_crypto_digest_context_t* ctx,
         return n20_error_crypto_invalid_context_e;
     }
 
-    if (digest_size_in_out == nullptr) {
-        return n20_error_crypto_unexpected_null_size_e;
-    }
-
     EVP_MD const* md = digest_enum_to_bssl_evp_md(alg_in);
     if (md == nullptr) {
         return n20_error_crypto_unknown_algorithm_e;
     }
     size_t digest_size = digest_enum_to_size(alg_in);
+
+    if (digest_size_in_out == nullptr) {
+        return n20_error_crypto_unexpected_null_size_e;
+    }
 
     // If the provided buffer size is too small or no buffer was provided
     // set the required buffer size and return

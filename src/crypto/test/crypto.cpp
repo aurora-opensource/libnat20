@@ -302,16 +302,37 @@ TYPED_TEST_P(CryptoDigestFixture, DigestErrorsTest) {
         N20_ASSERT_EQ(n20_error_crypto_invalid_context_e,
                       this->digest_ctx->digest(nullptr, alg, nullptr, 0, nullptr, nullptr));
 
+        // Must return n20_error_crypto_unknown_algorithm_e if an unknown
+        // algorithm is given.
+        N20_ASSERT_EQ(
+            n20_error_crypto_unknown_algorithm_e,
+            this->digest_ctx->digest(
+                this->digest_ctx, (n20_crypto_digest_algorithm_t)-1, nullptr, 0, nullptr, nullptr));
+
         // Must return n20_error_crypto_unexpected_null_size_e if a valid context
         // was given but no digest_size_in_out.
         N20_ASSERT_EQ(
             n20_error_crypto_unexpected_null_size_e,
             this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, nullptr, nullptr));
 
+        // Must return n20_error_crypto_insufficient_buffer_size_e if a valid context,
+        // algorithm, and size pointer was given, but digest_out is NULL.
+        size_t got_size = 1000;
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, nullptr, &got_size));
+
+        // Must return n20_error_crypto_insufficient_buffer_size_e if a valid context,
+        // algorithm, size, and out buffer was given but the size was too small.
+        auto buffer = std::vector<uint8_t>(80);
+        got_size = 4;
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, buffer.data(), &got_size));
+
+        got_size = buffer.size();
         // Must return n20_error_crypto_unexpected_null_data_e if sufficient
         // buffer given, but no message.
-        auto buffer = std::vector<uint8_t>(80);
-        size_t got_size = buffer.size();
         N20_ASSERT_EQ(
             n20_error_crypto_unexpected_null_data_e,
             this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, buffer.data(), &got_size));
