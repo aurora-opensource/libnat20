@@ -255,7 +255,7 @@ n20_error_t n20_crypto_boringssl_hkdf(n20_crypto_digest_context_t* ctx,
     if (md == nullptr) {
         return n20_error_crypto_unknown_algorithm_e;
     }
-    
+
     if (ikm.buffer == NULL && ikm.size != 0) {
         return n20_error_crypto_unexpected_null_slice_ikm_e;
     }
@@ -353,7 +353,6 @@ n20_error_t n20_crypto_boringssl_hkdf_expand(n20_crypto_digest_context_t* ctx,
     if (key_octets == 0) {
         return n20_error_ok_e;  // No key to expand, return success
     }
-
 
     if (out == NULL) {
         return n20_error_crypto_insufficient_buffer_size_e;

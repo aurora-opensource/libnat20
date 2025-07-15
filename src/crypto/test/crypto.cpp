@@ -823,18 +823,18 @@ TYPED_TEST_P(CryptoDigestFixture, HkdfExtractBufferSizeTest) {
         std::vector<uint8_t> prk(want_size + 4);
         size_t prk_size = want_size + 4;
 
-        N20_ASSERT_EQ(
-            n20_error_ok_e,
-            this->digest_ctx->hkdf_extract(this->digest_ctx, alg, key, salt, prk.data(), &prk_size));
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->hkdf_extract(
+                          this->digest_ctx, alg, key, salt, prk.data(), &prk_size));
         // The output buffer must be truncated to the required size.
         N20_ASSERT_EQ(want_size, prk_size);
 
         prk_size -= 4;  // Make the buffer too small.
         prk.assign(want_size + 4, 0);
 
-        N20_ASSERT_EQ(
-            n20_error_crypto_insufficient_buffer_size_e,
-            this->digest_ctx->hkdf_extract(this->digest_ctx, alg, key, salt, prk.data(), &prk_size));
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
+                      this->digest_ctx->hkdf_extract(
+                          this->digest_ctx, alg, key, salt, prk.data(), &prk_size));
         // The output buffer must be set to the required size.
         N20_ASSERT_EQ(want_size, prk_size);
         // The output buffer remains unchanged.
@@ -842,13 +842,13 @@ TYPED_TEST_P(CryptoDigestFixture, HkdfExtractBufferSizeTest) {
 
         prk_size = 0;
 
-        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
-                      this->digest_ctx->hkdf_extract(this->digest_ctx, alg, key, salt, nullptr, &prk_size));
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->hkdf_extract(this->digest_ctx, alg, key, salt, nullptr, &prk_size));
         // The output buffer must be set to the required size.
         N20_ASSERT_EQ(want_size, prk_size);
     }
 }
-
 
 TYPED_TEST_P(CryptoDigestFixture, HkdfExpandErrorsTest) {
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
