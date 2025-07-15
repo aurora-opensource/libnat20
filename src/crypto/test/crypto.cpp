@@ -184,7 +184,7 @@ TYPED_TEST_P(CryptoDigestFixture, HmacTest) {
 }
 
 TYPED_TEST_P(CryptoDigestFixture, HkdfTest) {
-    for (auto [n20_test_name, alg, ikm, salt, info, _, want_key] : hkdfTestVectors) {
+    for (auto [n20_test_name, alg, ikm, salt, info, _unused_prk, want_key] : hkdfTestVectors) {
 
         n20_slice_t ikm_slice = {ikm.size(), ikm.data()};
         n20_slice_t salt_slice = {salt.size(), salt.data()};
@@ -1389,15 +1389,13 @@ REGISTER_TYPED_TEST_SUITE_P(CryptoTestFixture,
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CryptoDigestFixture);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CryptoTestFixture);
 
-using CryptoImplementationsToTest = ToTestTypes<FullCryptoImplementationsToTest>::type;
-
 using DigestCryptoImplementationsToTest =
-    ToTestTypes<ConcatenateTestLists<FullCryptoImplementationsToTest,
-                                     DigestOnlyCryptoImplementationsToTest>::type>::type;
+    ConcatenateTestLists<FullCryptoImplementationsToTest,
+                         DigestOnlyCryptoImplementationsToTest>::type;
 
 #ifdef N20_CONFIG_ENABLE_CRYPTO_TEST_IMPL
 
-INSTANTIATE_TYPED_TEST_SUITE_P(CryptoTest, CryptoTestFixture, CryptoImplementationsToTest);
+INSTANTIATE_TYPED_TEST_SUITE_P(CryptoTest, CryptoTestFixture, FullCryptoImplementationsToTest);
 
 INSTANTIATE_TYPED_TEST_SUITE_P(DigestCryptoTest,
                                CryptoDigestFixture,

@@ -154,16 +154,18 @@ static n20_error_t n20_crypto_boringssl_digest(n20_crypto_digest_context_t* ctx,
         return n20_error_crypto_no_resources_e;
     }
 
-    for (size_t j = 0; j < msg_count; ++j) {
-        if (msg_in[j].count == 0 || msg_in[j].list == nullptr) {
+    for (size_t list_index = 0; list_index < msg_count; ++list_index) {
+        if (msg_in[list_index].count == 0 || msg_in[list_index].list == nullptr) {
             continue;  // Skip empty gather lists
         }
-        for (size_t i = 0; i < msg_in[j].count; ++i) {
-            if (msg_in[j].list[i].size == 0) continue;
-            if (msg_in[j].list[i].buffer == nullptr) {
+        for (size_t slice_index = 0; slice_index < msg_in[list_index].count; ++slice_index) {
+            if (msg_in[list_index].list[slice_index].size == 0) continue;
+            if (msg_in[list_index].list[slice_index].buffer == nullptr) {
                 return n20_error_crypto_unexpected_null_slice_e;
             }
-            EVP_DigestUpdate(md_ctx.get(), msg_in[j].list[i].buffer, msg_in[j].list[i].size);
+            EVP_DigestUpdate(md_ctx.get(),
+                             msg_in[list_index].list[slice_index].buffer,
+                             msg_in[list_index].list[slice_index].size);
         }
     }
 
