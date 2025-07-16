@@ -86,13 +86,14 @@ static uint32_t sigma1(uint32_t x) { return rotr(x, 17) ^ rotr(x, 19) ^ (x >> 10
 static void n20_sha256_main(n20_sha224_sha256_state_t *state) {
     size_t j = 0;
     uint32_t R[8] = {0};
+    uint32_t t1 = 0;
 
     for (j = 0; j < 8; ++j) {
         R[j] = state->H[j];
     }
 
     for (j = 0; j < 16; ++j) {
-        uint32_t t1 = state->W[j];
+        t1 = state->W[j];
 
         t1 += R[REG_H(j)];
         t1 += SIGMA1(R[REG_E(j)]);
@@ -104,9 +105,8 @@ static void n20_sha256_main(n20_sha224_sha256_state_t *state) {
     }
 
     for (j = 16; j < 64; ++j) {
-        uint32_t t1 = state->W[W_INDEX(j)] += sigma1(state->W[W_INDEX(j - 2)]) +
-                                              state->W[W_INDEX(j - 7)] +
-                                              sigma0(state->W[W_INDEX(j - 15)]);
+        t1 = state->W[W_INDEX(j)] += sigma1(state->W[W_INDEX(j - 2)]) + state->W[W_INDEX(j - 7)] +
+                                     sigma0(state->W[W_INDEX(j - 15)]);
 
         t1 += R[REG_H(j)];
         t1 += SIGMA1(R[REG_E(j)]);
@@ -120,6 +120,11 @@ static void n20_sha256_main(n20_sha224_sha256_state_t *state) {
     for (j = 0; j < 8; ++j) {
         state->H[j] += R[j];
     }
+    /* Make a best effort to erase sensitive information from the stack.*/
+    for (j = 0; j < 8; ++j) {
+        *(uint32_t volatile *)&R[j] = 0;
+    }
+    *(uint32_t volatile *)&t1 = 0;
     state->fill = 0;
 }
 
