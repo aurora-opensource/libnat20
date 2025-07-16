@@ -48,7 +48,7 @@ n20_sha224_sha256_state_t n20_sha224_init(void) {
 }
 
 /* Constants from NIST FIPS 180-4, Section 4.2.2 */
-uint32_t K_256[] = {
+static uint32_t const K_256[] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -173,7 +173,7 @@ static void n20_sha224_sha256_finalize(n20_sha224_sha256_state_t *state,
     state->W[i >> 2] |= 0x80;
     ++i;
 
-    /* This handles the case where less then 8 bytes are left
+    /* This handles the case where less than 8 bytes are left
      * so that no space is left to add the 64 bit length.
      * In this case we need to process the current block and
      * add the length to the next block. */
