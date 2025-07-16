@@ -33,11 +33,11 @@ uint8_t const test_cdi[] = {
     0xbb, 0xe0, 0x21, 0xf5, 0x87, 0x1c, 0x6c, 0x0c, 0x30, 0x2b, 0x32, 0x4f, 0x4c, 0x44, 0xd1, 0x26,
     0xca, 0x35, 0x6b, 0xc3, 0xc5, 0x0e, 0x17, 0xc6, 0x21, 0xad, 0x1d, 0x32, 0xbd, 0x6e, 0x35, 0x08};
 
-n20_crypto_error_t CryptoImplBSSL::open(n20_crypto_context_t** ctx) {
+n20_error_t CryptoImplBSSL::open(n20_crypto_context_t** ctx) {
     n20_slice_t cdi = {sizeof(test_cdi), const_cast<uint8_t*>(&test_cdi[0])};
     return n20_crypto_open_boringssl(ctx, &cdi);
 }
-n20_crypto_error_t CryptoImplBSSL::close(n20_crypto_context_t* ctx) {
+n20_error_t CryptoImplBSSL::close(n20_crypto_context_t* ctx) {
     return n20_crypto_close_boringssl(ctx);
 }
 
@@ -54,7 +54,7 @@ n20_crypto_error_t CryptoImplBSSL::close(n20_crypto_context_t* ctx) {
  * it is not part of the public API and should not be used outside of
  * the test suite.
  */
-extern std::variant<n20_crypto_error_t, bssl::UniquePtr<BIGNUM>> __n20_testing_rfc6979_k_generation(
+extern std::variant<n20_error_t, bssl::UniquePtr<BIGNUM>> __n20_testing_rfc6979_k_generation(
     std::vector<uint8_t> const& x_octets,
     std::optional<std::vector<uint8_t>> const& m_octets,
     n20_crypto_digest_algorithm_t digest_algorithm,
