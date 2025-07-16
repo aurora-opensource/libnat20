@@ -70,6 +70,19 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/x509.h
 )
 
+set(LIBNAT20_CRYPTO_NAT20_SOURCES
+    # Add the core library source files here.
+    src/crypto/nat20/sha256.c
+    src/crypto/nat20/sha512.c
+)
+
+set(LIBNAT20_CRYPTO_NAT20_PUB_HEADERS
+    # Add the public headers here.
+    # These files will be included in the generation of the API documentation.
+    include/nat20/crypto/nat20/sha.h
+)
+
+
 set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
     src/core/test/test.cpp
@@ -133,6 +146,30 @@ target_compile_options(nat20
 )
 
 target_include_directories(nat20
+    PUBLIC include
+)
+
+###################################################################################################
+
+###################################################################################################
+# The nat20_crypto_nat20 library implements some crypto
+# algorithms using the native C standard library.
+
+add_library(nat20_crypto_nat20 STATIC)
+
+target_sources(nat20_crypto_nat20
+    PRIVATE ${LIBNAT20_CRYPTO_NAT20_SOURCES}
+    INTERFACE ${LIBNAT20_CRYPTO_NAT20_PUB_HEADERS}
+)
+
+target_compile_options(nat20_crypto_nat20
+    PRIVATE -pedantic
+    PRIVATE -Wall
+    PRIVATE -Wextra
+    PRIVATE -Werror
+)
+
+target_include_directories(nat20_crypto_nat20
     PUBLIC include
 )
 
@@ -233,6 +270,9 @@ if (NAT20_WITH_TESTS)
     target_link_libraries(nat20_crypto_test_bin nat20_crypto_boringssl)
     add_definitions(-DN20_CONFIG_ENABLE_CRYPTO_TEST_IMPL=1)
 
+    target_link_libraries(nat20_crypto_test_bin nat20_crypto_nat20)
+
+
 endif() # NAT20_WITH_TESTS
 
 ###################################################################################################
@@ -252,6 +292,7 @@ if (NAT20_WITH_DOCS)
         ${LIBNAT20_PUB_HEADERS}
         ${LIBNAT20_DOC_PAGES}
         ${LIBNAT20_TEST_UTILS_HEADERS}
+        ${LIBNAT20_CRYPTO_NAT20_PUB_HEADERS}
     )
 
 endif() # NAT20_WITH_DOCS
