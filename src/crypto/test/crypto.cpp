@@ -184,7 +184,7 @@ TYPED_TEST_P(CryptoDigestFixture, HmacTest) {
 }
 
 TYPED_TEST_P(CryptoDigestFixture, HkdfTest) {
-    for (auto [n20_test_name, alg, ikm, salt, info, _unused_prk, want_key] : hkdfTestVectors) {
+    for (auto [n20_test_name, alg, ikm, salt, info, unused_prk, want_key] : hkdfTestVectors) {
 
         n20_slice_t ikm_slice = {ikm.size(), ikm.data()};
         n20_slice_t salt_slice = {salt.size(), salt.data()};
@@ -207,7 +207,7 @@ TYPED_TEST_P(CryptoDigestFixture, HkdfTest) {
 }
 
 TYPED_TEST_P(CryptoDigestFixture, HkdfExtractTest) {
-    for (auto [n20_test_name, alg, ikm, salt, _info, want_prk, _want_key] : hkdfTestVectors) {
+    for (auto [n20_test_name, alg, ikm, salt, unused_info, want_prk, _want_key] : hkdfTestVectors) {
 
         n20_slice_t ikm_slice = {ikm.size(), ikm.data()};
         n20_slice_t salt_slice = {salt.size(), salt.data()};
@@ -226,7 +226,8 @@ TYPED_TEST_P(CryptoDigestFixture, HkdfExtractTest) {
 }
 
 TYPED_TEST_P(CryptoDigestFixture, HkdfExpandTest) {
-    for (auto [n20_test_name, alg, _ikm, _salt, info, prk, want_key] : hkdfTestVectors) {
+    for (auto [n20_test_name, alg, unused_ikm, unused_salt, info, prk, want_key] :
+         hkdfTestVectors) {
 
         n20_slice_t info_slice = {info.size(), info.data()};
         n20_slice_t prk_slice = {prk.size(), prk.data()};

@@ -291,7 +291,7 @@ n20_error_t n20_crypto_boringssl_hkdf(n20_crypto_digest_context_t* ctx,
 
 n20_error_t n20_crypto_boringssl_hkdf_extract(n20_crypto_digest_context_t* ctx,
                                               n20_crypto_digest_algorithm_t alg_in,
-                                              n20_slice_t ikm,
+                                              n20_slice_t const ikm,
                                               n20_slice_t const salt,
                                               uint8_t* prk,
                                               size_t* prk_size_in_out) {
