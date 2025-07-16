@@ -46,3 +46,21 @@ using SHA2TestVectorReader = TestVectorReader<Name, Algorithm, Message, MessageD
 
 std::vector<SHA2TestVectorReader::tuple_type> sha2TestVectors =
     SHA2TestVectorReader::read_all_vectors_from_file("test_data/crypto/sha2_test_vectors.txt");
+
+DEFINE_FIELD(Key, std::vector<uint8_t>, hex_string_parser, "Key")
+DEFINE_FIELD(Mac, std::vector<uint8_t>, hex_string_parser, "Mac")
+
+using HmacTestVectorReader = TestVectorReader<Name, Algorithm, Key, Message, Mac>;
+
+std::vector<HmacTestVectorReader::tuple_type> hmacTestVectors =
+    HmacTestVectorReader::read_all_vectors_from_file("test_data/crypto/hmac_test_vectors.txt");
+
+DEFINE_FIELD(Ikm, std::vector<uint8_t>, hex_string_parser, "Ikm")
+DEFINE_FIELD(Salt, std::vector<uint8_t>, hex_string_parser, "Salt")
+DEFINE_FIELD(Prk, std::vector<uint8_t>, hex_string_parser, "Prk")
+DEFINE_FIELD(Info, std::vector<uint8_t>, hex_string_parser, "Info")
+
+using HkdfTestVectorReader = TestVectorReader<Name, Algorithm, Ikm, Salt, Info, Prk, Key>;
+
+std::vector<HkdfTestVectorReader::tuple_type> hkdfTestVectors =
+    HkdfTestVectorReader::read_all_vectors_from_file("test_data/crypto/hkdf_test_vectors.txt");
