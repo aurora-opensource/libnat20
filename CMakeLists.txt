@@ -152,8 +152,9 @@ target_include_directories(nat20
 ###################################################################################################
 
 ###################################################################################################
-# The nat20 library is the core product of this project.
-# It will always be compiled.
+# The nat20_crypto_nat20 library implements some crypto
+# algorithms using the native C standard library.
+
 add_library(nat20_crypto_nat20 STATIC)
 
 target_sources(nat20_crypto_nat20
@@ -269,9 +270,6 @@ if (NAT20_WITH_TESTS)
     target_link_libraries(nat20_crypto_test_bin nat20_crypto_boringssl)
     add_definitions(-DN20_CONFIG_ENABLE_CRYPTO_TEST_IMPL=1)
 
-    target_sources(nat20_crypto_test_bin
-        PRIVATE src/crypto/test/crypto_nat20.cpp
-    )
     target_link_libraries(nat20_crypto_test_bin nat20_crypto_nat20)
 
 
