@@ -100,7 +100,6 @@ extern n20_sha224_sha256_state_t n20_sha224_init(void);
  *
  * @param state The SHA-224 state.
  * @param data The input data.
- * @param data_size The size of the input data in bytes.
  */
 extern void n20_sha224_update(n20_sha224_sha256_state_t *state, n20_slice_t const data);
 
@@ -153,7 +152,6 @@ extern n20_sha224_sha256_state_t n20_sha256_init(void);
  *
  * @param state The SHA-256 state.
  * @param data The input data.
- * @param data_size The size of the input data in bytes.
  */
 extern void n20_sha256_update(n20_sha224_sha256_state_t *state, n20_slice_t const data);
 
@@ -220,7 +218,6 @@ extern n20_sha384_sha512_state_t n20_sha384_init(void);
  *
  * @param state The SHA-384 state.
  * @param data The input data.
- * @param data_size The size of the input data in bytes.
  */
 extern void n20_sha384_update(n20_sha384_sha512_state_t *state, n20_slice_t const data);
 
@@ -277,7 +274,6 @@ extern n20_sha384_sha512_state_t n20_sha512_init(void);
  *
  * @param state The SHA-512 state.
  * @param data The input data.
- * @param data_size The size of the input data in bytes.
  */
 extern void n20_sha512_update(n20_sha384_sha512_state_t *state, n20_slice_t const data);
 
