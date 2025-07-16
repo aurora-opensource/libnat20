@@ -27,7 +27,6 @@ n20_error_t n20_crypto_nat20_open(n20_crypto_digest_context_t** ctx_out);
 
 n20_error_t n20_crypto_nat20_close(n20_crypto_digest_context_t* ctx_out);
 
-
 #ifdef __cplusplus
 }
 #endif
