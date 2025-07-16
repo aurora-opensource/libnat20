@@ -24,7 +24,6 @@
 
 #include <vector>
 
-#include "gtest/gtest.h"
 #include "test_vectors.h"
 
 n20_error_t CryptoImplNat20::open(n20_crypto_digest_context_t** ctx) {
@@ -45,7 +44,7 @@ class Sha2TestFixture : public testing::TestWithParam<std::tuple<std::string,
                                                                  std::vector<uint8_t>,
                                                                  std::vector<uint8_t>>> {};
 
-INSTANTIATE_TEST_CASE_P(ShaSha2Test,
+INSTANTIATE_TEST_CASE_P(Sha2Test,
                         Sha2TestFixture,
                         testing::ValuesIn(sha2TestVectors),
                         [](testing::TestParamInfo<Sha2TestFixture::ParamType> const& info)
@@ -86,5 +85,7 @@ TEST_P(Sha2TestFixture, ShaDigestTest) {
         EXPECT_EQ(got_digest, want_digest) << "Expected digest: " << hex(want_digest) << std::endl
                                            << "Actual digest: " << hex(got_digest) << std::endl;
         return;
+    } else {
+        FAIL() << "Unexpected algorithm: " << alg;
     }
 }

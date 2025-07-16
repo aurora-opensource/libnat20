@@ -372,9 +372,7 @@ n20_error_t n20_hkdf_extract(n20_crypto_digest_context_t* ctx,
         &ikm,
     };
 
-    ctx->hmac(ctx, alg_in, salt, &ikm_list, prk, prk_size_in_out);
-
-    return n20_error_ok_e;
+    return ctx->hmac(ctx, alg_in, salt, &ikm_list, prk, prk_size_in_out);
 }
 
 n20_error_t n20_hkdf_expand(n20_crypto_digest_context_t* ctx,
