@@ -68,7 +68,6 @@ enum n20_error_s {
      * argument.
      *
      * @sa n20_crypto_context_t.kdf
-     * @sa n20_crypto_context_t.get_cdi
      */
     n20_error_crypto_unexpected_null_key_out_e = 0x1003,
     /**
