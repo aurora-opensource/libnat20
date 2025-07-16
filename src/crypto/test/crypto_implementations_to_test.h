@@ -46,9 +46,7 @@ using FullCryptoImplementationsToTest = testing::Types<
     // End of list.
     >;
 
-using DigestOnlyCryptoImplementationsToTest = testing::Types<
-    CryptoImplNat20
->;
+using DigestOnlyCryptoImplementationsToTest = testing::Types<CryptoImplNat20>;
 
 #endif
 
