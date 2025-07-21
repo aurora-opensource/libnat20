@@ -1048,7 +1048,6 @@ extern "C" n20_error_t n20_crypto_boringssl_close(n20_crypto_context_t* ctx) {
 extern "C" n20_error_t n20_crypto_boringssl_make_secret(struct n20_crypto_context_s* ctx,
                                                         n20_slice_t const* secret_in,
                                                         n20_crypto_key_t* key_out) {
-
     if (ctx == nullptr) {
         return n20_error_crypto_invalid_context_e;
     }
