@@ -59,7 +59,7 @@ N20_ASN1_DEFINE_OID(OID_TCG_DICE_TCB_FRESHNESS, 2, 23, 133, 5, 4, 11);
 bool n20_asn1_oid_equals(n20_asn1_object_identifier_t const *oid1,
                          n20_asn1_object_identifier_t const *oid2) {
     if (oid1 == NULL || oid2 == NULL) {
-        return oid1 == oid2; // Both NULL is true, one NULL is false.
+        return oid1 == oid2;  // Both NULL is true, one NULL is false.
     }
     if (oid1->elem_count != oid2->elem_count) {
         return false;
