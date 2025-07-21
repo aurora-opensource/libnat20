@@ -19,13 +19,14 @@
 #include <gtest/gtest.h>
 #include <nat20/crypto.h>
 #include <nat20/crypto_bssl/crypto.h>
+#include <nat20/error.h>
+#include <nat20/types.h>
+#include <openssl/base.h>
 #include <openssl/bn.h>
 
 #include <optional>
 #include <variant>
 #include <vector>
-
-#include "openssl/base.h"
 
 uint8_t const test_cdi[] = {
     0xa4, 0x32, 0xb4, 0x34, 0x94, 0x4f, 0x59, 0xcf, 0xdb, 0xf7, 0x04, 0x46, 0x95, 0x9c, 0xee, 0x08,
@@ -330,4 +331,33 @@ TEST_P(RFC6979KGenerationTestP384, Test_rfc6979_k_P_384_generation) {
     auto got_k = std::get<bssl::UniquePtr<BIGNUM>>(result).get();
 
     ASSERT_EQ(0, BN_cmp(k.get(), got_k)) << BN_bn2hex(got_k);
+}
+
+TEST(CryptoBoringsslTest, TestMakeSecretErrors) {
+    n20_crypto_context_t* ctx = nullptr;
+
+    ASSERT_EQ(n20_error_ok_e, n20_crypto_boringssl_open(&ctx));
+
+    ASSERT_EQ(n20_error_crypto_invalid_context_e,
+              n20_crypto_boringssl_make_secret(nullptr, nullptr, nullptr));
+
+    ASSERT_EQ(n20_error_crypto_unexpected_null_data_e,
+              n20_crypto_boringssl_make_secret(ctx, nullptr, nullptr));
+
+    n20_slice_t cdi_slice = {0, const_cast<uint8_t*>(test_cdi)};
+
+    ASSERT_EQ(n20_error_crypto_unexpected_null_data_e,
+              n20_crypto_boringssl_make_secret(ctx, &cdi_slice, nullptr));
+
+    cdi_slice.buffer = nullptr;
+    cdi_slice.size = sizeof(test_cdi);
+
+    ASSERT_EQ(n20_error_crypto_unexpected_null_data_e,
+              n20_crypto_boringssl_make_secret(ctx, &cdi_slice, nullptr));
+
+    cdi_slice.buffer = const_cast<uint8_t*>(test_cdi);
+    ASSERT_EQ(n20_error_crypto_unexpected_null_key_out_e,
+              n20_crypto_boringssl_make_secret(ctx, &cdi_slice, nullptr));
+
+    ASSERT_EQ(n20_error_ok_e, n20_crypto_boringssl_close(ctx));
 }

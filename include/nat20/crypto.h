@@ -717,7 +717,7 @@ struct n20_crypto_context_s {
     /**
      * @brief Destroy a key handle.
      *
-     * Destroys a key handle obtained by calling @ref kdf or an implementaiton
+     * Destroys a key handle obtained by calling @ref kdf or an implementation
      * specific method to create a key handle.
      *
      * Unless an invalid context is given, this function shall not fail.
