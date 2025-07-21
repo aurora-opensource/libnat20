@@ -28,6 +28,8 @@ static uint8_t const nibble2ascii[16] = {
 static void n20_x509_serial_as_hex_content(n20_stream_t *const s, void *ctx) {
     n20_slice_t const *slice = (n20_slice_t const *)ctx;
     if (slice != NULL && slice->buffer != NULL) {
+        /* The overflow is intentional. When i becomes SIZE_MAX,
+         * the loop will terminate naturally even if slice->size is SIZE_MAX. */
         for (size_t i = slice->size - 1; i < slice->size; --i) {
             uint8_t c = slice->buffer[i];
             uint8_t str[2] = {nibble2ascii[c >> 4], nibble2ascii[c & 0x0f]};

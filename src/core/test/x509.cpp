@@ -80,8 +80,9 @@ n20_x509_name_t NAME_WITH_SERIAL = N20_X509_NAME(
 n20_x509_name_t NAME_WITH_NULL_SERIAL =
     N20_X509_NAME({.type = &OID_SERIAL_NUMBER, .bytes = {.size = 5, .buffer = nullptr}});
 
-n20_x509_name_t NAME_WITH_ZERO_SIZED_SERIAL = N20_X509_NAME(
-    {.type = &OID_SERIAL_NUMBER, .bytes = {.size = 0, .buffer = (uint8_t*)"ignored"}});
+n20_x509_name_t NAME_WITH_ZERO_SIZED_SERIAL =
+    N20_X509_NAME({.type = &OID_SERIAL_NUMBER,
+                   .bytes = {.size = 0, .buffer = reinterpret_cast<uint8_t const*>("ignored")}});
 
 std::vector<uint8_t> const ENCODED_NAME_NULL = {0x30, 0x02, 0x05, 0x00};
 std::vector<uint8_t> const ENCODED_NAME_EMPTY = {0x30, 0x00};
