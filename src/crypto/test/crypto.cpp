@@ -18,6 +18,7 @@
 #include <nat20/asn1.h>
 #include <nat20/crypto.h>
 #include <nat20/oid.h>
+#include <nat20/testing/test_utils.h>
 #include <nat20/types.h>
 #include <nat20/x509.h>
 #include <openssl/base.h>
@@ -36,6 +37,7 @@
 #include <vector>
 
 #include "crypto_implementations_to_test.h"
+#include "nat20/error.h"
 #include "test_vectors.h"
 
 #define MAKE_PTR(name) using name##_PTR_t = bssl::UniquePtr<name>
@@ -51,8 +53,63 @@ MAKE_PTR(EC_KEY);
 // printing the test variant name on failure.
 #define N20_ASSERT_EQ(val1, val2) ASSERT_EQ(val1, val2) << "Test variant: " << n20_test_name << " "
 #define N20_ASSERT_LE(val1, val2) ASSERT_LE(val1, val2) << "Test variant: " << n20_test_name << " "
+#define N20_ASSERT_GE(val1, val2) ASSERT_GE(val1, val2) << "Test variant: " << n20_test_name << " "
 #define N20_ASSERT_TRUE(val1) ASSERT_TRUE(val1) << "Test variant: " << n20_test_name << " "
 #define N20_ASSERT_FALSE(val1) ASSERT_FALSE(val1) << "Test variant: " << n20_test_name << " "
+
+template <typename T>
+class CryptoDigestFixture : public ::testing::Test {
+   protected:
+    n20_crypto_context_t* ctx = nullptr;
+    n20_crypto_digest_context_t* digest_ctx = nullptr;
+
+   public:
+    using impl = T;
+
+    template <typename U>
+    std::enable_if_t<std::is_same_v<n20_error_t(n20_crypto_digest_context_t**), decltype(U::open)>,
+                     n20_error_t>
+    open_digest_impl() {
+        return U::open(&digest_ctx);
+    }
+
+    template <typename U>
+    std::enable_if_t<std::is_same_v<n20_error_t(n20_crypto_context_t**), decltype(U::open)>,
+                     n20_error_t>
+    open_digest_impl() {
+        auto rc = U::open(&ctx);
+        if (rc != n20_error_ok_e) {
+            return rc;
+        }
+        digest_ctx = &ctx->digest_ctx;
+        return n20_error_ok_e;
+    }
+
+    template <typename U>
+    std::enable_if_t<std::is_same_v<n20_error_t(n20_crypto_digest_context_t**), decltype(U::open)>,
+                     n20_error_t>
+    close_digest_impl() {
+        auto rc = U::close(digest_ctx);
+        digest_ctx = nullptr;
+        return rc;
+    }
+
+    template <typename U>
+    std::enable_if_t<std::is_same_v<n20_error_t(n20_crypto_context_t**), decltype(U::open)>,
+                     n20_error_t>
+    close_digest_impl() {
+        auto rc = U::close(ctx);
+        ctx = nullptr;
+        digest_ctx = nullptr;
+        return rc;
+    }
+
+    void SetUp() override { ASSERT_EQ(n20_error_ok_e, open_digest_impl<T>()); }
+
+    void TearDown() override { ASSERT_EQ(n20_error_ok_e, close_digest_impl<T>()); }
+};
+
+TYPED_TEST_SUITE_P(CryptoDigestFixture);
 
 template <typename T>
 class CryptoTestFixture : public ::testing::Test {
@@ -86,7 +143,7 @@ TYPED_TEST_P(CryptoTestFixture, OpenClose) {
     ASSERT_EQ(n20_error_ok_e, TypeParam::open(&this->ctx));
 }
 
-TYPED_TEST_P(CryptoTestFixture, SHA2TestVectorTest) {
+TYPED_TEST_P(CryptoDigestFixture, SHA2TestVectorTest) {
     for (auto [n20_test_name, alg, msg, want_digest] : sha2TestVectors) {
         n20_slice_t buffers[]{N20_SLICE_NULL};
         if (msg.size() > 0) {
@@ -96,15 +153,97 @@ TYPED_TEST_P(CryptoTestFixture, SHA2TestVectorTest) {
 
         std::vector<uint8_t> got_digest(want_digest.size());
         size_t got_size = got_digest.size();
-        N20_ASSERT_EQ(
-            n20_error_ok_e,
-            this->ctx->digest(this->ctx, alg, &gather_list, got_digest.data(), &got_size));
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->digest(
+                          this->digest_ctx, alg, &gather_list, 1, got_digest.data(), &got_size));
         N20_ASSERT_EQ(want_digest.size(), got_size);
         N20_ASSERT_EQ(want_digest, got_digest);
     }
 }
 
-TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
+TYPED_TEST_P(CryptoDigestFixture, HmacTest) {
+    for (auto [n20_test_name, alg, key, msg, want_hmac] : hmacTestVectors) {
+
+        n20_slice_t key_slice = {key.size(), key.data()};
+        n20_slice_t msg_slice = {msg.size(), msg.data()};
+
+        n20_crypto_gather_list_t msg_list = {1, &msg_slice};
+
+        std::vector<uint8_t> got_hmac(64);
+        size_t got_hmac_size = got_hmac.size();
+
+        auto rc = this->digest_ctx->hmac(
+            this->digest_ctx, alg, key_slice, &msg_list, got_hmac.data(), &got_hmac_size);
+
+        N20_ASSERT_EQ(rc, n20_error_ok_e);
+        N20_ASSERT_GE(got_hmac_size, want_hmac.size());
+        got_hmac.resize(want_hmac.size());
+        N20_ASSERT_EQ(want_hmac, got_hmac) << "Expected HMAC: " << hex(want_hmac) << std::endl
+                                           << "Actual HMAC: " << hex(got_hmac) << std::endl;
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfTest) {
+    for (auto [n20_test_name, alg, ikm, salt, info, unused_prk, want_key] : hkdfTestVectors) {
+
+        n20_slice_t ikm_slice = {ikm.size(), ikm.data()};
+        n20_slice_t salt_slice = {salt.size(), salt.data()};
+        n20_slice_t info_slice = {info.size(), info.data()};
+
+        std::vector<uint8_t> got_key(want_key.size());
+
+        auto rc = this->digest_ctx->hkdf(this->digest_ctx,
+                                         alg,
+                                         ikm_slice,
+                                         salt_slice,
+                                         info_slice,
+                                         got_key.size(),
+                                         got_key.data());
+
+        N20_ASSERT_EQ(rc, n20_error_ok_e);
+        N20_ASSERT_EQ(want_key, got_key) << "Expected key: " << hex(want_key) << std::endl
+                                         << "Actual key: " << hex(got_key) << std::endl;
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfExtractTest) {
+    for (auto [n20_test_name, alg, ikm, salt, unused_info, want_prk, _want_key] : hkdfTestVectors) {
+
+        n20_slice_t ikm_slice = {ikm.size(), ikm.data()};
+        n20_slice_t salt_slice = {salt.size(), salt.data()};
+
+        std::vector<uint8_t> got_prk(want_prk.size());
+
+        size_t got_size = want_prk.size();
+
+        auto rc = this->digest_ctx->hkdf_extract(
+            this->digest_ctx, alg, ikm_slice, salt_slice, got_prk.data(), &got_size);
+
+        N20_ASSERT_EQ(rc, n20_error_ok_e);
+        N20_ASSERT_EQ(want_prk, got_prk) << "Expected PRK: " << hex(want_prk) << std::endl
+                                         << "Actual PRK: " << hex(got_prk) << std::endl;
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfExpandTest) {
+    for (auto [n20_test_name, alg, unused_ikm, unused_salt, info, prk, want_key] :
+         hkdfTestVectors) {
+
+        n20_slice_t info_slice = {info.size(), info.data()};
+        n20_slice_t prk_slice = {prk.size(), prk.data()};
+
+        std::vector<uint8_t> got_key(want_key.size());
+
+        auto rc = this->digest_ctx->hkdf_expand(
+            this->digest_ctx, alg, prk_slice, info_slice, want_key.size(), got_key.data());
+
+        N20_ASSERT_EQ(rc, n20_error_ok_e);
+        N20_ASSERT_EQ(want_key, got_key) << "Expected key: " << hex(want_key) << std::endl
+                                         << "Actual key: " << hex(got_key) << std::endl;
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, DigestBufferSizeTest) {
     size_t got_size = 0;
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t, size_t>;
 
@@ -118,8 +257,9 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
         // If null is given as output buffer, the function must return
         // the required buffer size for the algorithm.
         // It must also tolerate that nullptr is passed as msg.
-        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
-                      this->ctx->digest(this->ctx, alg, nullptr, nullptr, &got_size));
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, nullptr, &got_size));
         N20_ASSERT_EQ(want_size, got_size);
 
         // If the output buffer given is too small, the correct
@@ -128,8 +268,9 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
         got_size = 4;
         std::vector<uint8_t> const want_buffer = {0xde, 0xad, 0xbe, 0xef};
         std::vector<uint8_t> buffer = want_buffer;
-        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
-                      this->ctx->digest(this->ctx, alg, nullptr, buffer.data(), &got_size));
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, buffer.data(), &got_size));
         N20_ASSERT_EQ(want_size, got_size);
         N20_ASSERT_EQ(want_buffer, buffer);
 
@@ -143,13 +284,14 @@ TYPED_TEST_P(CryptoTestFixture, DigestBufferSizeTest) {
         n20_slice_t buffers[]{N20_SLICE_NULL};
         n20_crypto_gather_list_t msg = {1, buffers};
 
-        N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, &msg, 1, buffer.data(), &got_size));
         N20_ASSERT_EQ(want_size, got_size);
     }
 }
 
-TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
+TYPED_TEST_P(CryptoDigestFixture, DigestErrorsTest) {
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
     for (auto [n20_test_name, alg] : {
              tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
@@ -159,36 +301,61 @@ TYPED_TEST_P(CryptoTestFixture, DigestErrorsTest) {
          }) {
         // Digest must return invalid context if nullptr is given as context.
         N20_ASSERT_EQ(n20_error_crypto_invalid_context_e,
-                      this->ctx->digest(nullptr, alg, nullptr, nullptr, nullptr));
+                      this->digest_ctx->digest(nullptr, alg, nullptr, 0, nullptr, nullptr));
+
+        // Must return n20_error_crypto_unknown_algorithm_e if an unknown
+        // algorithm is given.
+        N20_ASSERT_EQ(
+            n20_error_crypto_unknown_algorithm_e,
+            this->digest_ctx->digest(
+                this->digest_ctx, (n20_crypto_digest_algorithm_t)-1, nullptr, 0, nullptr, nullptr));
 
         // Must return n20_error_crypto_unexpected_null_size_e if a valid context
         // was given but no digest_size_in_out.
-        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_size_e,
-                      this->ctx->digest(this->ctx, alg, nullptr, nullptr, nullptr));
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_size_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, nullptr, nullptr));
 
+        // Must return n20_error_crypto_insufficient_buffer_size_e if a valid context,
+        // algorithm, and size pointer was given, but digest_out is NULL.
+        size_t got_size = 1000;
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, nullptr, &got_size));
+
+        // Must return n20_error_crypto_insufficient_buffer_size_e if a valid context,
+        // algorithm, size, and out buffer was given but the size was too small.
+        auto buffer = std::vector<uint8_t>(80);
+        got_size = 4;
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, buffer.data(), &got_size));
+
+        got_size = buffer.size();
         // Must return n20_error_crypto_unexpected_null_data_e if sufficient
         // buffer given, but no message.
-        auto buffer = std::vector<uint8_t>(80);
-        size_t got_size = buffer.size();
-        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_data_e,
-                      this->ctx->digest(this->ctx, alg, nullptr, buffer.data(), &got_size));
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_data_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, nullptr, 0, buffer.data(), &got_size));
 
         // Must return n20_error_crypto_unexpected_null_list_e if
         // the gatherlist buffer count is not 0 but the list is NULL.
         n20_crypto_gather_list_t msg = {1, nullptr};
-        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_list_e,
-                      this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_list_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, &msg, 1, buffer.data(), &got_size));
 
         // Must return n20_error_crypto_unexpected_null_slice_e if a buffer in
         // the message has a size but nullptr buffer.
         n20_slice_t buffers[]{3, nullptr};
         msg.list = buffers;
-        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_slice_e,
-                      this->ctx->digest(this->ctx, alg, &msg, buffer.data(), &got_size));
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_slice_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, &msg, 1, buffer.data(), &got_size));
     }
 }
 
-TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
+TYPED_TEST_P(CryptoDigestFixture, DigestSkipEmpty) {
     using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t, size_t>;
     for (auto [n20_test_name, alg, want_size] : {
              tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e, 28},
@@ -206,43 +373,547 @@ TYPED_TEST_P(CryptoTestFixture, DigestSkipEmpty) {
         // We are digesting the message "foobar" in a roundabout way.
         // First we split it up into {"foo", "bar", ""}.
         n20_slice_t buffers[3]{{sizeof msg1, msg1}, {sizeof msg2, msg2}, N20_SLICE_NULL};
-        n20_crypto_gather_list_t msg = {3, buffers};
+        n20_crypto_gather_list_t msg[2] = {{3, buffers}, {0, nullptr}};
 
         N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
+                      this->digest_ctx->digest(
+                          this->digest_ctx, alg, msg, 1, got_digest.data(), &got_digest_size));
 
         // Save the first result to compare it with the following computations.
-        auto want_digest = got_digest;
+        auto want_digest = std::move(got_digest);
+        got_digest.resize(want_size);
 
         // Change the message gather list to {"foo", "", "bar"}.
         buffers[2] = buffers[1];
         buffers[1] = N20_SLICE_NULL;
 
         N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
+                      this->digest_ctx->digest(
+                          this->digest_ctx, alg, msg, 1, got_digest.data(), &got_digest_size));
 
         // Must result in the same digest as the first computation.
         N20_ASSERT_EQ(want_digest, got_digest);
+
+        // Zero result buffer to make sure the function actually writes to
+        // it and does not just return the previously computed digest.
+        got_digest.assign(want_size, 0);
 
         // Change the message gather list to {"", "foo", "bar"}.
         buffers[1] = buffers[0];
         buffers[0] = N20_SLICE_NULL;
 
         N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
+                      this->digest_ctx->digest(
+                          this->digest_ctx, alg, msg, 1, got_digest.data(), &got_digest_size));
 
         // Must result in the same digest as the first computation.
         N20_ASSERT_EQ(want_digest, got_digest);
+
+        // Zero result buffer to make sure the function actually writes to
+        // it and does not just return the previously computed digest.
+        got_digest.assign(want_size, 0);
 
         // This test checks that the buffer pointer has no impact if size is 0
         // even if not null.
-        buffers[0] = N20_SLICE_NULL;
+        buffers[0] = {0, (uint8_t*)"snafu"};
 
         N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->digest(this->ctx, alg, &msg, got_digest.data(), &got_digest_size));
+                      this->digest_ctx->digest(
+                          this->digest_ctx, alg, msg, 1, got_digest.data(), &got_digest_size));
 
         // Must result in the same digest as the first computation.
         N20_ASSERT_EQ(want_digest, got_digest);
+
+        // Zero result buffer to make sure the function actually writes to
+        // it and does not just return the previously computed digest.
+        got_digest.assign(want_size, 0);
+
+        // This test checks that the second gather list element
+        // is skipped if it has a size of 0.
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->digest(
+                          this->digest_ctx, alg, msg, 2, got_digest.data(), &got_digest_size));
+
+        // Must result in the same digest as the first computation.
+        N20_ASSERT_EQ(want_digest, got_digest);
+
+        // Zero result buffer to make sure the function actually writes to
+        // it and does not just return the previously computed digest.
+        got_digest.assign(want_size, 0);
+
+        // This test checks that the first gather list element
+        // is skipped if it has a size of 0.
+        msg[1] = msg[0];
+        msg[0].list = nullptr;
+        msg[0].count = 0;
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->digest(
+                          this->digest_ctx, alg, msg, 2, got_digest.data(), &got_digest_size));
+
+        // Must result in the same digest as the first computation.
+        N20_ASSERT_EQ(want_digest, got_digest);
+    }
+}
+
+// This test checks that the digest function correctly concatenates multiple
+// gather lists and computes the digest over the concatenated data.
+TYPED_TEST_P(CryptoDigestFixture, DigestMultipleGatherLists) {
+    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t, size_t>;
+    for (auto [n20_test_name, alg, want_size] : {
+             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e, 28},
+             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e, 32},
+             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e, 48},
+             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e, 64},
+         }) {
+
+        // This test checks that the digest function correctly concatenates multiple
+        // gather lists and computes the digest over the concatenated data.
+        n20_slice_t buffers1[2] = {
+            {3, (uint8_t*)"foo"},
+            {3, (uint8_t*)"bar"},
+        };
+
+        n20_slice_t buffers2[2] = {
+            {0, (uint8_t*)"foo"},
+            {0, (uint8_t*)"bar"},
+        };
+
+        n20_crypto_gather_list_t msg[2] = {
+            {2, buffers1},  // First gather list with "foobar"
+            {2, buffers2},  // Second gather list with empty slices
+        };
+
+        std::vector<uint8_t> got_digest(want_size);
+        size_t got_size = want_size;
+
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, msg, 2, got_digest.data(), &got_size));
+        N20_ASSERT_EQ(want_size, got_size);
+
+        auto want_digest = std::move(got_digest);
+        got_digest.resize(want_size);
+
+        // Now we change the second gather list to {"foo", "bar"}.
+        // and the first to {"", ""}.
+        buffers1[0].size = 0;
+        buffers1[1].size = 0;
+        buffers2[0].size = 3;
+        buffers2[1].size = 3;
+
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, msg, 2, got_digest.data(), &got_size));
+        N20_ASSERT_EQ(want_size, got_size);
+
+        // The digest must be the same as if we had concatenated the two gather lists.
+        N20_ASSERT_EQ(want_digest, got_digest);
+
+        // Zero result buffer to make sure the function actually writes to
+        // it and does not just return the previously computed digest.
+        got_digest.assign(want_size, 0);
+
+        // This test checks that the digest function correctly concatenates multiple
+        // gather lists and computes the digest over the concatenated data.
+        buffers2[0].size = 0;
+        buffers1[0].size = 3;
+
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->digest_ctx->digest(this->digest_ctx, alg, msg, 2, got_digest.data(), &got_size));
+        N20_ASSERT_EQ(want_size, got_size);
+
+        // The digest must be the same as if we had concatenated the two gather lists.
+        N20_ASSERT_EQ(want_digest, got_digest);
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HmacErrorsTest) {
+    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
+    for (auto [n20_test_name, alg] : {
+             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
+             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e},
+             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e},
+             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e},
+         }) {
+        n20_slice_t key = {0, nullptr};
+        n20_crypto_gather_list_t msg = {1, nullptr};
+        std::vector<uint8_t> buffer(80);
+        size_t mac_size = buffer.size();
+
+        // Invalid context
+        N20_ASSERT_EQ(n20_error_crypto_invalid_context_e,
+                      this->digest_ctx->hmac(nullptr, alg, key, nullptr, nullptr, nullptr));
+
+        // Unexpected null size
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_size_e,
+            this->digest_ctx->hmac(this->digest_ctx, alg, key, nullptr, nullptr, nullptr));
+
+        // Unknown algorithm
+        N20_ASSERT_EQ(n20_error_crypto_unknown_algorithm_e,
+                      this->digest_ctx->hmac(this->digest_ctx,
+                                             (n20_crypto_digest_algorithm_t)-1,
+                                             key,
+                                             nullptr,
+                                             nullptr,
+                                             &mac_size));
+
+        // Unexpected null slice key
+        n20_slice_t bad_key = {4, nullptr};
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_slice_key_e,
+            this->digest_ctx->hmac(this->digest_ctx, alg, bad_key, nullptr, nullptr, &mac_size));
+
+        // Insufficient buffer size (mac_out is NULL)
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->hmac(this->digest_ctx, alg, key, nullptr, nullptr, &mac_size));
+
+        // Insufficient buffer size (mac_size_in_out too small)
+        mac_size = 4;
+        std::vector<uint8_t> want_buffer = {0xde, 0xad, 0xbe, 0xef};
+        std::vector<uint8_t> mac_buffer = want_buffer;
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
+                      this->digest_ctx->hmac(
+                          this->digest_ctx, alg, key, nullptr, mac_buffer.data(), &mac_size));
+        N20_ASSERT_EQ(want_buffer, mac_buffer);
+
+        // Unexpected null data (msg_in is NULL, not querying size)
+        mac_size = buffer.size();
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_data_e,
+            this->digest_ctx->hmac(this->digest_ctx, alg, key, nullptr, buffer.data(), &mac_size));
+
+        // Unexpected null list
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_list_e,
+            this->digest_ctx->hmac(this->digest_ctx, alg, key, &msg, buffer.data(), &mac_size));
+
+        // Unexpected null slice in gather list
+        n20_slice_t msg_buffers[] = {{3, nullptr}};
+        msg.list = msg_buffers;
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_slice_e,
+            this->digest_ctx->hmac(this->digest_ctx, alg, key, &msg, buffer.data(), &mac_size));
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HmacSkipEmpty) {
+    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t, size_t>;
+    for (auto [n20_test_name, alg, want_size] : {
+             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e, 28},
+             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e, 32},
+             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e, 48},
+             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e, 64},
+         }) {
+
+        uint8_t key_bytes[] = {'k', 'e', 'y'};
+        n20_slice_t key = {sizeof key_bytes, key_bytes};
+
+        uint8_t msg1[] = {'f', 'o', 'o'};
+        uint8_t msg2[] = {'b', 'a', 'r'};
+
+        std::vector<uint8_t> got_mac(want_size);
+        size_t got_mac_size = want_size;
+
+        // HMAC over "foobar" split as {"foo", "bar", ""}
+        n20_slice_t buffers[3]{{sizeof msg1, msg1}, {sizeof msg2, msg2}, N20_SLICE_NULL};
+        n20_crypto_gather_list_t msg = {3, buffers};
+
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->hmac(
+                          this->digest_ctx, alg, key, &msg, got_mac.data(), &got_mac_size));
+
+        // Save the first result to compare it with the following computations.
+        auto want_mac = std::move(got_mac);
+        got_mac.resize(want_size);
+
+        // Change gather list to {"foo", "", "bar"}
+        buffers[2] = buffers[1];
+        buffers[1] = N20_SLICE_NULL;
+
+        got_mac_size = want_size;
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->hmac(
+                          this->digest_ctx, alg, key, &msg, got_mac.data(), &got_mac_size));
+        N20_ASSERT_EQ(want_mac, got_mac);
+
+        // Zero result buffer to make sure the function actually writes to
+        // it and does not just return the previously computed HMAC.
+        got_mac.assign(want_size, 0);
+        // Change gather list to {"", "foo", "bar"}
+        buffers[1] = buffers[0];
+        buffers[0] = N20_SLICE_NULL;
+
+        got_mac_size = want_size;
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->hmac(
+                          this->digest_ctx, alg, key, &msg, got_mac.data(), &got_mac_size));
+        N20_ASSERT_EQ(want_mac, got_mac);
+
+        // Zero result buffer to make sure the function actually writes to
+        // it and does not just return the previously computed HMAC.
+        got_mac.assign(want_size, 0);
+
+        // Test that buffer pointer is ignored if size is 0, even if not null
+        buffers[0] = {0, (uint8_t*)"snafu"};
+
+        got_mac_size = want_size;
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->hmac(
+                          this->digest_ctx, alg, key, &msg, got_mac.data(), &got_mac_size));
+        N20_ASSERT_EQ(want_mac, got_mac);
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HmacBufferSizeTest) {
+    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t, size_t>;
+
+    for (auto [n20_test_name, alg, want_size] : {
+             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e, 28},
+             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e, 32},
+             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e, 48},
+             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e, 64},
+         }) {
+
+        uint8_t key_bytes[] = {'k', 'e', 'y'};
+        n20_slice_t key = {sizeof key_bytes, key_bytes};
+
+        uint8_t msg_bytes[] = {'f', 'o', 'o', 'b', 'a', 'r'};
+        n20_slice_t buffers[] = {{sizeof msg_bytes, msg_bytes}};
+        n20_crypto_gather_list_t msg = {1, buffers};
+
+        // Make the buffer larger than required.
+        std::vector<uint8_t> mac(want_size + 4);
+        size_t mac_size = want_size + 4;
+
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->digest_ctx->hmac(this->digest_ctx, alg, key, &msg, mac.data(), &mac_size));
+        // The output buffer must be truncated to the required size.
+        N20_ASSERT_EQ(want_size, mac_size);
+
+        mac_size -= 4;  // Make the buffer too small.
+        mac.assign(want_size + 4, 0);
+
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->hmac(this->digest_ctx, alg, key, &msg, mac.data(), &mac_size));
+        // The output buffer must be set to the required size.
+        N20_ASSERT_EQ(want_size, mac_size);
+        // The output buffer remains unchanged.
+        N20_ASSERT_EQ(std::vector<uint8_t>(want_size + 4, 0), mac);
+
+        mac_size = 0;
+
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
+                      this->digest_ctx->hmac(this->digest_ctx, alg, key, &msg, nullptr, &mac_size));
+        // The output buffer must be set to the required size.
+        N20_ASSERT_EQ(want_size, mac_size);
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfErrorsTest) {
+    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
+    for (auto [n20_test_name, alg] : {
+             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
+             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e},
+             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e},
+             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e},
+         }) {
+        n20_slice_t ikm = {0, nullptr};
+        n20_slice_t salt = {0, nullptr};
+        n20_slice_t info = {0, nullptr};
+        std::vector<uint8_t> buffer(80);
+
+        // Invalid context
+        N20_ASSERT_EQ(
+            n20_error_crypto_invalid_context_e,
+            this->digest_ctx->hkdf(nullptr, alg, ikm, salt, info, buffer.size(), buffer.data()));
+
+        // Unknown algorithm
+        N20_ASSERT_EQ(n20_error_crypto_unknown_algorithm_e,
+                      this->digest_ctx->hkdf(this->digest_ctx,
+                                             (n20_crypto_digest_algorithm_t)-1,
+                                             ikm,
+                                             salt,
+                                             info,
+                                             buffer.size(),
+                                             buffer.data()));
+
+        // Unexpected null slice ikm
+        n20_slice_t bad_ikm = {4, nullptr};
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_slice_ikm_e,
+            this->digest_ctx->hkdf(
+                this->digest_ctx, alg, bad_ikm, salt, info, buffer.size(), buffer.data()));
+
+        // Unexpected null slice salt
+        n20_slice_t bad_salt = {4, nullptr};
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_slice_salt_e,
+            this->digest_ctx->hkdf(
+                this->digest_ctx, alg, ikm, bad_salt, info, buffer.size(), buffer.data()));
+
+        // Unexpected null slice info
+        n20_slice_t bad_info = {4, nullptr};
+        N20_ASSERT_EQ(
+            n20_error_crypto_unexpected_null_slice_info_e,
+            this->digest_ctx->hkdf(
+                this->digest_ctx, alg, ikm, salt, bad_info, buffer.size(), buffer.data()));
+
+        // Insufficient buffer size (key_out is NULL and key_octets_in != 0)
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->hkdf(this->digest_ctx, alg, ikm, salt, info, buffer.size(), nullptr));
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfExtractErrorsTest) {
+    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
+    for (auto [n20_test_name, alg] : {
+             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
+             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e},
+             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e},
+             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e},
+         }) {
+        n20_slice_t ikm = {0, nullptr};
+        n20_slice_t salt = {0, nullptr};
+        std::vector<uint8_t> buffer(80);
+        size_t prk_size = buffer.size();
+
+        // Invalid context
+        N20_ASSERT_EQ(
+            n20_error_crypto_invalid_context_e,
+            this->digest_ctx->hkdf_extract(nullptr, alg, ikm, salt, buffer.data(), &prk_size));
+
+        // Unknown algorithm
+        N20_ASSERT_EQ(n20_error_crypto_unknown_algorithm_e,
+                      this->digest_ctx->hkdf_extract(this->digest_ctx,
+                                                     (n20_crypto_digest_algorithm_t)-1,
+                                                     ikm,
+                                                     salt,
+                                                     buffer.data(),
+                                                     &prk_size));
+
+        // Unexpected null slice ikm
+        n20_slice_t bad_ikm = {4, nullptr};
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_slice_ikm_e,
+                      this->digest_ctx->hkdf_extract(
+                          this->digest_ctx, alg, bad_ikm, salt, buffer.data(), &prk_size));
+
+        // Unexpected null slice salt
+        n20_slice_t bad_salt = {4, nullptr};
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_slice_salt_e,
+                      this->digest_ctx->hkdf_extract(
+                          this->digest_ctx, alg, ikm, bad_salt, buffer.data(), &prk_size));
+
+        // Insufficient buffer size (prk_out is NULL)
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->hkdf_extract(this->digest_ctx, alg, ikm, salt, nullptr, &prk_size));
+
+        // Insufficient buffer size (prk_size_in_out too small)
+        prk_size = 4;
+        std::vector<uint8_t> want_buffer = {0xde, 0xad, 0xbe, 0xef};
+        std::vector<uint8_t> prk_buffer = want_buffer;
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
+                      this->digest_ctx->hkdf_extract(
+                          this->digest_ctx, alg, ikm, salt, prk_buffer.data(), &prk_size));
+        N20_ASSERT_EQ(want_buffer, prk_buffer);
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfExtractBufferSizeTest) {
+    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t, size_t>;
+
+    for (auto [n20_test_name, alg, want_size] : {
+             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e, 28},
+             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e, 32},
+             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e, 48},
+             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e, 64},
+         }) {
+
+        uint8_t key_bytes[] = {'k', 'e', 'y'};
+        n20_slice_t key = {sizeof key_bytes, key_bytes};
+
+        uint8_t salt_bytes[] = {'f', 'o', 'o', 'b', 'a', 'r'};
+        n20_slice_t salt = {sizeof salt_bytes, salt_bytes};
+
+        // Make the buffer larger than required.
+        std::vector<uint8_t> prk(want_size + 4);
+        size_t prk_size = want_size + 4;
+
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->digest_ctx->hkdf_extract(
+                          this->digest_ctx, alg, key, salt, prk.data(), &prk_size));
+        // The output buffer must be truncated to the required size.
+        N20_ASSERT_EQ(want_size, prk_size);
+
+        prk_size -= 4;  // Make the buffer too small.
+        prk.assign(want_size + 4, 0);
+
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
+                      this->digest_ctx->hkdf_extract(
+                          this->digest_ctx, alg, key, salt, prk.data(), &prk_size));
+        // The output buffer must be set to the required size.
+        N20_ASSERT_EQ(want_size, prk_size);
+        // The output buffer remains unchanged.
+        N20_ASSERT_EQ(std::vector<uint8_t>(want_size + 4, 0), prk);
+
+        prk_size = 0;
+
+        N20_ASSERT_EQ(
+            n20_error_crypto_insufficient_buffer_size_e,
+            this->digest_ctx->hkdf_extract(this->digest_ctx, alg, key, salt, nullptr, &prk_size));
+        // The output buffer must be set to the required size.
+        N20_ASSERT_EQ(want_size, prk_size);
+    }
+}
+
+TYPED_TEST_P(CryptoDigestFixture, HkdfExpandErrorsTest) {
+    using tc = std::tuple<std::string, n20_crypto_digest_algorithm_t>;
+    for (auto [n20_test_name, alg] : {
+             tc{"sha224", n20_crypto_digest_algorithm_sha2_224_e},
+             tc{"sha256", n20_crypto_digest_algorithm_sha2_256_e},
+             tc{"sha384", n20_crypto_digest_algorithm_sha2_384_e},
+             tc{"sha512", n20_crypto_digest_algorithm_sha2_512_e},
+         }) {
+        n20_slice_t prk = {0, nullptr};
+        n20_slice_t info = {0, nullptr};
+        std::vector<uint8_t> buffer(80);
+
+        // Invalid context
+        N20_ASSERT_EQ(
+            n20_error_crypto_invalid_context_e,
+            this->digest_ctx->hkdf_expand(nullptr, alg, prk, info, buffer.size(), buffer.data()));
+
+        // Unknown algorithm
+        N20_ASSERT_EQ(n20_error_crypto_unknown_algorithm_e,
+                      this->digest_ctx->hkdf_expand(this->digest_ctx,
+                                                    (n20_crypto_digest_algorithm_t)-1,
+                                                    prk,
+                                                    info,
+                                                    buffer.size(),
+                                                    buffer.data()));
+
+        // Unexpected null slice prk
+        n20_slice_t bad_prk = {4, nullptr};
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_slice_prk_e,
+                      this->digest_ctx->hkdf_expand(
+                          this->digest_ctx, alg, bad_prk, info, buffer.size(), buffer.data()));
+
+        // Unexpected null slice info
+        n20_slice_t bad_info = {4, nullptr};
+        N20_ASSERT_EQ(n20_error_crypto_unexpected_null_slice_info_e,
+                      this->digest_ctx->hkdf_expand(
+                          this->digest_ctx, alg, prk, bad_info, buffer.size(), buffer.data()));
+
+        // Insufficient buffer size (key_out is NULL and key_octets_in != 0)
+        N20_ASSERT_EQ(n20_error_crypto_insufficient_buffer_size_e,
+                      this->digest_ctx->hkdf_expand(
+                          this->digest_ctx, alg, prk, info, buffer.size(), nullptr));
     }
 }
 
@@ -398,7 +1069,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
 
         // Derive a different key for a negative check.
         // This turns the context into "this context is the other".
-        context.list[1].size = 0;
+        context_buffers[1].size = 0;
         n20_crypto_key_t derived_key_other;
         N20_ASSERT_EQ(n20_error_ok_e,
                       this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_other));
@@ -710,12 +1381,26 @@ TYPED_TEST_P(CryptoTestFixture, KeyFreeErrorsTest) {
     ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, nullptr));
 }
 
-REGISTER_TYPED_TEST_SUITE_P(CryptoTestFixture,
-                            OpenClose,
-                            SHA2TestVectorTest,
+REGISTER_TYPED_TEST_SUITE_P(CryptoDigestFixture,
                             DigestBufferSizeTest,
                             DigestErrorsTest,
                             DigestSkipEmpty,
+                            DigestMultipleGatherLists,
+                            SHA2TestVectorTest,
+                            HmacTest,
+                            HkdfTest,
+                            HkdfExtractTest,
+                            HkdfExpandTest,
+                            HmacErrorsTest,
+                            HmacSkipEmpty,
+                            HmacBufferSizeTest,
+                            HkdfErrorsTest,
+                            HkdfExtractErrorsTest,
+                            HkdfExtractBufferSizeTest,
+                            HkdfExpandErrorsTest);
+
+REGISTER_TYPED_TEST_SUITE_P(CryptoTestFixture,
+                            OpenClose,
                             KDFTest,
                             GetCDIErrorsTest,
                             KDFErrorsTest,
@@ -723,10 +1408,19 @@ REGISTER_TYPED_TEST_SUITE_P(CryptoTestFixture,
                             GetPublicKeyErrorsTest,
                             KeyFreeErrorsTest);
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CryptoDigestFixture);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CryptoTestFixture);
+
+using DigestCryptoImplementationsToTest =
+    ConcatenateTestLists<FullCryptoImplementationsToTest,
+                         DigestOnlyCryptoImplementationsToTest>::type;
 
 #ifdef N20_CONFIG_ENABLE_CRYPTO_TEST_IMPL
 
-INSTANTIATE_TYPED_TEST_SUITE_P(AllCryptoTest, CryptoTestFixture, CryptoImplementationsToTest);
+INSTANTIATE_TYPED_TEST_SUITE_P(CryptoTest, CryptoTestFixture, FullCryptoImplementationsToTest);
+
+INSTANTIATE_TYPED_TEST_SUITE_P(DigestCryptoTest,
+                               CryptoDigestFixture,
+                               DigestCryptoImplementationsToTest);
 
 #endif

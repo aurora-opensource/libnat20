@@ -17,6 +17,7 @@
 #include <nat20/crypto.h>
 #include <nat20/crypto_bssl/crypto.h>
 #include <nat20/error.h>
+#include <nat20/types.h>
 #include <openssl/base.h>
 #include <openssl/bn.h>
 #include <openssl/digest.h>
@@ -108,17 +109,14 @@ static size_t digest_enum_to_size(n20_crypto_digest_algorithm_t alg_in) {
     }
 }
 
-static n20_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_s* ctx,
+static n20_error_t n20_crypto_boringssl_digest(n20_crypto_digest_context_t* ctx,
                                                n20_crypto_digest_algorithm_t alg_in,
                                                n20_crypto_gather_list_t const* msg_in,
+                                               size_t msg_count,
                                                uint8_t* digest_out,
                                                size_t* digest_size_in_out) {
     if (ctx == nullptr) {
         return n20_error_crypto_invalid_context_e;
-    }
-
-    if (digest_size_in_out == nullptr) {
-        return n20_error_crypto_unexpected_null_size_e;
     }
 
     EVP_MD const* md = digest_enum_to_bssl_evp_md(alg_in);
@@ -126,6 +124,10 @@ static n20_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_s* ctx,
         return n20_error_crypto_unknown_algorithm_e;
     }
     size_t digest_size = digest_enum_to_size(alg_in);
+
+    if (digest_size_in_out == nullptr) {
+        return n20_error_crypto_unexpected_null_size_e;
+    }
 
     // If the provided buffer size is too small or no buffer was provided
     // set the required buffer size and return
@@ -152,12 +154,19 @@ static n20_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_s* ctx,
         return n20_error_crypto_no_resources_e;
     }
 
-    for (size_t i = 0; i < msg_in->count; ++i) {
-        if (msg_in->list[i].size == 0) continue;
-        if (msg_in->list[i].buffer == nullptr) {
-            return n20_error_crypto_unexpected_null_slice_e;
+    for (size_t list_index = 0; list_index < msg_count; ++list_index) {
+        if (msg_in[list_index].count == 0 || msg_in[list_index].list == nullptr) {
+            continue;  // Skip empty gather lists
         }
-        EVP_DigestUpdate(md_ctx.get(), msg_in->list[i].buffer, msg_in->list[i].size);
+        for (size_t slice_index = 0; slice_index < msg_in[list_index].count; ++slice_index) {
+            if (msg_in[list_index].list[slice_index].size == 0) continue;
+            if (msg_in[list_index].list[slice_index].buffer == nullptr) {
+                return n20_error_crypto_unexpected_null_slice_e;
+            }
+            EVP_DigestUpdate(md_ctx.get(),
+                             msg_in[list_index].list[slice_index].buffer,
+                             msg_in[list_index].list[slice_index].size);
+        }
     }
 
     unsigned int out_size = *digest_size_in_out;
@@ -166,6 +175,194 @@ static n20_error_t n20_crypto_boringssl_digest(struct n20_crypto_context_s* ctx,
 
     *digest_size_in_out = out_size;
 
+    return n20_error_ok_e;
+}
+
+n20_error_t n20_crypto_boringssl_hmac(n20_crypto_digest_context_t* ctx,
+                                      n20_crypto_digest_algorithm_t alg_in,
+                                      n20_slice_t const key,
+                                      n20_crypto_gather_list_t const* msg_in,
+                                      uint8_t* mac_out,
+                                      size_t* mac_size_in_out) {
+
+    if (ctx == NULL) {
+        return n20_error_crypto_invalid_context_e;
+    }
+    if (mac_size_in_out == NULL) {
+        return n20_error_crypto_unexpected_null_size_e;
+    }
+    auto hmac_ctx = HMAC_CTX_PTR_t(HMAC_CTX_new());
+    if (hmac_ctx == nullptr) {
+        return n20_error_crypto_no_resources_e;
+    }
+
+    auto md = digest_enum_to_bssl_evp_md(alg_in);
+    if (md == nullptr) {
+        return n20_error_crypto_unknown_algorithm_e;
+    }
+
+    if (key.buffer == nullptr && key.size != 0) {
+        return n20_error_crypto_unexpected_null_slice_key_e;
+    }
+
+    size_t digest_size = digest_enum_to_size(alg_in);
+    // If the provided buffer size is too small or no buffer was provided
+    // set the required buffer size and return
+    // n20_error_crypto_insufficient_buffer_size_e.
+    if (digest_size > *mac_size_in_out || mac_out == nullptr) {
+        *mac_size_in_out = digest_size;
+        return n20_error_crypto_insufficient_buffer_size_e;
+    }
+
+    if (msg_in == nullptr) {
+        return n20_error_crypto_unexpected_null_data_e;
+    }
+
+    if (msg_in->count != 0 && msg_in->list == nullptr) {
+        return n20_error_crypto_unexpected_null_list_e;
+    }
+
+    if (!HMAC_Init_ex(hmac_ctx.get(), key.buffer, key.size, md, nullptr)) {
+        return n20_error_crypto_no_resources_e;
+    }
+
+    for (size_t j = 0; j < msg_in->count; ++j) {
+        if (msg_in->list[j].size == 0) continue;
+        if (msg_in->list[j].buffer == nullptr) {
+            return n20_error_crypto_unexpected_null_slice_e;
+        }
+        HMAC_Update(hmac_ctx.get(), msg_in->list[j].buffer, msg_in->list[j].size);
+    }
+
+    unsigned int out_size = *mac_size_in_out;
+    if (!HMAC_Final(hmac_ctx.get(), mac_out, &out_size)) {
+        return n20_error_crypto_implementation_specific_e;
+    }
+    *mac_size_in_out = out_size;
+    return n20_error_ok_e;
+}
+
+n20_error_t n20_crypto_boringssl_hkdf(n20_crypto_digest_context_t* ctx,
+                                      n20_crypto_digest_algorithm_t alg_in,
+                                      n20_slice_t const ikm,
+                                      n20_slice_t const salt,
+                                      n20_slice_t const info,
+                                      size_t key_octets,
+                                      uint8_t* out) {
+    if (ctx == NULL) {
+        return n20_error_crypto_invalid_context_e;
+    }
+
+    auto md = digest_enum_to_bssl_evp_md(alg_in);
+    if (md == nullptr) {
+        return n20_error_crypto_unknown_algorithm_e;
+    }
+
+    if (ikm.buffer == NULL && ikm.size != 0) {
+        return n20_error_crypto_unexpected_null_slice_ikm_e;
+    }
+
+    if (salt.buffer == NULL && salt.size != 0) {
+        return n20_error_crypto_unexpected_null_slice_salt_e;
+    }
+
+    if (info.buffer == NULL && info.size != 0) {
+        return n20_error_crypto_unexpected_null_slice_info_e;
+    }
+
+    if (key_octets != 0 && out == NULL) {
+        return n20_error_crypto_insufficient_buffer_size_e;
+    }
+
+    if (!HKDF(out,
+              key_octets,
+              md,
+              ikm.buffer,
+              ikm.size,
+              salt.buffer,
+              salt.size,
+              info.buffer,
+              info.size)) {
+        return n20_error_crypto_implementation_specific_e;
+    }
+
+    return n20_error_ok_e;
+}
+
+n20_error_t n20_crypto_boringssl_hkdf_extract(n20_crypto_digest_context_t* ctx,
+                                              n20_crypto_digest_algorithm_t alg_in,
+                                              n20_slice_t const ikm,
+                                              n20_slice_t const salt,
+                                              uint8_t* prk,
+                                              size_t* prk_size_in_out) {
+    if (ctx == NULL) {
+        return n20_error_crypto_invalid_context_e;
+    }
+
+    auto md = digest_enum_to_bssl_evp_md(alg_in);
+    if (md == nullptr) {
+        return n20_error_crypto_unknown_algorithm_e;
+    }
+
+    if (ikm.buffer == NULL && ikm.size != 0) {
+        return n20_error_crypto_unexpected_null_slice_ikm_e;
+    }
+
+    if (salt.buffer == NULL && salt.size != 0) {
+        return n20_error_crypto_unexpected_null_slice_salt_e;
+    }
+
+    if (prk_size_in_out == NULL) {
+        return n20_error_crypto_unexpected_null_size_e;
+    }
+
+    auto digest_size = digest_enum_to_size(alg_in);
+    if (*prk_size_in_out < digest_size || prk == NULL) {
+        *prk_size_in_out = digest_size;
+        return n20_error_crypto_insufficient_buffer_size_e;
+    }
+
+    if (!HKDF_extract(prk, prk_size_in_out, md, ikm.buffer, ikm.size, salt.buffer, salt.size)) {
+        return n20_error_crypto_implementation_specific_e;
+    }
+
+    return n20_error_ok_e;
+}
+
+n20_error_t n20_crypto_boringssl_hkdf_expand(n20_crypto_digest_context_t* ctx,
+                                             n20_crypto_digest_algorithm_t alg_in,
+                                             n20_slice_t const prk,
+                                             n20_slice_t const info,
+                                             size_t key_octets,
+                                             uint8_t* out) {
+    if (ctx == NULL) {
+        return n20_error_crypto_invalid_context_e;
+    }
+
+    auto md = digest_enum_to_bssl_evp_md(alg_in);
+    if (md == nullptr) {
+        return n20_error_crypto_unknown_algorithm_e;
+    }
+
+    if (prk.buffer == NULL && prk.size != 0) {
+        return n20_error_crypto_unexpected_null_slice_prk_e;
+    }
+
+    if (info.buffer == NULL && info.size != 0) {
+        return n20_error_crypto_unexpected_null_slice_info_e;
+    }
+
+    if (key_octets == 0) {
+        return n20_error_ok_e;  // No key to expand, return success
+    }
+
+    if (out == NULL) {
+        return n20_error_crypto_insufficient_buffer_size_e;
+    }
+
+    if (!HKDF_expand(out, key_octets, md, prk.buffer, prk.size, info.buffer, info.size)) {
+        return n20_error_crypto_implementation_specific_e;
+    }
     return n20_error_ok_e;
 }
 
@@ -849,7 +1046,11 @@ static n20_error_t n20_crypto_boringssl_key_free(struct n20_crypto_context_s* ct
     return n20_error_ok_e;
 }
 
-static n20_crypto_context_t bssl_ctx{n20_crypto_boringssl_digest,
+static n20_crypto_context_t bssl_ctx{{n20_crypto_boringssl_digest,
+                                      n20_crypto_boringssl_hmac,
+                                      n20_crypto_boringssl_hkdf,
+                                      n20_crypto_boringssl_hkdf_extract,
+                                      n20_crypto_boringssl_hkdf_expand},
                                      n20_crypto_boringssl_kdf,
                                      n20_crypto_boringssl_sign,
                                      n20_crypto_boringssl_get_cdi,
