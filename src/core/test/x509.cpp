@@ -500,8 +500,8 @@ class CertTest : public testing::TestWithParam<std::tuple<n20_crypto_key_type_t,
     }
 
     void TearDown() override {
-        EXPECT_EQ(n20_error_ok_e, n20_crypto_boringssl_close(crypto_ctx));
         EXPECT_EQ(n20_error_ok_e, crypto_ctx->key_free(crypto_ctx, cdi));
+        EXPECT_EQ(n20_error_ok_e, n20_crypto_boringssl_close(crypto_ctx));
     }
 
     n20_crypto_key_t GetSigningKey(n20_crypto_key_type_t key_type, std::string label) {
