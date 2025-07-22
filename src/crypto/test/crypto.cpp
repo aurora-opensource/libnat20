@@ -663,7 +663,7 @@ TYPED_TEST_P(CryptoDigestFixture, HmacSkipEmpty) {
         got_mac.assign(want_size, 0);
 
         // Test that buffer pointer is ignored if size is 0, even if not null
-        buffers[0] = N20_SLICE_NULL;
+        buffers[0] = {0, (uint8_t*)"snafu"};
 
         got_mac_size = want_size;
         N20_ASSERT_EQ(n20_error_ok_e,
