@@ -219,10 +219,13 @@ static inline n20_error_t n20_hmac_internal(n20_crypto_digest_context_t* ctx,
             return rc;  // Return error if digest computation fails
         }
     } else {
-        // If the key is shorter than the block size, pad it with zeros
+        // If the key is shorter than the block size, pad it with zeros.
+        // K was initialized to zero by our caller, so we can just copy the key.
         memcpy(K, key.buffer, key.size);
     }
 
+    // Apply inner padding (0x36) to the key.
+    // See FIPS 198 for details.
     for (size_t i = 0; i < block_size; ++i) {
         K[i] ^= 0x36;  // Inner padding
     }
@@ -257,6 +260,7 @@ static inline n20_error_t n20_hmac_internal(n20_crypto_digest_context_t* ctx,
     for (size_t i = 0; i < block_size; ++i) {
         // Undo inner padding (0x36) and apply outer padding (0x5c).
         // 0x36 XOR 0x5c = 0x6a.
+        // See FIPS 198 for details.
         K[i] ^= 0x6a;
     }
 
