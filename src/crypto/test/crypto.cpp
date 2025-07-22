@@ -126,8 +126,8 @@ class CryptoTestFixture : public ::testing::Test {
     }
 
     void TearDown() override {
-        ASSERT_EQ(n20_error_ok_e, impl::close(ctx));
         ASSERT_EQ(n20_error_ok_e, ctx->key_free(ctx, cdi));
+        ASSERT_EQ(n20_error_ok_e, impl::close(ctx));
         ctx = nullptr;
         cdi = nullptr;
     }
