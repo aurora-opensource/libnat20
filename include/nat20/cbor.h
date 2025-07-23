@@ -100,6 +100,10 @@ typedef enum n20_cbor_type_s {
  *
  * This function writes the CBOR header for a given type and value to the stream.
  *
+ * If @p type is @ref n20_cbor_type_none_e or another undefined value,
+ * it writes the special value 0xf7 to the stream, and @p value is ignored.
+ * 0xf7 is the encoding of the special value "undefined" in CBOR.
+ *
  * @param s The stream to write to.
  * @param type The CBOR type (see @ref n20_cbor_type_t).
  * @param value The value associated with the CBOR type.

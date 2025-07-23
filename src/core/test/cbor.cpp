@@ -23,6 +23,53 @@
 #include <variant>
 #include <vector>
 
+class CborHeaderTestFixture
+    : public testing::TestWithParam<std::tuple<n20_cbor_type_t, uint64_t, std::vector<uint8_t>>> {};
+
+INSTANTIATE_TEST_CASE_P(
+    CborHeaderTestInstance,
+    CborHeaderTestFixture,
+    testing::Values(
+        /* CBOR encoding encoding size boundary conditions. */
+        std::tuple(n20_cbor_type_map_e, UINT64_C(0), std::vector<uint8_t>{0xa0}),
+        std::tuple(n20_cbor_type_map_e, UINT64_C(1), std::vector<uint8_t>{0xa1}),
+        std::tuple(n20_cbor_type_map_e, UINT64_C(23), std::vector<uint8_t>{0xb7}),
+        std::tuple(n20_cbor_type_map_e, UINT64_C(24), std::vector<uint8_t>{0xb8, 0x18}),
+        std::tuple(n20_cbor_type_map_e, UINT64_C(255), std::vector<uint8_t>{0xb8, 0xff}),
+        std::tuple(n20_cbor_type_map_e, UINT64_C(256), std::vector<uint8_t>{0xb9, 0x01, 0x00}),
+        std::tuple(n20_cbor_type_map_e, UINT64_C(0xffff), std::vector<uint8_t>{0xb9, 0xff, 0xff}),
+        std::tuple(n20_cbor_type_map_e,
+                   UINT64_C(0x10000),
+                   std::vector<uint8_t>{0xba, 0x00, 0x01, 0x00, 0x00}),
+        std::tuple(n20_cbor_type_map_e,
+                   UINT64_C(0xffffffff),
+                   std::vector<uint8_t>{0xba, 0xff, 0xff, 0xff, 0xff}),
+        std::tuple(n20_cbor_type_map_e,
+                   UINT64_C(0x100000000),
+                   std::vector<uint8_t>{0xbb, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00}),
+        std::tuple(n20_cbor_type_map_e,
+                   UINT64_C(0xffffffffffffffff),
+                   std::vector<uint8_t>{0xbb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}),
+        /* Invalid types map to "undefined" CBOR type (0xf7). */
+        std::tuple(n20_cbor_type_none_e, UINT64_C(0), std::vector<uint8_t>{0xf7}),
+        std::tuple((n20_cbor_type_t)8, UINT64_C(0), std::vector<uint8_t>{0xf7})));
+
+TEST_P(CborHeaderTestFixture, CborHeaderTest) {
+    auto [type, integer, encoding] = GetParam();
+
+    uint8_t buffer[20];
+
+    n20_stream_t s;
+    n20_stream_init(&s, &buffer[0], sizeof(buffer));
+
+    n20_cbor_write_header(&s, type, integer);
+
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    size_t bytes_written = n20_stream_byte_count(&s);
+    auto got_encoding = std::vector(n20_stream_data(&s), n20_stream_data(&s) + bytes_written);
+    ASSERT_EQ(got_encoding, encoding);
+}
+
 class CborIntegerTestFixture
     : public testing::TestWithParam<
           std::tuple<std::variant<uint64_t, int64_t>, std::vector<uint8_t>>> {};

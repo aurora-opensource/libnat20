@@ -21,6 +21,11 @@
 #include <stdint.h>
 
 void n20_cbor_write_header(n20_stream_t *const s, n20_cbor_type_t cbor_type, uint64_t n) {
+    if ((unsigned int)cbor_type > 7) {
+        /* 0xf7 is the encoding of the special value "undefined". */
+        n20_stream_put(s, 0xf7);
+        return;
+    }
     uint8_t header = (uint8_t)(cbor_type << 5);
 
     size_t value_size = 0;
