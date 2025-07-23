@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -329,3 +330,29 @@ N20_ASN1_DECLARE_OID(OID_TCG_DICE_UEID);
 N20_ASN1_DECLARE_OID(OID_TCG_DICE_TCB_FRESHNESS);
 
 /** @} */ /* End of n20_asn1_oids group */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @brief Compare two object identifiers for equality.
+ *
+ * This function compares two object identifiers for equality.
+ * It returns true if the object identifiers are equal, false otherwise.
+ *
+ * If both object identifiers are NULL, the function returns true.
+ * If one is NULL and the other is not, it returns false.
+ * If the element counts differ, it returns false.
+ * If any of the first count elements differ, it returns false.
+ *
+ * @param oid1 The first object identifier to compare.
+ * @param oid2 The second object identifier to compare.
+ * @return true if the object identifiers are equal, false otherwise.
+ */
+bool n20_asn1_oid_equals(n20_asn1_object_identifier_t const *oid1,
+                         n20_asn1_object_identifier_t const *oid2);
+
+#ifdef __cplusplus
+}
+#endif

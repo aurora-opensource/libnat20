@@ -59,32 +59,61 @@ extern n20_string_slice_t n20_x509_unix_epoch;
  * in the issuerName and subjectName fields of an x509 certificate.
  *
  * As of this writing only elements that are presented as
- * PritableString are supported. This means that the provided
- * nul terminated string must only contain allowed characters
- * as outlined in @ref n20_asn1_printablestring. No checking
- * is done on the provided string, this means that if the
- * caller provides a string containing invalid characters,
- * the resulting certificate will be malformed.
+ * PrintableString are supported.
+ *
+ * If @ref type is @ref OID_SERIAL_NUMBER the @ref bytes variant
+ * must be initialized to an octet string containing the serial
+ * number in big-endian order.
  *
  * No ownership is taken. The user is required to assure
  * that the pointer targets outlive instances of this structure.
  *
  * (See RFC5280 Section 4.1.2.4.)
+ *
+ * @sa bytes
+ * @sa string
  */
 struct n20_x509_rdn_s {
     /**
      * @brief The object identifier of the RDNSequence element.
+     *
+     * This must point to a valid object identifier that outlives
+     * the instance of this structure. E.g. any of the library defined
+     * object identifiers in @ref include/nat20/oid.h which have static
+     * storage duration.
+     *
+     * @ref OID_SERIAL_NUMBER is a special case where the
+     * @ref bytes variant must be initialized.
      */
     n20_asn1_object_identifier_t *type;
-    /**
-     * @brief The value of the RDNSequence element.
-     *
-     * Must be a nul terminated string of characters of the
-     * following set; `[A..Z][a..z][0..9][ '()+,-./:=?]`.
-     *
-     * @sa n20_asn1_printablestring
-     */
-    n20_string_slice_t value;
+    union {
+        /**
+         * @brief The value of the RDNSequence element.
+         *
+         * This variant must be initialized unless the @ref type
+         * is @ref OID_SERIAL_NUMBER. This variant is a
+         * printable string variant and must be initialized to a valid
+         * printable string of characters of the following set:
+         * `[A..Z][a..z][0..9][ '()+,-./:=?]`.
+         *
+         * @sa n20_asn1_printablestring
+         */
+        n20_string_slice_t string;
+        /**
+         * @brief The value of the RDNSequence element.
+         *
+         * This variant must be initialized if the @ref type is
+         * @ref OID_SERIAL_NUMBER.
+         *
+         * The value must be initialized to an octet string containing
+         * the serial number in big-endian order. The serial number
+         * will be rendered as a hexadecimal string with printable
+         * string encoding.
+         *
+         * @sa n20_asn1_printablestring
+         */
+        n20_slice_t bytes;
+    };
 };
 
 /**
@@ -106,7 +135,7 @@ typedef struct n20_x509_rdn_s n20_x509_rdn_t;
  * @endcode
  */
 #define N20_X509_RDN(type__, value__) \
-    (n20_x509_rdn_t) { .type = type__, .value = N20_STR_C(value__) }
+    (n20_x509_rdn_t) { .type = type__, .string = N20_STR_C(value__) }
 
 /**
  * @brief Represents an RDNSequence.
