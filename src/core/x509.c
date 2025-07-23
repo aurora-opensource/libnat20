@@ -287,7 +287,16 @@ void n20_x509_cert_tbs_content(n20_stream_t *const s, void *context) {
     n20_x509_algorithm_identifier(s, &tbs->signature_algorithm);
 
     // Serial number
-    n20_asn1_uint64(s, tbs->serial_number, n20_asn1_tag_info_no_override());
+    if (tbs->serial_number.size == 0) {
+        // If the serial number is empty it is interpreted as zero.
+        n20_asn1_uint64(s, 0, n20_asn1_tag_info_no_override());
+    } else {
+        n20_asn1_integer(s,
+                         tbs->serial_number,
+                         /*little_endian=*/false,
+                         /*two_complement=*/false,
+                         n20_asn1_tag_info_no_override());
+    }
 
     // Version 3 (value 2) with explicit tag 0
     n20_x509_version_3(s);

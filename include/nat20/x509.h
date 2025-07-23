@@ -730,9 +730,21 @@ struct n20_x509_tbs_s {
     /**
      * @brief The certificate's serial number.
      *
+     * This is a positive integer that is unique for the certificate
+     * issuer. The serial number is used to identify the certificate
+     * in certificate revocation lists and other places.
+     *
+     * It is given as a buffer of up to 20 bytes in size
+     * and represents an integer in big endian order.
+     *
+     * If the serial number is exactly 20 bytes long, the most significant
+     * bit in the most significant byte must be zero. This assures that
+     * the serial number remains a positive integer and avoids the sign
+     * extension in the ASN.1 encoding which would exceed the 20 bytes limit.
+     *
      * See RFC5280 Section 4.1.2.2.
      */
-    uint64_t serial_number;
+    n20_slice_t serial_number;
 
     /**
      * @brief The signature algorithm identifier.

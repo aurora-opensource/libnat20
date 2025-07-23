@@ -932,10 +932,13 @@ static std::vector<uint8_t> signature_2_asn1_sequence(std::vector<uint8_t> const
 
     auto mark = n20_stream_byte_count(&s);
     // Write S
-    n20_asn1_integer(
-        &s, sig.data() + integer_size, integer_size, false, false, n20_asn1_tag_info_no_override());
+    n20_asn1_integer(&s,
+                     {integer_size, sig.data() + integer_size},
+                     false,
+                     false,
+                     n20_asn1_tag_info_no_override());
     // Write R
-    n20_asn1_integer(&s, sig.data(), integer_size, false, false, n20_asn1_tag_info_no_override());
+    n20_asn1_integer(&s, {integer_size, sig.data()}, false, false, n20_asn1_tag_info_no_override());
 
     n20_asn1_header(&s,
                     N20_ASN1_CLASS_UNIVERSAL,
