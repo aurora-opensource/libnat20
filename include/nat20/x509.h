@@ -734,12 +734,13 @@ struct n20_x509_tbs_s {
      * issuer. The serial number is used to identify the certificate
      * in certificate revocation lists and other places.
      *
-     * It is given as a buffer of up to 20 bytes in size.
-     * And represents an Integer In Big Endian order.
+     * It is given as a buffer of up to 20 bytes in size
+     * and represents an integer in big endian order.
      *
      * If the serial number is exactly 20 bytes long, the most significant
-     * bit in the most significant byte must be zero so as not to exceed the
-     * 20 bytes limit due to sign extension in the ASN.1 integer encoding.
+     * bit in the most significant byte must be zero. This assures that
+     * the serial number remains a positive integer and avoids the sign
+     * extension in the ASN.1 encoding which would exceed the 20 bytes limit.
      *
      * See RFC5280 Section 4.1.2.2.
      */
