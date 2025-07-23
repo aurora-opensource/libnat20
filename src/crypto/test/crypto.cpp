@@ -115,15 +115,21 @@ template <typename T>
 class CryptoTestFixture : public ::testing::Test {
    protected:
     n20_crypto_context_t* ctx = nullptr;
+    n20_crypto_key_t cdi = nullptr;
 
    public:
     using impl = T;
 
-    void SetUp() override { ASSERT_EQ(n20_error_ok_e, impl::open(&ctx)); }
+    void SetUp() override {
+        ASSERT_EQ(n20_error_ok_e, impl::open(&ctx));
+        ASSERT_EQ(n20_error_ok_e, impl::get_cdi(ctx, &cdi));
+    }
 
     void TearDown() override {
+        ASSERT_EQ(n20_error_ok_e, ctx->key_free(ctx, cdi));
         ASSERT_EQ(n20_error_ok_e, impl::close(ctx));
         ctx = nullptr;
+        cdi = nullptr;
     }
 };
 
@@ -1014,10 +1020,6 @@ bool verify(EVP_PKEY_PTR_t const& key,
 // The third key uses a different context. The signature generated with this
 // key must not verify against the second.
 TYPED_TEST_P(CryptoTestFixture, KDFTest) {
-    n20_crypto_key_t cdi;
-
-    ASSERT_EQ(n20_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
-
     using tc = std::tuple<std::string, n20_crypto_key_type_t>;
     for (auto [n20_test_name, key_type] : {
              tc{"ed25519", n20_crypto_key_type_ed25519_e},
@@ -1040,11 +1042,12 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         // certain that the derived keys were indeed the same.
         n20_crypto_key_t derived_key_sign;
         N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_sign));
+                      this->ctx->kdf(this->ctx, this->cdi, key_type, &context, &derived_key_sign));
 
         n20_crypto_key_t derived_key_verify;
-        N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_verify));
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->ctx->kdf(this->ctx, this->cdi, key_type, &context, &derived_key_verify));
 
         // ##### Sign the message. #########
         n20_slice_t message_buffers[] = {
@@ -1072,7 +1075,7 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         context_buffers[1].size = 0;
         n20_crypto_key_t derived_key_other;
         N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, &context, &derived_key_other));
+                      this->ctx->kdf(this->ctx, this->cdi, key_type, &context, &derived_key_other));
 
         // 96 is large enough for all implemented algorithms. So
         // no need to do the query dance again.
@@ -1144,20 +1147,9 @@ TYPED_TEST_P(CryptoTestFixture, KDFTest) {
         N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, derived_key_verify));
         N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, derived_key_other));
     }
-    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, cdi));
-}
-
-TYPED_TEST_P(CryptoTestFixture, GetCDIErrorsTest) {
-    ASSERT_EQ(n20_error_crypto_invalid_context_e, this->ctx->get_cdi(nullptr, nullptr));
-
-    ASSERT_EQ(n20_error_crypto_unexpected_null_key_out_e, this->ctx->get_cdi(this->ctx, nullptr));
 }
 
 TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
-    n20_crypto_key_t cdi;
-
-    ASSERT_EQ(n20_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
-
     using tc = std::tuple<std::string, n20_crypto_key_type_t>;
     for (auto [n20_test_name, key_type] : {
              tc{"cdi", n20_crypto_key_type_cdi_e},
@@ -1182,21 +1174,24 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
         n20_crypto_key_t invalid_key = nullptr;
         N20_ASSERT_EQ(
             n20_error_ok_e,
-            this->ctx->kdf(this->ctx, cdi, n20_crypto_key_type_ed25519_e, &context, &invalid_key));
+            this->ctx->kdf(
+                this->ctx, this->cdi, n20_crypto_key_type_ed25519_e, &context, &invalid_key));
         N20_ASSERT_EQ(n20_error_crypto_invalid_key_e,
                       this->ctx->kdf(this->ctx, invalid_key, key_type, nullptr, nullptr));
         N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
 
-        N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->kdf(
-                          this->ctx, cdi, n20_crypto_key_type_secp256r1_e, &context, &invalid_key));
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->ctx->kdf(
+                this->ctx, this->cdi, n20_crypto_key_type_secp256r1_e, &context, &invalid_key));
         N20_ASSERT_EQ(n20_error_crypto_invalid_key_e,
                       this->ctx->kdf(this->ctx, invalid_key, key_type, nullptr, nullptr));
         N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
 
-        N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->kdf(
-                          this->ctx, cdi, n20_crypto_key_type_secp384r1_e, &context, &invalid_key));
+        N20_ASSERT_EQ(
+            n20_error_ok_e,
+            this->ctx->kdf(
+                this->ctx, this->cdi, n20_crypto_key_type_secp384r1_e, &context, &invalid_key));
         N20_ASSERT_EQ(n20_error_crypto_invalid_key_e,
                       this->ctx->kdf(this->ctx, invalid_key, key_type, nullptr, nullptr));
         N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, invalid_key));
@@ -1204,24 +1199,24 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
         // Must return n20_error_crypto_unexpected_null_key_out_e if no buffer is
         // given to return the derived key.
         N20_ASSERT_EQ(n20_error_crypto_unexpected_null_key_out_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, nullptr, nullptr));
+                      this->ctx->kdf(this->ctx, this->cdi, key_type, nullptr, nullptr));
 
         n20_crypto_key_t key_out = nullptr;
         N20_ASSERT_EQ(n20_error_crypto_unexpected_null_data_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, nullptr, &key_out));
+                      this->ctx->kdf(this->ctx, this->cdi, key_type, nullptr, &key_out));
 
         // Must return n20_error_crypto_unexpected_null_list_e if the gather list
         // pointer is NULL.
         n20_crypto_gather_list_t invalid_context = {1, nullptr};
         N20_ASSERT_EQ(n20_error_crypto_unexpected_null_list_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, &invalid_context, &key_out));
+                      this->ctx->kdf(this->ctx, this->cdi, key_type, &invalid_context, &key_out));
 
         n20_slice_t invalid_context_buffers[] = {
             {3, nullptr},
         };
         invalid_context.list = invalid_context_buffers;
         N20_ASSERT_EQ(n20_error_crypto_unexpected_null_slice_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, &invalid_context, &key_out));
+                      this->ctx->kdf(this->ctx, this->cdi, key_type, &invalid_context, &key_out));
     }
 
     n20_crypto_key_t out_key = nullptr;
@@ -1231,16 +1226,10 @@ TYPED_TEST_P(CryptoTestFixture, KDFErrorsTest) {
     n20_crypto_gather_list_t context = {1, context_buffers};
 
     ASSERT_EQ(n20_error_crypto_invalid_key_type_e,
-              this->ctx->kdf(this->ctx, cdi, (n20_crypto_key_type_t)-1, &context, &out_key));
-
-    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, cdi));
+              this->ctx->kdf(this->ctx, this->cdi, (n20_crypto_key_type_t)-1, &context, &out_key));
 }
 
 TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
-    n20_crypto_key_t cdi;
-
-    ASSERT_EQ(n20_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
-
     ASSERT_EQ(n20_error_crypto_invalid_context_e,
               this->ctx->sign(nullptr, nullptr, nullptr, nullptr, nullptr));
 
@@ -1248,11 +1237,11 @@ TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
               this->ctx->sign(this->ctx, nullptr, nullptr, nullptr, nullptr));
 
     ASSERT_EQ(n20_error_crypto_unexpected_null_size_e,
-              this->ctx->sign(this->ctx, cdi, nullptr, nullptr, nullptr));
+              this->ctx->sign(this->ctx, this->cdi, nullptr, nullptr, nullptr));
 
     size_t signature_size = 0;
     ASSERT_EQ(n20_error_crypto_invalid_key_e,
-              this->ctx->sign(this->ctx, cdi, nullptr, nullptr, &signature_size));
+              this->ctx->sign(this->ctx, this->cdi, nullptr, nullptr, &signature_size));
 
     using tc = std::tuple<std::string, n20_crypto_key_type_t, size_t>;
     for (auto [n20_test_name, key_type, want_signature_size] : {
@@ -1267,7 +1256,7 @@ TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
         n20_crypto_gather_list_t context = {1, context_buffers};
         n20_crypto_key_t signing_key = nullptr;
         N20_ASSERT_EQ(n20_error_ok_e,
-                      this->ctx->kdf(this->ctx, cdi, key_type, &context, &signing_key));
+                      this->ctx->kdf(this->ctx, this->cdi, key_type, &context, &signing_key));
 
         // Must return n20_error_crypto_insufficient_buffer_size_e if out buffer is NULL.
         signature_size = 30000;
@@ -1303,15 +1292,9 @@ TYPED_TEST_P(CryptoTestFixture, SignErrorsTest) {
             n20_error_crypto_unexpected_null_slice_e,
             this->ctx->sign(this->ctx, signing_key, &message, signature_buffer, &signature_size));
     }
-
-    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, cdi));
 }
 
 TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
-    n20_crypto_key_t cdi;
-
-    ASSERT_EQ(n20_error_ok_e, this->ctx->get_cdi(this->ctx, &cdi));
-
     ASSERT_EQ(n20_error_crypto_invalid_context_e,
               this->ctx->key_get_public_key(nullptr, nullptr, nullptr, nullptr));
 
@@ -1319,11 +1302,11 @@ TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
               this->ctx->key_get_public_key(this->ctx, nullptr, nullptr, nullptr));
 
     ASSERT_EQ(n20_error_crypto_unexpected_null_size_e,
-              this->ctx->key_get_public_key(this->ctx, cdi, nullptr, nullptr));
+              this->ctx->key_get_public_key(this->ctx, this->cdi, nullptr, nullptr));
 
     size_t public_key_size = 0;
     ASSERT_EQ(n20_error_crypto_invalid_key_e,
-              this->ctx->key_get_public_key(this->ctx, cdi, nullptr, &public_key_size));
+              this->ctx->key_get_public_key(this->ctx, this->cdi, nullptr, &public_key_size));
 
     using tc = std::tuple<std::string, n20_crypto_key_type_t, size_t>;
     for (auto [n20_test_name, key_type, want_key_size] : {
@@ -1336,7 +1319,8 @@ TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
         char const context_str[] = "public key errors test context";
         n20_slice_t context_buffers[] = {sizeof(context_str) - 1, (uint8_t* const)&context_str[0]};
         n20_crypto_gather_list_t context = {1, context_buffers};
-        N20_ASSERT_EQ(n20_error_ok_e, this->ctx->kdf(this->ctx, cdi, key_type, &context, &key));
+        N20_ASSERT_EQ(n20_error_ok_e,
+                      this->ctx->kdf(this->ctx, this->cdi, key_type, &context, &key));
 
         // Must return n20_error_crypto_insufficient_buffer_size_e if public_key_out
         // is nullptr.
@@ -1372,8 +1356,6 @@ TYPED_TEST_P(CryptoTestFixture, GetPublicKeyErrorsTest) {
 
         N20_ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, key));
     }
-
-    ASSERT_EQ(n20_error_ok_e, this->ctx->key_free(this->ctx, cdi));
 }
 
 TYPED_TEST_P(CryptoTestFixture, KeyFreeErrorsTest) {
@@ -1402,7 +1384,6 @@ REGISTER_TYPED_TEST_SUITE_P(CryptoDigestFixture,
 REGISTER_TYPED_TEST_SUITE_P(CryptoTestFixture,
                             OpenClose,
                             KDFTest,
-                            GetCDIErrorsTest,
                             KDFErrorsTest,
                             SignErrorsTest,
                             GetPublicKeyErrorsTest,

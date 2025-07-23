@@ -71,14 +71,6 @@ struct n20_bssl_evp_pkey : n20_bssl_key_base {
     virtual ~n20_bssl_evp_pkey() {}
 };
 
-struct n20_bssl_context : public n20_crypto_context_t {
-    n20_bssl_cdi_key cdi;
-};
-
-static n20_bssl_context* context_cast(n20_crypto_context_t* ctx) {
-    return static_cast<n20_bssl_context*>(ctx);
-}
-
 static EVP_MD const* digest_enum_to_bssl_evp_md(n20_crypto_digest_algorithm_t alg_in) {
     switch (alg_in) {
         case n20_crypto_digest_algorithm_sha2_224_e:
@@ -733,6 +725,9 @@ static n20_error_t n20_crypto_boringssl_kdf(struct n20_crypto_context_s* ctx,
             *key_out = bssl_out;
             return n20_error_ok_e;
         }
+        default:
+            // Unsupported key type for KDF.
+            break;
     }
 
     return n20_error_crypto_invalid_key_type_e;
@@ -910,22 +905,6 @@ static n20_error_t n20_crypto_boringssl_sign(struct n20_crypto_context_s* ctx,
     }
 }
 
-static n20_error_t n20_crypto_boringssl_get_cdi(struct n20_crypto_context_s* ctx,
-                                                n20_crypto_key_t* key_out) {
-    if (ctx == nullptr) {
-        return n20_error_crypto_invalid_context_e;
-    }
-
-    if (key_out == nullptr) {
-        return n20_error_crypto_unexpected_null_key_out_e;
-    }
-
-    auto bssl_ctx = context_cast(ctx);
-    *key_out = reinterpret_cast<n20_crypto_key_t*>(static_cast<n20_bssl_key_base*>(&bssl_ctx->cdi));
-
-    return n20_error_ok_e;
-}
-
 struct BoringsslDeleter {
     void operator()(void* p) { OPENSSL_free(p); }
 };
@@ -1033,14 +1012,6 @@ static n20_error_t n20_crypto_boringssl_key_free(struct n20_crypto_context_s* ct
 
     auto bssl_key = reinterpret_cast<n20_bssl_key_base*>(key_in);
 
-    // Every key handle given out by the library must be freed eventually.
-    // But the key handle for the root secret is owned by the context
-    // there is nothing to do here in this case.
-    auto bssl_ctx = context_cast(ctx);
-    if (bssl_key == static_cast<n20_bssl_key_base*>(&bssl_ctx->cdi)) {
-        return n20_error_ok_e;
-    }
-
     delete bssl_key;
 
     return n20_error_ok_e;
@@ -1053,35 +1024,50 @@ static n20_crypto_context_t bssl_ctx{{n20_crypto_boringssl_digest,
                                       n20_crypto_boringssl_hkdf_expand},
                                      n20_crypto_boringssl_kdf,
                                      n20_crypto_boringssl_sign,
-                                     n20_crypto_boringssl_get_cdi,
                                      n20_crypto_boringssl_key_get_public_key,
                                      n20_crypto_boringssl_key_free};
 
-extern "C" n20_error_t n20_crypto_open_boringssl(n20_crypto_context_t** ctx,
-                                                 n20_slice_t const* cdi) {
-    if (ctx == nullptr || cdi == nullptr || cdi->buffer == nullptr || cdi->size == 0) {
-        return n20_error_crypto_unexpected_null_e;
-    }
-
-    auto new_ctx = std::make_unique<n20_bssl_context>();
-    if (!new_ctx) {
-        return n20_error_crypto_no_resources_e;
-    }
-
-    new_ctx->cdi.type = n20_crypto_key_type_cdi_e;
-    new_ctx->cdi.bits = std::vector<uint8_t>(cdi->buffer, cdi->buffer + cdi->size);
-
-    *ctx = static_cast<n20_crypto_context_t*>(new_ctx.release());
-    **ctx = bssl_ctx;
-
-    return n20_error_ok_e;
-}
-
-extern "C" n20_error_t n20_crypto_close_boringssl(n20_crypto_context_t* ctx) {
+extern "C" n20_error_t n20_crypto_boringssl_open(n20_crypto_context_t** ctx) {
     if (ctx == nullptr) {
         return n20_error_crypto_unexpected_null_e;
     }
 
-    auto tbd_context = std::unique_ptr<n20_bssl_context>(context_cast(ctx));
+    *ctx = &bssl_ctx;
+
+    return n20_error_ok_e;
+}
+
+extern "C" n20_error_t n20_crypto_boringssl_close(n20_crypto_context_t* ctx) {
+    if (ctx == nullptr) {
+        return n20_error_crypto_unexpected_null_e;
+    }
+
+    return n20_error_ok_e;
+}
+
+extern "C" n20_error_t n20_crypto_boringssl_make_secret(struct n20_crypto_context_s* ctx,
+                                                        n20_slice_t const* secret_in,
+                                                        n20_crypto_key_t* key_out) {
+    if (ctx == nullptr) {
+        return n20_error_crypto_invalid_context_e;
+    }
+
+    if (secret_in == nullptr || secret_in->buffer == nullptr || secret_in->size == 0) {
+        return n20_error_crypto_unexpected_null_data_e;
+    }
+
+    if (key_out == nullptr) {
+        return n20_error_crypto_unexpected_null_key_out_e;
+    }
+
+    auto new_key = new n20_bssl_cdi_key();
+    if (!new_key) {
+        return n20_error_crypto_no_resources_e;
+    }
+
+    new_key->type = n20_crypto_key_type_cdi_e;
+    new_key->bits = std::vector<uint8_t>(secret_in->buffer, secret_in->buffer + secret_in->size);
+
+    *key_out = new_key;
     return n20_error_ok_e;
 }

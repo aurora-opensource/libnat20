@@ -65,6 +65,13 @@ typedef enum n20_crypto_digest_algorithm_s n20_crypto_digest_algorithm_t;
  */
 enum n20_crypto_key_type_s {
     /**
+     * @brief No key type.
+     *
+     * This value is used as default initialization value
+     * for key types. It indicates that no key type is selected.
+     */
+    n20_crypto_key_type_none_e = 0,
+    /**
      * @brief Secp256r1.
      *
      * Select the NIST curve P-256 also known as Secp256r1 or prime256v1.
@@ -104,8 +111,9 @@ typedef enum n20_crypto_key_type_s n20_crypto_key_type_t;
  * opaque to the caller.
  *
  * The lifecycle begins with a call to @ref n20_crypto_context_t.kdf
- * or @ref n20_crypto_context_t.get_cdi and ends with a call to
- * @ref n20_crypto_context_t.key_free.
+ * or an implementation specific factory function that
+ * returns a key of the type @ref n20_crypto_key_type_t
+ * and ends with a call to @ref n20_crypto_context_t.key_free.
  */
 typedef void* n20_crypto_key_t;
 
@@ -130,7 +138,7 @@ struct n20_crypto_gather_list_s {
     /**
      * @brief Points to an array of @ref n20_slice_t.
      *
-     * The array pointed to must accommodate at leaset @ref count
+     * The array pointed to must accommodate at least @ref count
      * elements of @ref n20_slice_t.
      *
      * This structure does not take ownership of the array.
@@ -518,12 +526,9 @@ struct n20_crypto_context_s {
      *
      * n20_crypto_context_s *ctx = open_my_crypto_implementation();
      *
-     * // Get local cdi.
-     * n20_crypto_key_t cdi = NULL;
-     * rc = ctx->get_cdi(ctx, &cdi);
-     * if (rc != n20_error_ok_e) {
-     *     // error handling
-     * }
+     * // Get local cdi or uds by means of an implementation specific
+     * // mechanism.
+     * n20_crypto_key_t cdi = my_crypto_implementation_get_secret_handle();
      *
      * // Assemble the derivation context.
      * char const context_str[] = "kdf context";
@@ -653,31 +658,7 @@ struct n20_crypto_context_s {
                         n20_crypto_gather_list_t const* msg_in,
                         uint8_t* signature_out,
                         size_t* signature_size_in_out);
-    /**
-     * @brief Return the local cdi handle.
-     *
-     * This function is used to bootstrap all key derivation for the
-     * current DICE service level.
-     *
-     * The function places the handle to the CDI into @p key_out.
-     *
-     * The CDI key handle must be destroyed with @ref key_free.
-     *
-     * ## Errors
-     * - @ref n20_error_crypto_invalid_context_e must be returned
-     *   if ctx is NULL.
-     *   Additional mechanisms may be implemented to determine
-     *   if the context is valid, but an implementation must
-     *   accept an instance if it was created with the implementation
-     *   specific factory and not freed.
-     * - @ref n20_error_crypto_unexpected_null_key_out_e must be returned
-     *   if @p key_out is NULL.
-     *
-     * @param ctx The crypto context.
-     * @param key_out A buffer to take the opaque key handle of the root
-     *        secret that is the local CDI.
-     */
-    n20_error_t (*get_cdi)(struct n20_crypto_context_s* ctx, n20_crypto_key_t* key_out);
+
     /**
      * @brief Export the public key of an asymmetric key.
      *
@@ -736,7 +717,8 @@ struct n20_crypto_context_s {
     /**
      * @brief Destroy a key handle.
      *
-     * Destroys a key handle obtained by calling @ref get_cdi or @ref kdf.
+     * Destroys a key handle obtained by calling @ref kdf or an implementation
+     * specific method to create a key handle.
      *
      * Unless an invalid context is given, this function shall not fail.
      *
