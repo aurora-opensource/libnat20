@@ -91,6 +91,7 @@ set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
     src/core/test/asn1.cpp
     src/core/test/cbor.cpp
+    src/core/test/oid.cpp
     src/core/test/stream.cpp
     src/core/test/test.cpp
     src/core/test/x509.cpp

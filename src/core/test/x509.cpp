@@ -33,10 +33,8 @@
 #include <openssl/pki/verify.h>
 #include <openssl/x509.h>
 
-#include <iomanip>
 #include <memory>
 #include <ostream>
-#include <sstream>
 #include <vector>
 
 #define MAKE_PTR(name) using name##_PTR_t = bssl::UniquePtr<name>
@@ -64,11 +62,27 @@ uint8_t const test_cdi[] = {
 class NameTest : public testing::TestWithParam<std::tuple<n20_x509_name_t*, std::vector<uint8_t>>> {
 };
 
+uint8_t const TEST_SERIAL[20] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+                                 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14};
+
 n20_x509_name_t NAME_EMPTY = {.element_count = 0, .elements = {}};
 n20_x509_name_t NAME_ONE = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"));
 n20_x509_name_t NAME_TWO = N20_X509_NAME(N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
                                          N20_X509_RDN(&OID_LOCALITY_NAME, "Pittsburgh"));
 n20_x509_name_t NAME_NINE = {.element_count = 9, .elements = {}};
+n20_x509_name_t NAME_WITH_SERIAL = N20_X509_NAME(
+    N20_X509_RDN(&OID_COUNTRY_NAME, "US"),
+    N20_X509_RDN(&OID_LOCALITY_NAME, "Scranton"),
+    N20_X509_RDN(&OID_ORGANIZATION_NAME, "Test DICE CA"),
+    N20_X509_RDN(&OID_COMMON_NAME, "DICE Layer 00"),
+    {.type = &OID_SERIAL_NUMBER,
+     .bytes = {.size = sizeof(TEST_SERIAL), .buffer = const_cast<uint8_t*>(TEST_SERIAL)}});
+n20_x509_name_t NAME_WITH_NULL_SERIAL =
+    N20_X509_NAME({.type = &OID_SERIAL_NUMBER, .bytes = {.size = 5, .buffer = nullptr}});
+
+n20_x509_name_t NAME_WITH_ZERO_SIZED_SERIAL =
+    N20_X509_NAME({.type = &OID_SERIAL_NUMBER,
+                   .bytes = {.size = 0, .buffer = reinterpret_cast<uint8_t const*>("ignored")}});
 
 std::vector<uint8_t> const ENCODED_NAME_NULL = {0x30, 0x02, 0x05, 0x00};
 std::vector<uint8_t> const ENCODED_NAME_EMPTY = {0x30, 0x00};
@@ -78,14 +92,31 @@ std::vector<uint8_t> const ENCODED_NAME_TWO = {
     0x30, 0x22, 0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13,
     0x02, 0x55, 0x53, 0x31, 0x13, 0x30, 0x11, 0x06, 0x03, 0x55, 0x04, 0x07,
     0x13, 0x0a, 0x50, 0x69, 0x74, 0x74, 0x73, 0x62, 0x75, 0x72, 0x67, 0x68};
+std::vector<uint8_t> const ENCODED_NAME_WITH_SERIAL = {
+    0x30, 0x81, 0x82, 0x31, 0x0b, 0x30, 0x09, 0x06, 0x03, 0x55, 0x04, 0x06, 0x13, 0x02, 0x55,
+    0x53, 0x31, 0x11, 0x30, 0x0f, 0x06, 0x03, 0x55, 0x04, 0x07, 0x13, 0x08, 0x53, 0x63, 0x72,
+    0x61, 0x6e, 0x74, 0x6f, 0x6e, 0x31, 0x15, 0x30, 0x13, 0x06, 0x03, 0x55, 0x04, 0x0a, 0x13,
+    0x0c, 0x54, 0x65, 0x73, 0x74, 0x20, 0x44, 0x49, 0x43, 0x45, 0x20, 0x43, 0x41, 0x31, 0x16,
+    0x30, 0x14, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x0d, 0x44, 0x49, 0x43, 0x45, 0x20, 0x4c,
+    0x61, 0x79, 0x65, 0x72, 0x20, 0x30, 0x30, 0x31, 0x31, 0x30, 0x2f, 0x06, 0x03, 0x55, 0x04,
+    0x05, 0x13, 0x28, 0x30, 0x31, 0x30, 0x32, 0x30, 0x33, 0x30, 0x34, 0x30, 0x35, 0x30, 0x36,
+    0x30, 0x37, 0x30, 0x38, 0x30, 0x39, 0x30, 0x61, 0x30, 0x62, 0x30, 0x63, 0x30, 0x64, 0x30,
+    0x65, 0x30, 0x66, 0x31, 0x30, 0x31, 0x31, 0x31, 0x32, 0x31, 0x33, 0x31, 0x34};
 
-INSTANTIATE_TEST_CASE_P(X509NameTest,
-                        NameTest,
-                        testing::Values(std::tuple(nullptr, ENCODED_NAME_NULL),
-                                        std::tuple(&NAME_EMPTY, ENCODED_NAME_EMPTY),
-                                        std::tuple(&NAME_ONE, ENCODED_NAME_ONE),
-                                        std::tuple(&NAME_TWO, ENCODED_NAME_TWO),
-                                        std::tuple(&NAME_NINE, ENCODED_NAME_NULL)));
+std::vector<uint8_t> const ENCODED_NAME_WITH_EMPTY_SERIAL = {
+    0x30, 0x0b, 0x31, 0x09, 0x30, 0x07, 0x06, 0x03, 0x55, 0x04, 0x05, 0x13, 0x00};
+
+INSTANTIATE_TEST_CASE_P(
+    X509NameTest,
+    NameTest,
+    testing::Values(std::tuple(nullptr, ENCODED_NAME_NULL),
+                    std::tuple(&NAME_EMPTY, ENCODED_NAME_EMPTY),
+                    std::tuple(&NAME_ONE, ENCODED_NAME_ONE),
+                    std::tuple(&NAME_TWO, ENCODED_NAME_TWO),
+                    std::tuple(&NAME_NINE, ENCODED_NAME_NULL),
+                    std::tuple(&NAME_WITH_SERIAL, ENCODED_NAME_WITH_SERIAL),
+                    std::tuple(&NAME_WITH_NULL_SERIAL, ENCODED_NAME_WITH_EMPTY_SERIAL),
+                    std::tuple(&NAME_WITH_ZERO_SIZED_SERIAL, ENCODED_NAME_WITH_EMPTY_SERIAL)));
 
 // This test tests name encoding. It verifies that slices with one or two well formed
 // names are encoded correctly as well as the following corner cases: null slice, empty
@@ -94,14 +125,14 @@ TEST_P(NameTest, NameEncoding) {
     auto [p, expected] = GetParam();
 
     n20_stream_t s;
-    uint8_t buffer[128];
+    uint8_t buffer[133];
     n20_stream_init(&s, buffer, sizeof(buffer));
     n20_x509_name(&s, p);
     ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
-    ASSERT_EQ(n20_stream_byte_count(&s), expected.size());
+    EXPECT_EQ(n20_stream_byte_count(&s), expected.size());
     std::vector<uint8_t> got =
         std::vector<uint8_t>(n20_stream_data(&s), n20_stream_data(&s) + n20_stream_byte_count(&s));
-    ASSERT_EQ(expected, got);
+    ASSERT_EQ(expected, got) << "Got: " << hex(got) << "\nExpected: " << hex(expected);
 }
 class ExtensionTest
     : public testing::TestWithParam<

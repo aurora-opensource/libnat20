@@ -15,6 +15,7 @@
  */
 
 #include <nat20/oid.h>
+#include <stdbool.h>
 
 N20_ASN1_DEFINE_OID(OID_RSA_ENCRYPTION, 1, 2, 840, 113549, 1, 1, 1);
 N20_ASN1_DEFINE_OID(OID_SHA256_WITH_RSA_ENC, 1, 2, 840, 113549, 1, 1, 11);
@@ -54,3 +55,19 @@ N20_ASN1_DEFINE_OID(OID_TCG_DICE_TCB_INFO, 2, 23, 133, 5, 4, 1);
 N20_ASN1_DEFINE_OID(OID_TCG_DICE_MULTI_TCB_INFO, 2, 23, 133, 5, 4, 5);
 N20_ASN1_DEFINE_OID(OID_TCG_DICE_UEID, 2, 23, 133, 5, 4, 4);
 N20_ASN1_DEFINE_OID(OID_TCG_DICE_TCB_FRESHNESS, 2, 23, 133, 5, 4, 11);
+
+bool n20_asn1_oid_equals(n20_asn1_object_identifier_t const *oid1,
+                         n20_asn1_object_identifier_t const *oid2) {
+    if (oid1 == NULL || oid2 == NULL) {
+        return oid1 == oid2;  // Both NULL is true, one NULL is false.
+    }
+    if (oid1->elem_count != oid2->elem_count) {
+        return false;
+    }
+    for (size_t i = 0; i < oid1->elem_count; ++i) {
+        if (oid1->elements[i] != oid2->elements[i]) {
+            return false;
+        }
+    }
+    return true;
+}
