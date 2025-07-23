@@ -140,7 +140,7 @@ extern void n20_cbor_write_tag(n20_stream_t *const s, uint64_t const tag);
  * value of the integer.
  *
  * @param s The stream to write to.
- * @param n The unsigned integer to write.
+ * @param value The unsigned integer to write.
  */
 extern void n20_cbor_write_uint(n20_stream_t *s, uint64_t value);
 
@@ -148,12 +148,12 @@ extern void n20_cbor_write_uint(n20_stream_t *s, uint64_t value);
  * @brief Writes a signed integer to the stream in CBOR format.
  *
  * This function uses both major types 0 (unsigned integer) and 1 (negative integer)
- * dpending on the sign of the integer. Positive integers are written using the
+ * depending on the sign of the integer. Positive integers are written using the
  * unsigned integer type, while negative integers are written using the negative
  * integer type.
  *
  * @param s The stream to write to.
- * @param n The signed integer to write.
+ * @param value The signed integer to write.
  */
 extern void n20_cbor_write_int(n20_stream_t *s, int64_t value);
 
@@ -161,7 +161,7 @@ extern void n20_cbor_write_int(n20_stream_t *s, int64_t value);
  * @brief Write a CBOR byte string to the given stream.
  *
  * This function encodes a byte string in CBOR format and writes it to the stream.
- * if @par data.size is not 0 but @par data.buffer is NULL, it writes a NULL value
+ * if @p data.size is not 0 but @p data.buffer is NULL, it writes a NULL value
  * instead.
  *
  * @param s The stream to write to.
@@ -173,7 +173,7 @@ extern void n20_cbor_write_byte_string(n20_stream_t *s, n20_slice_t const data);
  * @brief Write a CBOR text string to the given stream.
  *
  * This function encodes a text string in CBOR format and writes it to the stream.
- * if @par text.size is not 0 but @par text.buffer is NULL, it writes a NULL value
+ * if @p text.size is not 0 but @p text.buffer is NULL, it writes a NULL value
  * instead.
  *
  * @param s The stream to write to.
