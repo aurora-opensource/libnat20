@@ -22,8 +22,8 @@
 // create a class that implements the following static
 // member functions.
 // struct MyCryptoImplementation {
-//     static n20_crypto_error_t open(n20_crypto_context_t** ctx);
-//     static n20_crypto_error_t close(n20_crypto_context_t* ctx);
+//     static n20_error_t open(n20_crypto_context_t** ctx);
+//     static n20_error_t close(n20_crypto_context_t* ctx);
 // };
 // Include it here and then add the class name to the types list below.
 
@@ -33,7 +33,9 @@
 #include "crypto_boringssl.h"
 #endif
 
-using CryptoImplementationsToTest = ::testing::Types<
+#include "crypto_nat20.h"
+
+using FullCryptoImplementationsToTest = testing::Types<
 // Add crypto implementations to the list in order to run
 // the crypto test against them.
 
@@ -44,4 +46,14 @@ using CryptoImplementationsToTest = ::testing::Types<
     // End of list.
     >;
 
+using DigestOnlyCryptoImplementationsToTest = testing::Types<CryptoImplNat20>;
+
 #endif
+
+template <typename T, typename U>
+struct ConcatenateTestLists {};
+
+template <typename... T1, typename... T2>
+struct ConcatenateTestLists<testing::Types<T1...>, testing::Types<T2...>> {
+    using type = testing::Types<T1..., T2...>;
+};

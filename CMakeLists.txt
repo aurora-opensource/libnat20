@@ -61,6 +61,7 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/asn1.h
     include/nat20/cbor.h
     include/nat20/crypto.h
+    include/nat20/error.h
     include/nat20/oid.h
     include/nat20/stream.h
     include/nat20/types.h
@@ -70,6 +71,21 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/x509_ext_tcg_dice_ueid.h
     include/nat20/x509.h
 )
+
+set(LIBNAT20_CRYPTO_NAT20_SOURCES
+    # Add the core library source files here.
+    src/crypto/nat20/crypto.c
+    src/crypto/nat20/sha256.c
+    src/crypto/nat20/sha512.c
+)
+
+set(LIBNAT20_CRYPTO_NAT20_PUB_HEADERS
+    # Add the public headers here.
+    # These files will be included in the generation of the API documentation.
+    include/nat20/crypto/nat20/crypto.h
+    include/nat20/crypto/nat20/sha.h
+)
+
 
 set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
@@ -101,7 +117,19 @@ set(LIBNAT20_CRYPTO_BSSL_SOURCES
 set(LIBNAT20_CRYPTO_TEST_SOURCES
     src/crypto/test/test.cpp
     src/crypto/test/crypto.cpp
+    src/crypto/test/test_vectors.cpp
 )
+
+set(LIBNAT20_TEST_UTILS_HEADERS
+    include/nat20/testing/test_utils.h
+    include/nat20/testing/test_vector_reader.h
+)
+
+set(LIBNAT20_TEST_UTILS_SOURCES
+    src/testing/test_utils.cpp
+    src/testing/test_vector_reader.cpp
+)
+
 
 ###################################################################################################
 
@@ -123,6 +151,30 @@ target_compile_options(nat20
 )
 
 target_include_directories(nat20
+    PUBLIC include
+)
+
+###################################################################################################
+
+###################################################################################################
+# The nat20_crypto_nat20 library implements some crypto
+# algorithms using the native C standard library.
+
+add_library(nat20_crypto_nat20 STATIC)
+
+target_sources(nat20_crypto_nat20
+    PRIVATE ${LIBNAT20_CRYPTO_NAT20_SOURCES}
+    INTERFACE ${LIBNAT20_CRYPTO_NAT20_PUB_HEADERS}
+)
+
+target_compile_options(nat20_crypto_nat20
+    PRIVATE -pedantic
+    PRIVATE -Wall
+    PRIVATE -Wextra
+    PRIVATE -Werror
+)
+
+target_include_directories(nat20_crypto_nat20
     PUBLIC include
 )
 
@@ -187,18 +239,34 @@ if (NAT20_WITH_TESTS)
 
     enable_testing()
 
+    file(COPY
+        "src/crypto/test/test_data/"
+        DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/test_data/crypto"
+        FILES_MATCHING PATTERN "*"
+    )
+
+    # Add the nat20 library test utils.
+    add_library(nat20_test_utils STATIC)
+    target_sources(nat20_test_utils
+        PRIVATE ${LIBNAT20_TEST_UTILS_SOURCES}
+        INTERFACE ${LIBNAT20_TEST_UTILS_HEADERS}
+    )
+    target_include_directories(nat20_test_utils
+        PUBLIC include
+    )
+
     add_executable(nat20_test_bin)
     target_sources(nat20_test_bin
         PRIVATE ${LIBNAT20_TEST_SOURCES}
     )
-    target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki nat20_crypto_boringssl)
+    target_link_libraries(nat20_test_bin gtest_main nat20 crypto pki nat20_crypto_boringssl nat20_test_utils)
     add_test(NAME nat20_test COMMAND nat20_test_bin)
 
     add_executable(nat20_crypto_test_bin)
     target_sources(nat20_crypto_test_bin
         PRIVATE ${LIBNAT20_CRYPTO_TEST_SOURCES}
     )
-    target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki)
+    target_link_libraries(nat20_crypto_test_bin gtest_main nat20 crypto pki nat20_test_utils)
     add_test(NAME nat20_crypto_test COMMAND nat20_crypto_test_bin)
 
     target_sources(nat20_crypto_test_bin
@@ -207,13 +275,20 @@ if (NAT20_WITH_TESTS)
     target_link_libraries(nat20_crypto_test_bin nat20_crypto_boringssl)
     add_definitions(-DN20_CONFIG_ENABLE_CRYPTO_TEST_IMPL=1)
 
+    target_sources(nat20_crypto_test_bin
+        PRIVATE src/crypto/test/crypto_nat20.cpp
+    )
+    target_link_libraries(nat20_crypto_test_bin nat20_crypto_nat20)
+
+
 endif() # NAT20_WITH_TESTS
 
 ###################################################################################################
 
 ###################################################################################################
 # The doxygen docs generation target is only created if enabled by setting `-DNAT20_WITH_DOCS=ON`
-# on the `cmake --build` command line.
+# on the `cmake -B` command line.
+
 if (NAT20_WITH_DOCS)
 
     find_package(Doxygen REQUIRED dot)
@@ -224,6 +299,8 @@ if (NAT20_WITH_DOCS)
     doxygen_add_docs(nat20_docs
         ${LIBNAT20_PUB_HEADERS}
         ${LIBNAT20_DOC_PAGES}
+        ${LIBNAT20_TEST_UTILS_HEADERS}
+        ${LIBNAT20_CRYPTO_NAT20_PUB_HEADERS}
     )
 
 endif() # NAT20_WITH_DOCS
