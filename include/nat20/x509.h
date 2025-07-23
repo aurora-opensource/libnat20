@@ -738,8 +738,8 @@ struct n20_x509_tbs_s {
      * And represents an Integer In Big Endian order.
      *
      * If the serial number is exactly 20 bytes long, the most significant
-     * bit in the most significant byte must be zero so as not to
-     * 20 bytes limit due to sign extension in the ASN.1 encoding.
+     * bit in the most significant byte must be zero so as not to exceed the
+     * 20 bytes limit due to sign extension in the ASN.1 integer encoding.
      *
      * See RFC5280 Section 4.1.2.2.
      */
