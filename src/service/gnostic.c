@@ -167,3 +167,98 @@ out:
     }
     return error;
 }
+
+n20_error_t n20_gnostic_issue_eca_certificate(n20_gnostic_node_state_t *node_state,
+                                             size_t client_slot_index,
+                                             n20_crypto_key_type_t parent_key_type,
+                                             n20_crypto_key_type_t key_type,
+                                             n20_compressed_input_t *parent_path,
+                                             size_t parent_path_size,
+                                             n20_string_slice_t context,
+                                             n20_slice_t key_usage,
+                                             n20_slice_t challenge,
+                                             n20_certificate_format_t certificate_format,
+                                             uint8_t *attestation_certificate,
+                                             size_t *attestation_certificate_size) {
+
+    if (node_state == NULL || node_state->crypto_context == NULL) {
+        return n20_error_missing_crypto_context_e;
+    }
+
+    n20_crypto_key_t parent_secret = node_state->client_slots[client_slot_index].min_cdi;
+
+    n20_error_t error = n20_resolve_path(
+        node_state->crypto_context, parent_secret, parent_path, parent_path_size, &parent_secret);
+    if (error != n20_error_ok_e) {
+        return error;
+    }
+
+    n20_crypto_key_t parent_attestation_key = NULL;
+
+    error = n20_derive_attestation_key(
+        node_state->crypto_context, parent_secret, &parent_attestation_key, parent_key_type);
+    if (error != n20_error_ok_e) {
+        goto out;
+    }
+
+    error = n20_eca_attestation_key_and_certificate(node_state->crypto_context,
+                                                   parent_secret,
+                                                   parent_attestation_key,
+                                                   parent_key_type,
+                                                   key_type,
+                                                   context,
+                                                   key_usage,
+                                                   challenge,
+                                                   certificate_format,
+                                                   attestation_certificate,
+                                                   attestation_certificate_size);
+
+    node_state->crypto_context->key_free(node_state->crypto_context, parent_attestation_key);
+
+out:
+    if (parent_path_size > 0) {
+        node_state->crypto_context->key_free(node_state->crypto_context, parent_secret);
+    }
+    return error;
+}
+
+
+n20_error_t n20_gnostic_eca_sign(n20_gnostic_node_state_t *node_state,
+                                 size_t client_slot_index,
+                                 n20_crypto_key_type_t key_type,
+                                 n20_compressed_input_t *parent_path,
+                                 size_t parent_path_size,
+                                 n20_string_slice_t context,
+                                 n20_slice_t key_usage,
+                                 n20_slice_t challenge,
+                                 n20_slice_t message,
+                                 uint8_t *signature,
+                                 size_t *signature_size) {
+
+    if (node_state == NULL || node_state->crypto_context == NULL) {
+        return n20_error_missing_crypto_context_e;
+    }
+
+    n20_crypto_key_t parent_secret = node_state->client_slots[client_slot_index].min_cdi;
+
+    n20_error_t error = n20_resolve_path(
+        node_state->crypto_context, parent_secret, parent_path, parent_path_size, &parent_secret);
+    if (error != n20_error_ok_e) {
+        return error;
+    }
+
+    error = n20_eca_sign_message(node_state->crypto_context,
+                                parent_secret,
+                                key_type,
+                                context,
+                                key_usage,
+                                challenge,
+                                message,
+                                signature,
+                                signature_size);
+
+    if (parent_path_size > 0) {
+        node_state->crypto_context->key_free(node_state->crypto_context, parent_secret);
+    }
+    return error;
+}
