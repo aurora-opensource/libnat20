@@ -38,7 +38,17 @@ enum n20_msg_request_type_s {
      */
     n20_msg_request_type_issue_cdi_cert_e = 2,
 
-    n20_msg_request_type_count_e = 3,
+    /**
+     * @brief Request to issue an ECA certificate.
+     */
+    n20_msg_request_type_issue_eca_cert_e = 3,
+
+    /**
+     * @brief Request to sign with an ECA key.
+     */
+    n20_msg_request_type_eca_sign_e = 4,
+
+    n20_msg_request_type_count_e = 5,
 };
 
 typedef enum n20_msg_request_type_s n20_msg_request_type_t;
@@ -94,9 +104,129 @@ struct n20_msg_issue_cdi_cert_request_s {
 
 typedef struct n20_msg_issue_cdi_cert_request_s n20_msg_issue_cdi_cert_request_t;
 
+struct n20_msg_issue_eca_cert_request_s {
+    /**
+     * @brief The type of the parent key.
+     *
+     * This is used to sign the ECA certificate.
+     */
+    n20_crypto_key_type_t parent_key_type;
+
+    /**
+     * @brief The type of the ECA key to be issued.
+     *
+     * This is the type of the ECA key that is being requested.
+     */
+    n20_crypto_key_type_t key_type;
+
+    /**
+     * @brief The length of the parent path.
+     *
+     * This is used to determine how many elements are in the parent path.
+     */
+    size_t parent_path_length;
+    
+    /**
+     * @brief The compressed path to the parent CDI.
+     *
+     * This is used to derive the parent secret for ECA key generation.
+     */
+    n20_slice_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
+    
+    /**
+     * @brief The format of the certificate to be issued.
+     *
+     * This is used to determine how the certificate should be formatted.
+     */
+    n20_certificate_format_t certificate_format;
+    
+    /**
+     * @brief Context descriptor of the key identity and/or purpose.
+     *
+     * This is used in ECA_CTX derivation.
+     */
+    n20_string_slice_t context;
+    
+    /**
+     * @brief Key usage as intended by the client.
+     *
+     * This is used in ECA_CTX derivation and certificate generation.
+     */
+    n20_slice_t key_usage;
+    
+    /**
+     * @brief Challenge (nonce) - a high entropy value.
+     *
+     * This is used in ECA_CTX derivation and included in the certificate.
+     */
+    n20_slice_t challenge;
+};
+
+typedef struct n20_msg_issue_eca_cert_request_s n20_msg_issue_eca_cert_request_t;
+
+struct n20_msg_eca_sign_request_s {
+    /**
+     * @brief The type of the parent key.
+     *
+     * This is used to sign the message.
+     */
+    n20_crypto_key_type_t parent_key_type;
+
+    /**
+     * @brief The type of the ECA key to derive.
+     *
+     * This is the type of the ECA key used for signing.
+     */
+    n20_crypto_key_type_t key_type;
+
+    /**
+     * @brief The length of the parent path.
+     *
+     * This is used to determine how many elements are in the parent path.
+     */
+    size_t parent_path_length;
+    
+    /**
+     * @brief The compressed path to the parent CDI.
+     *
+     * This is used to derive the parent secret for ECA key generation.
+     */
+    n20_slice_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
+    
+    /**
+     * @brief Context descriptor of the key identity and/or purpose.
+     *
+     * This is used in ECA_CTX derivation.
+     */
+    n20_string_slice_t context;
+    
+    /**
+     * @brief Key usage as intended by the client.
+     *
+     * This is used in ECA_CTX derivation.
+     */
+    n20_slice_t key_usage;
+    
+    /**
+     * @brief Challenge (nonce) - a high entropy value.
+     *
+     * This is used in ECA_CTX derivation.
+     */
+    n20_slice_t challenge;
+    
+    /**
+     * @brief The message to be signed.
+     */
+    n20_slice_t message;
+};
+
+typedef struct n20_msg_eca_sign_request_s n20_msg_eca_sign_request_t;
+
 union n20_msg_request_payload_u {
     n20_msg_promote_request_t promote;
     n20_msg_issue_cdi_cert_request_t issue_cdi_cert;
+    n20_msg_issue_eca_cert_request_t issue_eca_cert;
+    n20_msg_eca_sign_request_t eca_sign;
 };
 
 typedef union n20_msg_request_payload_u n20_msg_request_payload_t;
@@ -147,6 +277,24 @@ struct n20_msg_issue_cdi_cert_response_s {
 
 typedef struct n20_msg_issue_cdi_cert_response_s n20_msg_issue_cdi_cert_response_t;
 
+/* ECA certificate response uses the same structure as CDI certificate response */
+typedef n20_msg_issue_cdi_cert_response_t n20_msg_issue_eca_cert_response_t;
+
+struct n20_msg_eca_sign_response_s {
+    /**
+     * @brief The error code of the response.
+     *
+     * This is used to indicate success or failure of the request.
+     */
+    n20_error_t error_code;
+    /**
+     * @brief The signature.
+     */
+    n20_slice_t signature;
+};
+
+typedef struct n20_msg_eca_sign_response_s n20_msg_eca_sign_response_t;
+
 extern n20_error_t n20_msg_request_read(n20_msg_request_t *request, n20_slice_t msg_buffer);
 
 extern n20_error_t n20_msg_request_write(n20_msg_request_t const *request,
@@ -161,11 +309,21 @@ extern n20_error_t n20_msg_issue_cdi_cert_response_write(
     uint8_t *buffer,
     size_t *const buffer_size_in_out);
 
+/* ECA certificate response uses the same read/write functions as CDI certificate response */
+#define n20_msg_issue_eca_cert_response_read n20_msg_issue_cdi_cert_response_read
+#define n20_msg_issue_eca_cert_response_write n20_msg_issue_cdi_cert_response_write
+
 extern n20_error_t n20_msg_error_response_read(n20_msg_error_response_t *response,
                                                n20_slice_t buffer);
 extern n20_error_t n20_msg_error_response_write(n20_msg_error_response_t const *response,
                                                 uint8_t *buffer,
                                                 size_t *const buffer_size_in_out);
+
+extern n20_error_t n20_msg_eca_sign_response_read(n20_msg_eca_sign_response_t *response,
+                                                  n20_slice_t buffer);
+extern n20_error_t n20_msg_eca_sign_response_write(n20_msg_eca_sign_response_t const *response,
+                                                   uint8_t *buffer,
+                                                   size_t *const buffer_size_in_out);
 
 #ifdef __cplusplus
 }
