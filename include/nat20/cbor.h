@@ -96,6 +96,22 @@ typedef enum n20_cbor_type_s {
 } n20_cbor_type_t;
 
 /**
+ * @brief Simple value definitions.
+ *
+ * These definitions represent the CBOR simple values for major type 7.
+ * @{
+ */
+/** @brief Simple value: false */
+#define N20_SIMPLE_FALSE 20
+/** @brief Simple value: true */
+#define N20_SIMPLE_TRUE 21
+/** @brief Simple value: null */
+#define N20_SIMPLE_NULL 22
+/** @brief Simple value: undefined */
+#define N20_SIMPLE_UNDEFINED 23
+/** @} */
+
+/**
  * @brief Write a CBOR header to the given stream.
  *
  * This function writes the CBOR header for a given type and value to the stream.
@@ -116,8 +132,8 @@ extern void n20_cbor_write_header(n20_stream_t *s, n20_cbor_type_t type, uint64_
  */
 extern void n20_cbor_write_null(n20_stream_t *const s);
 
-/** @brief Write a boolean to the stream in CBOR format.
- *
+/**
+ * @brief Write a boolean to the stream in CBOR format.
  *
  * This function encodes the boolean value using the CBOR encoding rules.
  * The value `true` is encoded as 21 and `false` as 20 with a major type of 7.
@@ -127,7 +143,8 @@ extern void n20_cbor_write_null(n20_stream_t *const s);
  */
 extern void n20_cbor_write_bool(n20_stream_t *const s, bool const b);
 
-/** @brief Write a CBOR tag to the stream.
+/**
+ * @brief Write a CBOR tag to the stream.
  *
  * This function encodes a CBOR tag using the CBOR encoding rules.
  *

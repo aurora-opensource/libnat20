@@ -23,8 +23,8 @@
 void n20_cbor_write_header(n20_stream_t *const s, n20_cbor_type_t cbor_type, uint64_t n) {
     if ((unsigned int)cbor_type > 7) {
         /* 0xf7 is the encoding of the special value "undefined". */
-        n20_stream_put(s, 0xf7);
-        return;
+        cbor_type = n20_cbor_type_simple_float_e;
+        n = N20_SIMPLE_UNDEFINED;
     }
     uint8_t header = (uint8_t)(cbor_type << 5);
 
@@ -57,11 +57,11 @@ void n20_cbor_write_header(n20_stream_t *const s, n20_cbor_type_t cbor_type, uin
 }
 
 void n20_cbor_write_null(n20_stream_t *const s) {
-    n20_cbor_write_header(s, n20_cbor_type_simple_float_e, 22);
+    n20_cbor_write_header(s, n20_cbor_type_simple_float_e, N20_SIMPLE_NULL);
 }
 
 void n20_cbor_write_bool(n20_stream_t *const s, bool const b) {
-    n20_cbor_write_header(s, n20_cbor_type_simple_float_e, b ? 21 : 20);
+    n20_cbor_write_header(s, n20_cbor_type_simple_float_e, b ? N20_SIMPLE_TRUE : N20_SIMPLE_FALSE);
 }
 
 void n20_cbor_write_tag(n20_stream_t *const s, uint64_t const tag) {
