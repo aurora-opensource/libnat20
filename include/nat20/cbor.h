@@ -99,6 +99,9 @@ typedef enum n20_cbor_type_s {
  * @brief Simple value definitions.
  *
  * These definitions represent the CBOR simple values for major type 7.
+ *
+ * See RF8949 Section 3.3.
+ *
  * @{
  */
 /** @brief Simple value: false */
