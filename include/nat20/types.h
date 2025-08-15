@@ -126,7 +126,7 @@ typedef struct n20_string_slice_s n20_string_slice_t;
  * @param str__ The string literal to be converted.
  */
 #define N20_STR_C(str__) \
-    (n20_string_slice_t){.size = sizeof(str__) - 1, .buffer = str__ ""}
+    (n20_string_slice_t) { .size = sizeof(str__) - 1, .buffer = str__ "" }
 
 /**
  * @brief Convenience macro to create an empty string slice.
