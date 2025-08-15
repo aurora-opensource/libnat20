@@ -421,10 +421,22 @@ n20_error_t n20_prepare_x509_cert(n20_open_dice_input_t const *context,
                                   size_t *attestation_certificate_size) {
     n20_error_t err = n20_error_ok_e;
     n20_x509_ext_key_usage_t key_usage = {0};
-    N20_X509_KEY_USAGE_SET_KEY_CERT_SIGN(&key_usage);
+
+    /* Check if this is an ECA certificate (empty context) */
+    bool is_eca = (context->code_hash.size == 0 && context->configuration_hash.size == 0 &&
+                   context->authority_hash.size == 0);
+
+    if (is_eca) {
+        /* ECA certificates: end-entity certificates with digital signature and key encipherment */
+        N20_X509_KEY_USAGE_SET_DIGITAL_SIGNATURE(&key_usage);
+        N20_X509_KEY_USAGE_SET_KEY_ENCIPHERMENT(&key_usage);
+    } else {
+        /* CDI certificates: CA certificates with certificate signing */
+        N20_X509_KEY_USAGE_SET_KEY_CERT_SIGN(&key_usage);
+    }
 
     n20_x509_ext_basic_constraints_t basic_constraints = {
-        .is_ca = 1,
+        .is_ca = is_eca ? 0 : 1, /* ECA is not a CA */
         .has_path_length = false,
     };
 
@@ -438,6 +450,9 @@ n20_error_t n20_prepare_x509_cert(n20_open_dice_input_t const *context,
         .mode = n20_open_dice_mode_2_x509_mode(context->mode),
         .profile_name = context->profile_name,
     };
+
+    /* For ECA certificates, we only include key usage and basic constraints extensions */
+    int extension_count = is_eca ? 2 : 3;
 
     n20_x509_extension_t extensions[3] = {
         {
@@ -486,8 +501,9 @@ n20_error_t n20_prepare_x509_cert(n20_open_dice_input_t const *context,
     tbs.subject_unique_id = subject_name->serial_number;
 
     tbs.extensions = (n20_x509_extensions_t){
-        .extensions_count = 3,
-        .extensions = &extensions[0],
+        .extensions_count = extension_count,
+        .extensions =
+            is_eca ? &extensions[1] : &extensions[0], /* Skip OpenDICE extension for ECA */
     };
 
     // Create a new stream for the attestation certificate
@@ -584,15 +600,16 @@ static void payload_callback_open_dice_cwt(n20_stream_t *s, void *payload_ctx) {
  * The function returns @ref n20_error_ok_e on success, or an error
  * code on failure.
  */
-n20_error_t n20_opendice_attestation_key_and_certificate(n20_crypto_context_t *crypto_ctx,
-                                                         n20_crypto_key_t parent_secret,
-                                                         n20_crypto_key_t parent_attestation_key,
-                                                         n20_crypto_key_type_t parent_key_type,
-                                                         n20_crypto_key_type_t key_type,
-                                                         n20_open_dice_input_t const *context,
-                                                         n20_certificate_format_t certificate_format,
-                                                         uint8_t *attestation_certificate,
-                                                         size_t *attestation_certificate_size) {
+n20_error_t n20_opendice_attestation_key_and_certificate(
+    n20_crypto_context_t *crypto_ctx,
+    n20_crypto_key_t parent_secret,
+    n20_crypto_key_t parent_attestation_key,
+    n20_crypto_key_type_t parent_key_type,
+    n20_crypto_key_type_t key_type,
+    n20_open_dice_input_t const *context,
+    n20_certificate_format_t certificate_format,
+    uint8_t *attestation_certificate,
+    size_t *attestation_certificate_size) {
 
     /* Check if the crypto context is valid. */
     if (crypto_ctx == NULL) {
@@ -737,12 +754,13 @@ n20_error_t n20_opendice_attestation_key_and_certificate(n20_crypto_context_t *c
                 },
             .code_descriptor = context->code_descriptor,
             .configuration_descriptor = context->configuration_descriptor,
-            .subject_public_key = {
-                .algorithm_id = 0,
-                .x = N20_SLICE_NULL,
-                .y = N20_SLICE_NULL,
-                .d = N20_SLICE_NULL,
-            },
+            .subject_public_key =
+                {
+                    .algorithm_id = 0,
+                    .x = N20_SLICE_NULL,
+                    .y = N20_SLICE_NULL,
+                    .d = N20_SLICE_NULL,
+                },
         };
 
         switch (key_type) {
@@ -754,7 +772,7 @@ n20_error_t n20_opendice_attestation_key_and_certificate(n20_crypto_context_t *c
             case n20_crypto_key_type_secp256r1_e:
                 cwt.subject_public_key.algorithm_id = -7;
                 cwt.subject_public_key.x.buffer = public_key;
-                cwt.subject_public_key.x.size = public_key_size/2;
+                cwt.subject_public_key.x.size = public_key_size / 2;
                 cwt.subject_public_key.y.buffer = &public_key[public_key_size / 2];
                 cwt.subject_public_key.y.size = public_key_size / 2;
                 break;
@@ -788,6 +806,337 @@ n20_error_t n20_opendice_attestation_key_and_certificate(n20_crypto_context_t *c
                 return n20_error_crypto_invalid_key_type_e;
         }
 
-        return n20_cose_sign1_payload(crypto_ctx, parent_attestation_key, signing_key_algorithm_id, payload_callback_open_dice_cwt, &cwt, attestation_certificate, attestation_certificate_size);
+        return n20_cose_sign1_payload(crypto_ctx,
+                                      parent_attestation_key,
+                                      signing_key_algorithm_id,
+                                      payload_callback_open_dice_cwt,
+                                      &cwt,
+                                      attestation_certificate,
+                                      attestation_certificate_size);
     }
+}
+
+/**
+ * @brief Issues a new ECA attestation certificate.
+ *
+ * This function generates an ECA (Embedded CA) attestation certificate
+ * using the parent secret to derive an ECA key pair. Unlike CDI certificates,
+ * ECA certificates are end-entity certificates (not CA certificates) and don't
+ * derive a new level of secrets.
+ *
+ * The ECA key is derived directly from the parent secret using the tag "ECA_KEY".
+ * The certificate is signed by the parent attestation key and contains the
+ * ECA public key.
+ *
+ * Important: Because of the way the attestation certificate is rendered,
+ * the resulting certificate is not written to the beginning of the buffer
+ * but to the end. Thus the certificate is located at
+ * `attestation_certificate + in_buffer_size - out_buffer_size`.
+ *
+ * @param crypto_ctx The crypto context.
+ * @param parent_secret The parent CDI secret.
+ * @param parent_attestation_key The parent attestation key for signing.
+ * @param parent_key_type The type of the parent key.
+ * @param key_type The type of the ECA key to generate.
+ * @param certificate_format The format of the certificate (X.509 or COSE).
+ * @param attestation_certificate Buffer to write the certificate.
+ * @param attestation_certificate_size In/out parameter for buffer size.
+ * @return n20_error_ok_e on success, or an error code on failure.
+ */
+n20_error_t n20_eca_attestation_key_and_certificate(n20_crypto_context_t *crypto_ctx,
+                                                    n20_crypto_key_t parent_secret,
+                                                    n20_crypto_key_t parent_attestation_key,
+                                                    n20_crypto_key_type_t parent_key_type,
+                                                    n20_crypto_key_type_t key_type,
+                                                    n20_string_slice_t context,
+                                                    n20_slice_t key_usage,
+                                                    n20_slice_t challenge,
+                                                    n20_certificate_format_t certificate_format,
+                                                    uint8_t *attestation_certificate,
+                                                    size_t *attestation_certificate_size) {
+
+    /* Check if the crypto context is valid. */
+    if (crypto_ctx == NULL) {
+        return n20_error_missing_crypto_context_e;
+    }
+
+    bool cose = (certificate_format == n20_certificate_format_cose_e);
+
+    n20_cdi_id_t issuer_serial_number = {0};
+
+    uint8_t public_key_buffer[97];
+
+    /* Get the public key of the parent attestation key. */
+    uint8_t *public_key = &public_key_buffer[1];
+    size_t public_key_size = sizeof(public_key_buffer) - 1;
+    n20_error_t err = crypto_ctx->key_get_public_key(
+        crypto_ctx, parent_attestation_key, public_key, &public_key_size);
+
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+
+    err = n20_open_dice_cdi_id(&crypto_ctx->digest_ctx,
+                               (n20_slice_t){.buffer = public_key, .size = public_key_size},
+                               issuer_serial_number);
+
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+
+    if (!cose && parent_key_type != n20_crypto_key_type_ed25519_e) {
+        public_key_buffer[0] = 0x04;
+        public_key = &public_key_buffer[0];
+        public_key_size += 1;
+    }
+
+    /* Concatenate Context | Key usage | challenge to form ECA_CTX */
+    /* Use a reasonable maximum size for the combined input */
+    uint8_t eca_ctx[512]; /* Stack allocated buffer */
+    size_t eca_ctx_size = 0;
+
+    /* Concatenate Context | Key usage | challenge */
+    if (context.size > 0) {
+        if (eca_ctx_size + context.size > sizeof(eca_ctx)) {
+            return n20_error_insufficient_buffer_size_e;
+        }
+        memcpy(eca_ctx + eca_ctx_size, context.buffer, context.size);
+        eca_ctx_size += context.size;
+    }
+    if (key_usage.size > 0) {
+        if (eca_ctx_size + key_usage.size > sizeof(eca_ctx)) {
+            return n20_error_insufficient_buffer_size_e;
+        }
+        memcpy(eca_ctx + eca_ctx_size, key_usage.buffer, key_usage.size);
+        eca_ctx_size += key_usage.size;
+    }
+    if (challenge.size > 0) {
+        if (eca_ctx_size + challenge.size > sizeof(eca_ctx)) {
+            return n20_error_insufficient_buffer_size_e;
+        }
+        memcpy(eca_ctx + eca_ctx_size, challenge.buffer, challenge.size);
+        eca_ctx_size += challenge.size;
+    }
+
+    /* Use ECA_CTX as salt for key derivation - n20_derive_key will hash it internally */
+    n20_slice_t eca_salt = {.buffer = eca_ctx, .size = eca_ctx_size};
+    static uint8_t const ECA_TAG[] = {'E', 'C', 'A', '_', 'K', 'E', 'Y'};
+    n20_slice_t eca_tag = {.buffer = (uint8_t *)ECA_TAG, .size = sizeof(ECA_TAG)};
+
+    /* Derive the ECA attestation key */
+    n20_crypto_key_t eca_attestation_key = NULL;
+    err = n20_derive_key(
+        crypto_ctx, parent_secret, &eca_attestation_key, key_type, eca_salt, eca_tag);
+
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+
+    /* Get the public key of the ECA key. */
+    public_key = &public_key_buffer[1];
+    public_key_size = sizeof(public_key_buffer) - 1;
+    err = crypto_ctx->key_get_public_key(
+        crypto_ctx, eca_attestation_key, public_key, &public_key_size);
+
+    /* Regardless of whether the last call was successful
+     * the ECA attestation key is no longer needed. */
+    crypto_ctx->key_free(crypto_ctx, eca_attestation_key);
+
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+
+    n20_cdi_id_t subject_serial_number = {0};
+    err = n20_open_dice_cdi_id(&crypto_ctx->digest_ctx,
+                               (n20_slice_t){.buffer = public_key, .size = public_key_size},
+                               subject_serial_number);
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+
+    if (!cose && key_type != n20_crypto_key_type_ed25519_e) {
+        public_key_buffer[0] = 0x04;
+        public_key = &public_key_buffer[0];
+        public_key_size += 1;
+    }
+
+    if (!cose) {
+        /* Create empty context for ECA certificate (no OpenDICE input extension) */
+        n20_open_dice_input_t empty_context = {0};
+
+        return n20_prepare_x509_cert(&empty_context,
+                                     &(n20_signer_t){
+                                         .crypto_ctx = crypto_ctx,
+                                         .signing_key = parent_attestation_key,
+                                         .cb = n20_signer_callback,
+                                     },
+                                     parent_key_type,
+                                     &(n20_name_t){
+                                         .country_name = N20_STR_C("US"),
+                                         .locality_name = N20_STR_C("Scranton"),
+                                         .organization_name = N20_STR_C("Test DICE CA"),
+                                         .organization_unit_name = N20_STR_NULL,
+                                         .common_name = N20_STR_C("DICE Layer 0"),
+                                         .serial_number =
+                                             {
+                                                 .buffer = (uint8_t *)issuer_serial_number,
+                                                 .size = sizeof(issuer_serial_number),
+                                             },
+                                     },
+                                     key_type,
+                                     &(n20_name_t){
+                                         .country_name = N20_STR_C("US"),
+                                         .locality_name = N20_STR_C("Scranton"),
+                                         .organization_name = N20_STR_C("Test DICE ECA"),
+                                         .organization_unit_name = N20_STR_NULL,
+                                         .common_name = N20_STR_C("DICE ECA Certificate"),
+                                         .serial_number =
+                                             {
+                                                 .buffer = (uint8_t *)subject_serial_number,
+                                                 .size = sizeof(subject_serial_number),
+                                             },
+                                     },
+                                     public_key,
+                                     public_key_size,
+                                     attestation_certificate,
+                                     attestation_certificate_size);
+    } else {
+        /* For COSE format, create a simpler CWT without OpenDICE claims */
+        n20_open_dice_cwt_t cwt = {
+            .code_hash = N20_SLICE_NULL,
+            .configuration_hash = N20_SLICE_NULL,
+            .authority_hash = N20_SLICE_NULL,
+            .mode = n20_open_dice_mode_2_cwt_mode(n20_open_dice_mode_not_configured_e),
+            .subject =
+                {
+                    .buffer = (uint8_t *)subject_serial_number,
+                    .size = sizeof(subject_serial_number),
+                },
+            .issuer =
+                {
+                    .buffer = (uint8_t *)issuer_serial_number,
+                    .size = sizeof(issuer_serial_number),
+                },
+        };
+
+        switch (key_type) {
+            case n20_crypto_key_type_ed25519_e:
+                cwt.subject_public_key.algorithm_id = -8;
+                cwt.subject_public_key.x.buffer = public_key;
+                cwt.subject_public_key.x.size = public_key_size;
+                break;
+            case n20_crypto_key_type_secp256r1_e:
+                cwt.subject_public_key.algorithm_id = -7;
+                cwt.subject_public_key.x.buffer = public_key;
+                cwt.subject_public_key.x.size = public_key_size / 2;
+                cwt.subject_public_key.y.buffer = &public_key[public_key_size / 2];
+                cwt.subject_public_key.y.size = public_key_size / 2;
+                break;
+            case n20_crypto_key_type_secp384r1_e:
+                cwt.subject_public_key.algorithm_id = -35;
+                cwt.subject_public_key.x.buffer = public_key;
+                cwt.subject_public_key.x.size = public_key_size;
+                cwt.subject_public_key.y.buffer = &public_key[public_key_size / 2];
+                cwt.subject_public_key.y.size = public_key_size / 2;
+                break;
+            default:
+                return n20_error_crypto_invalid_key_type_e;
+        }
+
+        n20_set_cose_key_ops(&cwt.subject_public_key.key_ops, n20_cose_key_op_sign_e);
+        n20_set_cose_key_ops(&cwt.subject_public_key.key_ops, n20_cose_key_op_verify_e);
+
+        int32_t signing_key_algorithm_id = 0;
+
+        switch (parent_key_type) {
+            case n20_crypto_key_type_ed25519_e:
+                signing_key_algorithm_id = -8;
+                break;
+            case n20_crypto_key_type_secp256r1_e:
+                signing_key_algorithm_id = -7;
+                break;
+            case n20_crypto_key_type_secp384r1_e:
+                signing_key_algorithm_id = -35;
+                break;
+            default:
+                return n20_error_crypto_invalid_key_type_e;
+        }
+
+        return n20_cose_sign1_payload(crypto_ctx,
+                                      parent_attestation_key,
+                                      signing_key_algorithm_id,
+                                      payload_callback_open_dice_cwt,
+                                      &cwt,
+                                      attestation_certificate,
+                                      attestation_certificate_size);
+    }
+}
+
+n20_error_t n20_eca_sign_message(n20_crypto_context_t *crypto_ctx,
+                                 n20_crypto_key_t parent_secret,
+                                 n20_crypto_key_type_t key_type,
+                                 n20_string_slice_t context,
+                                 n20_slice_t key_usage,
+                                 n20_slice_t challenge,
+                                 n20_slice_t message,
+                                 uint8_t *signature,
+                                 size_t *signature_size) {
+    /* Check if the crypto context is valid. */
+    if (crypto_ctx == NULL) {
+        return n20_error_missing_crypto_context_e;
+    }
+
+    /* Concatenate Context | Key usage | challenge to form ECA_CTX */
+    /* Use a reasonable maximum size for the combined input */
+    uint8_t eca_ctx[512]; /* Stack allocated buffer */
+    size_t eca_ctx_size = 0;
+
+    /* Concatenate Context | Key usage | challenge */
+    if (context.size > 0) {
+        if (eca_ctx_size + context.size > sizeof(eca_ctx)) {
+            return n20_error_insufficient_buffer_size_e;
+        }
+        memcpy(eca_ctx + eca_ctx_size, context.buffer, context.size);
+        eca_ctx_size += context.size;
+    }
+    if (key_usage.size > 0) {
+        if (eca_ctx_size + key_usage.size > sizeof(eca_ctx)) {
+            return n20_error_insufficient_buffer_size_e;
+        }
+        memcpy(eca_ctx + eca_ctx_size, key_usage.buffer, key_usage.size);
+        eca_ctx_size += key_usage.size;
+    }
+    if (challenge.size > 0) {
+        if (eca_ctx_size + challenge.size > sizeof(eca_ctx)) {
+            return n20_error_insufficient_buffer_size_e;
+        }
+        memcpy(eca_ctx + eca_ctx_size, challenge.buffer, challenge.size);
+        eca_ctx_size += challenge.size;
+    }
+
+    /* Use ECA_CTX as salt for key derivation - n20_derive_key will hash it internally */
+    n20_slice_t eca_salt = {.buffer = eca_ctx, .size = eca_ctx_size};
+    static uint8_t const ECA_TAG[] = {'E', 'C', 'A', '_', 'K', 'E', 'Y'};
+    n20_slice_t eca_tag = {.buffer = (uint8_t *)ECA_TAG, .size = sizeof(ECA_TAG)};
+
+    /* Derive the ECA signing key */
+    n20_crypto_key_t eca_key = NULL;
+    n20_error_t err =
+        n20_derive_key(crypto_ctx, parent_secret, &eca_key, key_type, eca_salt, eca_tag);
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+
+    /* Sign the message */
+    n20_crypto_gather_list_t message_gather = {
+        .count = 1,
+        .list = &message,
+    };
+
+    err = crypto_ctx->sign(crypto_ctx, eca_key, &message_gather, signature, signature_size);
+
+    /* Clean up the ECA key */
+    crypto_ctx->key_free(crypto_ctx, eca_key);
+
+    return err;
 }

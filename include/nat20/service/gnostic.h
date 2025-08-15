@@ -63,17 +63,41 @@ extern n20_error_t n20_gnostic_promote(n20_gnostic_node_state_t *node_state,
                                        size_t client_slot_index,
                                        n20_compressed_input_t compressed_context);
 
-extern n20_error_t n20_gnostic_issue_cdi_certificate(
-    n20_gnostic_node_state_t *node_state,
-    size_t client_slot_index,
-    n20_crypto_key_type_t parent_key_type,
-    n20_crypto_key_type_t key_type,
-    n20_compressed_input_t *parent_path,
-    size_t parent_path_size,
-    n20_open_dice_input_t const *next_context,
-    n20_certificate_format_t certificate_format,
-    uint8_t *attestation_certificate,
-    size_t *attestation_certificate_size);
+extern n20_error_t n20_gnostic_issue_cdi_certificate(n20_gnostic_node_state_t *node_state,
+                                                     size_t client_slot_index,
+                                                     n20_crypto_key_type_t parent_key_type,
+                                                     n20_crypto_key_type_t key_type,
+                                                     n20_compressed_input_t *parent_path,
+                                                     size_t parent_path_size,
+                                                     n20_open_dice_input_t const *next_context,
+                                                     n20_certificate_format_t certificate_format,
+                                                     uint8_t *attestation_certificate,
+                                                     size_t *attestation_certificate_size);
+
+extern n20_error_t n20_gnostic_issue_eca_certificate(n20_gnostic_node_state_t *node_state,
+                                                     size_t client_slot_index,
+                                                     n20_crypto_key_type_t parent_key_type,
+                                                     n20_crypto_key_type_t key_type,
+                                                     n20_compressed_input_t *parent_path,
+                                                     size_t parent_path_size,
+                                                     n20_string_slice_t context,
+                                                     n20_slice_t key_usage,
+                                                     n20_slice_t challenge,
+                                                     n20_certificate_format_t certificate_format,
+                                                     uint8_t *attestation_certificate,
+                                                     size_t *attestation_certificate_size);
+
+extern n20_error_t n20_gnostic_eca_sign(n20_gnostic_node_state_t *node_state,
+                                        size_t client_slot_index,
+                                        n20_crypto_key_type_t key_type,
+                                        n20_compressed_input_t *parent_path,
+                                        size_t parent_path_size,
+                                        n20_string_slice_t context,
+                                        n20_slice_t key_usage,
+                                        n20_slice_t challenge,
+                                        n20_slice_t message,
+                                        uint8_t *signature,
+                                        size_t *signature_size);
 
 #ifdef __cplusplus
 }

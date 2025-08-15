@@ -105,7 +105,6 @@ enum n20_certificate_format_s {
 
 typedef enum n20_certificate_format_s n20_certificate_format_t;
 
-
 /**
  * @brief OpenDICE input content context.
  *
@@ -142,14 +141,14 @@ typedef struct n20_dice_context_s {
 } n20_open_dice_input_t;
 
 extern n20_error_t n20_compress_input(n20_crypto_digest_context_t *crypto_ctx,
-                               n20_open_dice_input_t const *context,
-                               n20_compressed_input_t digest);
+                                      n20_open_dice_input_t const *context,
+                                      n20_compressed_input_t digest);
 
 typedef uint8_t n20_cdi_id_t[20];
 
 extern n20_error_t n20_open_dice_cdi_id(n20_crypto_digest_context_t *crypto_ctx,
-                                 n20_slice_t const public_key,
-                                 n20_cdi_id_t cdi_id);
+                                        n20_slice_t const public_key,
+                                        n20_cdi_id_t cdi_id);
 
 /**
  * @brief Derives a key from the given CDI secret.
@@ -314,6 +313,76 @@ extern n20_error_t n20_opendice_attestation_key_and_certificate(
     n20_certificate_format_t certificate_format,
     uint8_t *attestation_certificate,
     size_t *attestation_certificate_size);
+
+/**
+ * @brief Issues a new ECA attestation certificate.
+ *
+ * This function generates an ECA (Embedded CA) attestation certificate
+ * using the parent secret to derive an ECA key pair. Unlike CDI certificates,
+ * ECA certificates are end-entity certificates (not CA certificates) and don't
+ * derive a new level of secrets.
+ *
+ * The ECA key is derived directly from the parent secret using the tag "ECA_KEY".
+ * The certificate is signed by the parent attestation key and contains the
+ * ECA public key.
+ *
+ * Important: Because of the way the attestation certificate is rendered,
+ * the resulting certificate is not written to the beginning of the buffer
+ * but to the end. Thus the certificate is located at
+ * `attestation_certificate + in_buffer_size - out_buffer_size`.
+ *
+ * @param crypto_ctx The crypto context.
+ * @param parent_secret The parent CDI secret.
+ * @param parent_attestation_key The parent attestation key for signing.
+ * @param parent_key_type The type of the parent key.
+ * @param key_type The type of the ECA key to generate.
+ * @param context Context descriptor of the key identity and/or purpose.
+ * @param key_usage Key usage as intended by the client.
+ * @param challenge Challenge (nonce) - a high entropy value.
+ * @param certificate_format The format of the certificate (X.509 or COSE).
+ * @param attestation_certificate Buffer to write the certificate.
+ * @param attestation_certificate_size In/out parameter for buffer size.
+ * @return n20_error_ok_e on success, or an error code on failure.
+ */
+extern n20_error_t n20_eca_attestation_key_and_certificate(
+    n20_crypto_context_t *crypto_ctx,
+    n20_crypto_key_t parent_secret,
+    n20_crypto_key_t parent_attestation_key,
+    n20_crypto_key_type_t parent_key_type,
+    n20_crypto_key_type_t key_type,
+    n20_string_slice_t context,
+    n20_slice_t key_usage,
+    n20_slice_t challenge,
+    n20_certificate_format_t certificate_format,
+    uint8_t *attestation_certificate,
+    size_t *attestation_certificate_size);
+
+/**
+ * @brief Sign a message with an ECA key.
+ *
+ * This function derives an ECA key using the provided parameters
+ * and signs the given message with it.
+ *
+ * @param crypto_ctx The crypto context.
+ * @param parent_secret The parent CDI secret.
+ * @param key_type The type of the ECA key to generate.
+ * @param context Context descriptor of the key identity and/or purpose.
+ * @param key_usage Key usage as intended by the client.
+ * @param challenge Challenge (nonce) - a high entropy value.
+ * @param message The message to sign.
+ * @param signature Buffer to write the signature.
+ * @param signature_size In/out parameter for buffer size.
+ * @return n20_error_ok_e on success, or an error code on failure.
+ */
+extern n20_error_t n20_eca_sign_message(n20_crypto_context_t *crypto_ctx,
+                                        n20_crypto_key_t parent_secret,
+                                        n20_crypto_key_type_t key_type,
+                                        n20_string_slice_t context,
+                                        n20_slice_t key_usage,
+                                        n20_slice_t challenge,
+                                        n20_slice_t message,
+                                        uint8_t *signature,
+                                        size_t *signature_size);
 
 #ifdef __cplusplus
 }
