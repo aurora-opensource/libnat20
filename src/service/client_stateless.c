@@ -34,7 +34,8 @@
 
 void print_usage(char const *prog) {
     fprintf(stderr,
-            "Usage: %s -r <promote|cdi-cert|eca-cert|eca-sign> -p <ed25519|p256|p384> -k <ed25519|p256|p384> "
+            "Usage: %s -r <promote|cdi-cert|eca-cert|eca-sign> -p <ed25519|p256|p384> -k "
+            "<ed25519|p256|p384> "
             "-c <code_hash> -C <code_desc> -g <conf_hash> -G <conf_desc> -a <auth_hash> -A "
             "<auth_desc> -m "
             "<not-configured|normal|debug|recovery> -h <hidden>\n"
@@ -116,7 +117,7 @@ int main(int argc, char *argv[]) {
     int opt;
     n20_msg_request_t request = {0};
     char const *output_file = NULL;
-    char const* shortopts = "r:p:k:c:C:g:G:a:A:m:h:i:P:n:o:f:x:u:l:M:";
+    char const *shortopts = "r:p:k:c:C:g:G:a:A:m:h:i:P:n:o:f:x:u:l:M:";
 
     opt = getopt(argc, argv, shortopts);
     if (opt != 'r') {
@@ -221,7 +222,8 @@ int main(int argc, char *argv[]) {
                         output_file = optarg;
                         break;
                     case 'f':
-                        request.payload.issue_cdi_cert.certificate_format = parse_output_format(optarg);
+                        request.payload.issue_cdi_cert.certificate_format =
+                            parse_output_format(optarg);
                         break;
                     default:
                         print_usage(argv[0]);
@@ -357,17 +359,18 @@ int main(int argc, char *argv[]) {
                         output_file = optarg;
                         break;
                     case 'f':
-                        request.payload.issue_eca_cert.certificate_format = parse_output_format(optarg);
+                        request.payload.issue_eca_cert.certificate_format =
+                            parse_output_format(optarg);
                         break;
-                    case 'x':  /* context */
+                    case 'x': /* context */
                         request.payload.issue_eca_cert.context.buffer = (uint8_t *)optarg;
                         request.payload.issue_eca_cert.context.size = strlen(optarg);
                         break;
-                    case 'u':  /* key_usage */
+                    case 'u': /* key_usage */
                         request.payload.issue_eca_cert.key_usage.buffer = (uint8_t *)optarg;
                         request.payload.issue_eca_cert.key_usage.size = strlen(optarg);
                         break;
-                    case 'l':  /* challenge */
+                    case 'l': /* challenge */
                         request.payload.issue_eca_cert.challenge.buffer = (uint8_t *)optarg;
                         request.payload.issue_eca_cert.challenge.size = strlen(optarg);
                         break;
@@ -381,13 +384,13 @@ int main(int argc, char *argv[]) {
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
-            
+
             if (request.payload.issue_eca_cert.key_type == n20_crypto_key_type_none_e) {
                 fprintf(stderr, "Invalid key type\n");
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
-            
+
             // Convert hex strings to byte arrays for parent path
             for (size_t i = 0; i < request.payload.issue_eca_cert.parent_path_length; ++i) {
                 int bytes_written = hex_string_to_bytes_in_place(
@@ -398,7 +401,7 @@ int main(int argc, char *argv[]) {
                 }
                 request.payload.issue_eca_cert.parent_path[i].size = bytes_written;
             }
-            
+
             // Convert key_usage from hex string to bytes if provided
             if (request.payload.issue_eca_cert.key_usage.buffer != NULL) {
                 int bytes_written = hex_string_to_bytes_in_place(
@@ -409,7 +412,7 @@ int main(int argc, char *argv[]) {
                 }
                 request.payload.issue_eca_cert.key_usage.size = bytes_written;
             }
-            
+
             // Convert challenge from hex string to bytes if provided
             if (request.payload.issue_eca_cert.challenge.buffer != NULL) {
                 int bytes_written = hex_string_to_bytes_in_place(
@@ -420,7 +423,7 @@ int main(int argc, char *argv[]) {
                 }
                 request.payload.issue_eca_cert.challenge.size = bytes_written;
             }
-            
+
             if (request.payload.issue_eca_cert.certificate_format ==
                 n20_certificate_format_none_e) {
                 fprintf(stderr, "Invalid certificate format: %s\n", optarg);
@@ -456,19 +459,19 @@ int main(int argc, char *argv[]) {
                     case 'o':
                         output_file = optarg;
                         break;
-                    case 'x':  /* context */
+                    case 'x': /* context */
                         request.payload.eca_sign.context.buffer = (uint8_t *)optarg;
                         request.payload.eca_sign.context.size = strlen(optarg);
                         break;
-                    case 'u':  /* key_usage */
+                    case 'u': /* key_usage */
                         request.payload.eca_sign.key_usage.buffer = (uint8_t *)optarg;
                         request.payload.eca_sign.key_usage.size = strlen(optarg);
                         break;
-                    case 'l':  /* challenge */
+                    case 'l': /* challenge */
                         request.payload.eca_sign.challenge.buffer = (uint8_t *)optarg;
                         request.payload.eca_sign.challenge.size = strlen(optarg);
                         break;
-                    case 'M':  /* message */
+                    case 'M': /* message */
                         request.payload.eca_sign.message.buffer = (uint8_t *)optarg;
                         request.payload.eca_sign.message.size = strlen(optarg);
                         break;
@@ -482,13 +485,13 @@ int main(int argc, char *argv[]) {
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
-            
+
             if (request.payload.eca_sign.key_type == n20_crypto_key_type_none_e) {
                 fprintf(stderr, "Invalid key type\n");
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
-            
+
             // Convert hex strings to byte arrays for parent path
             for (size_t i = 0; i < request.payload.eca_sign.parent_path_length; ++i) {
                 int bytes_written = hex_string_to_bytes_in_place(
@@ -499,33 +502,33 @@ int main(int argc, char *argv[]) {
                 }
                 request.payload.eca_sign.parent_path[i].size = bytes_written;
             }
-            
+
             // Convert key_usage from hex string to bytes if provided
             if (request.payload.eca_sign.key_usage.buffer != NULL) {
-                int bytes_written = hex_string_to_bytes_in_place(
-                    (char *)request.payload.eca_sign.key_usage.buffer);
+                int bytes_written =
+                    hex_string_to_bytes_in_place((char *)request.payload.eca_sign.key_usage.buffer);
                 if (bytes_written < 0) {
                     fprintf(stderr, "Invalid hex string for key_usage\n");
                     exit(EXIT_FAILURE);
                 }
                 request.payload.eca_sign.key_usage.size = bytes_written;
             }
-            
+
             // Convert challenge from hex string to bytes if provided
             if (request.payload.eca_sign.challenge.buffer != NULL) {
-                int bytes_written = hex_string_to_bytes_in_place(
-                    (char *)request.payload.eca_sign.challenge.buffer);
+                int bytes_written =
+                    hex_string_to_bytes_in_place((char *)request.payload.eca_sign.challenge.buffer);
                 if (bytes_written < 0) {
                     fprintf(stderr, "Invalid hex string for challenge\n");
                     exit(EXIT_FAILURE);
                 }
                 request.payload.eca_sign.challenge.size = bytes_written;
             }
-            
+
             // Convert message from hex string to bytes
             if (request.payload.eca_sign.message.buffer != NULL) {
-                int bytes_written = hex_string_to_bytes_in_place(
-                    (char *)request.payload.eca_sign.message.buffer);
+                int bytes_written =
+                    hex_string_to_bytes_in_place((char *)request.payload.eca_sign.message.buffer);
                 if (bytes_written < 0) {
                     fprintf(stderr, "Invalid hex string for message\n");
                     exit(EXIT_FAILURE);
@@ -600,7 +603,10 @@ int main(int argc, char *argv[]) {
                 exit(EXIT_FAILURE);
             }
             if (response.error_code != n20_error_ok_e) {
-                fprintf(stderr, "Promote request failed with error: %d (0x%x\n", response.error_code, response.error_code);
+                fprintf(stderr,
+                        "Promote request failed with error: %d (0x%x\n",
+                        response.error_code,
+                        response.error_code);
                 close(socket_fd);
                 exit(EXIT_FAILURE);
             }
@@ -640,8 +646,8 @@ int main(int argc, char *argv[]) {
                     close(socket_fd);
                     exit(EXIT_FAILURE);
                 }
-                size_t written = fwrite(response.certificate.buffer, 1, response.certificate.size,
-                                       file);
+                size_t written =
+                    fwrite(response.certificate.buffer, 1, response.certificate.size, file);
                 if (written != response.certificate.size) {
                     fprintf(stderr, "Failed to write full certificate to file\n");
                     fclose(file);
@@ -674,16 +680,18 @@ int main(int argc, char *argv[]) {
             }
             if (response_slice.size > 32) printf("...");
             printf("\n");
-            
+
             // First try to read as an error response
             n20_msg_error_response_t error_response;
             err = n20_msg_error_response_read(&error_response, response_slice);
             if (err == n20_error_ok_e && error_response.error_code != n20_error_ok_e) {
-                fprintf(stderr, "ECA cert request failed with server error: %d\n", error_response.error_code);
+                fprintf(stderr,
+                        "ECA cert request failed with server error: %d\n",
+                        error_response.error_code);
                 close(socket_fd);
                 exit(EXIT_FAILURE);
             }
-            
+
             // If not an error response, try to read as certificate response
             n20_msg_issue_eca_cert_response_t response;
             err = n20_msg_issue_eca_cert_response_read(&response, response_slice);
@@ -707,8 +715,8 @@ int main(int argc, char *argv[]) {
                     close(socket_fd);
                     exit(EXIT_FAILURE);
                 }
-                size_t written = fwrite(response.certificate.buffer, 1, response.certificate.size,
-                                       file);
+                size_t written =
+                    fwrite(response.certificate.buffer, 1, response.certificate.size, file);
                 if (written != response.certificate.size) {
                     fprintf(stderr, "Failed to write full certificate to file\n");
                     fclose(file);
@@ -732,11 +740,13 @@ int main(int argc, char *argv[]) {
             n20_msg_error_response_t error_response;
             err = n20_msg_error_response_read(&error_response, response_slice);
             if (err == n20_error_ok_e && error_response.error_code != n20_error_ok_e) {
-                fprintf(stderr, "ECA sign request failed with server error: %d\n", error_response.error_code);
+                fprintf(stderr,
+                        "ECA sign request failed with server error: %d\n",
+                        error_response.error_code);
                 close(socket_fd);
                 exit(EXIT_FAILURE);
             }
-            
+
             // If not an error response, try to read as sign response
             n20_msg_eca_sign_response_t response;
             err = n20_msg_eca_sign_response_read(&response, response_slice);
@@ -750,8 +760,7 @@ int main(int argc, char *argv[]) {
                 close(socket_fd);
                 exit(EXIT_FAILURE);
             }
-            printf("ECA sign request successful, signature size: %zu\n",
-                   response.signature.size);
+            printf("ECA sign request successful, signature size: %zu\n", response.signature.size);
 
             if (output_file) {
                 FILE *file = fopen(output_file, "wb");
@@ -760,8 +769,8 @@ int main(int argc, char *argv[]) {
                     close(socket_fd);
                     exit(EXIT_FAILURE);
                 }
-                size_t written = fwrite(response.signature.buffer, 1, response.signature.size,
-                                       file);
+                size_t written =
+                    fwrite(response.signature.buffer, 1, response.signature.size, file);
                 if (written != response.signature.size) {
                     fprintf(stderr, "Failed to write full signature to file\n");
                     fclose(file);

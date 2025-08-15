@@ -145,7 +145,6 @@ INSTANTIATE_TEST_SUITE_P(FunctionalityTestInstance,
                              return std::get<0>(info.param);
                          });
 
-
 TEST_P(FunctionalityTest, TestOpenDiceAttestationCertificate) {
     auto [_, parent_key_type, key_type, certificate_format, want_cert] = GetParam();
 

@@ -105,7 +105,6 @@ enum n20_certificate_format_s {
 
 typedef enum n20_certificate_format_s n20_certificate_format_t;
 
-
 /**
  * @brief OpenDICE input content context.
  *
@@ -142,14 +141,14 @@ typedef struct n20_dice_context_s {
 } n20_open_dice_input_t;
 
 extern n20_error_t n20_compress_input(n20_crypto_digest_context_t *crypto_ctx,
-                               n20_open_dice_input_t const *context,
-                               n20_compressed_input_t digest);
+                                      n20_open_dice_input_t const *context,
+                                      n20_compressed_input_t digest);
 
 typedef uint8_t n20_cdi_id_t[20];
 
 extern n20_error_t n20_open_dice_cdi_id(n20_crypto_digest_context_t *crypto_ctx,
-                                 n20_slice_t const public_key,
-                                 n20_cdi_id_t cdi_id);
+                                        n20_slice_t const public_key,
+                                        n20_cdi_id_t cdi_id);
 
 /**
  * @brief Derives a key from the given CDI secret.
@@ -375,16 +374,15 @@ extern n20_error_t n20_eca_attestation_key_and_certificate(
  * @param signature_size In/out parameter for buffer size.
  * @return n20_error_ok_e on success, or an error code on failure.
  */
-extern n20_error_t n20_eca_sign_message(
-    n20_crypto_context_t *crypto_ctx,
-    n20_crypto_key_t parent_secret,
-    n20_crypto_key_type_t key_type,
-    n20_string_slice_t context,
-    n20_slice_t key_usage,
-    n20_slice_t challenge,
-    n20_slice_t message,
-    uint8_t *signature,
-    size_t *signature_size);
+extern n20_error_t n20_eca_sign_message(n20_crypto_context_t *crypto_ctx,
+                                        n20_crypto_key_t parent_secret,
+                                        n20_crypto_key_type_t key_type,
+                                        n20_string_slice_t context,
+                                        n20_slice_t key_usage,
+                                        n20_slice_t challenge,
+                                        n20_slice_t message,
+                                        uint8_t *signature,
+                                        size_t *signature_size);
 
 #ifdef __cplusplus
 }

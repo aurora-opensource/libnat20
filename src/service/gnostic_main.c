@@ -260,10 +260,10 @@ n20_error_t dispatch_issue_cdi_cert_request(n20_gnostic_node_state_t *node_state
 }
 
 n20_error_t dispatch_issue_eca_cert_request(n20_gnostic_node_state_t *node_state,
-                                           uint8_t *response_buffer,
-                                           size_t *response_size_in_out,
-                                           n20_msg_issue_eca_cert_request_t *request,
-                                           size_t client_index) {
+                                            uint8_t *response_buffer,
+                                            size_t *response_size_in_out,
+                                            n20_msg_issue_eca_cert_request_t *request,
+                                            size_t client_index) {
 
     n20_compressed_input_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
     size_t parent_path_size = request->parent_path_length;
@@ -284,17 +284,17 @@ n20_error_t dispatch_issue_eca_cert_request(n20_gnostic_node_state_t *node_state
     size_t const total_buffer_size = *response_size_in_out;
 
     n20_error_t rc = n20_gnostic_issue_eca_certificate(node_state,
-                                                      client_index,
-                                                      request->parent_key_type,
-                                                      request->key_type,
-                                                      parent_path,
-                                                      parent_path_size,
-                                                      request->context,
-                                                      request->key_usage,
-                                                      request->challenge,
-                                                      request->certificate_format,
-                                                      response_buffer,
-                                                      response_size_in_out);
+                                                       client_index,
+                                                       request->parent_key_type,
+                                                       request->key_type,
+                                                       parent_path,
+                                                       parent_path_size,
+                                                       request->context,
+                                                       request->key_usage,
+                                                       request->challenge,
+                                                       request->certificate_format,
+                                                       response_buffer,
+                                                       response_size_in_out);
     if (rc != n20_error_ok_e) {
         // Handle error: issuing ECA certificate failed
         return rc;
@@ -370,11 +370,7 @@ n20_error_t dispatch_eca_sign_request(n20_gnostic_node_state_t *node_state,
     // The signature is at the beginning of response_buffer
     n20_msg_eca_sign_response_t response = {
         .error_code = n20_error_ok_e,
-        .signature = {
-            .buffer = response_buffer,
-            .size = *response_size_in_out
-        }
-    };
+        .signature = {.buffer = response_buffer, .size = *response_size_in_out}};
 
     *response_size_in_out = total_buffer_size;
     return n20_msg_eca_sign_response_write(&response, response_buffer, response_size_in_out);
@@ -426,17 +422,17 @@ n20_error_t dispatch_message(n20_gnostic_node_state_t *node_state,
             break;
         case n20_msg_request_type_issue_eca_cert_e:
             error = dispatch_issue_eca_cert_request(node_state,
-                                                   response_buffer,
-                                                   response_size_in_out,
-                                                   &request.payload.issue_eca_cert,
-                                                   client_index);
+                                                    response_buffer,
+                                                    response_size_in_out,
+                                                    &request.payload.issue_eca_cert,
+                                                    client_index);
             break;
         case n20_msg_request_type_eca_sign_e:
             error = dispatch_eca_sign_request(node_state,
-                                             response_buffer,
-                                             response_size_in_out,
-                                             &request.payload.eca_sign,
-                                             client_index);
+                                              response_buffer,
+                                              response_size_in_out,
+                                              &request.payload.eca_sign,
+                                              client_index);
             break;
         default:
             // Handle unknown request type

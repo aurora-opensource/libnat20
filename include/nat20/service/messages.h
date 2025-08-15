@@ -125,35 +125,35 @@ struct n20_msg_issue_eca_cert_request_s {
      * This is used to determine how many elements are in the parent path.
      */
     size_t parent_path_length;
-    
+
     /**
      * @brief The compressed path to the parent CDI.
      *
      * This is used to derive the parent secret for ECA key generation.
      */
     n20_slice_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
-    
+
     /**
      * @brief The format of the certificate to be issued.
      *
      * This is used to determine how the certificate should be formatted.
      */
     n20_certificate_format_t certificate_format;
-    
+
     /**
      * @brief Context descriptor of the key identity and/or purpose.
      *
      * This is used in ECA_CTX derivation.
      */
     n20_string_slice_t context;
-    
+
     /**
      * @brief Key usage as intended by the client.
      *
      * This is used in ECA_CTX derivation and certificate generation.
      */
     n20_slice_t key_usage;
-    
+
     /**
      * @brief Challenge (nonce) - a high entropy value.
      *
@@ -185,35 +185,35 @@ struct n20_msg_eca_sign_request_s {
      * This is used to determine how many elements are in the parent path.
      */
     size_t parent_path_length;
-    
+
     /**
      * @brief The compressed path to the parent CDI.
      *
      * This is used to derive the parent secret for ECA key generation.
      */
     n20_slice_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
-    
+
     /**
      * @brief Context descriptor of the key identity and/or purpose.
      *
      * This is used in ECA_CTX derivation.
      */
     n20_string_slice_t context;
-    
+
     /**
      * @brief Key usage as intended by the client.
      *
      * This is used in ECA_CTX derivation.
      */
     n20_slice_t key_usage;
-    
+
     /**
      * @brief Challenge (nonce) - a high entropy value.
      *
      * This is used in ECA_CTX derivation.
      */
     n20_slice_t challenge;
-    
+
     /**
      * @brief The message to be signed.
      */

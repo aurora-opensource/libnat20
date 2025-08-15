@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <nat20/crypto.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <nat20/crypto.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -182,7 +182,9 @@ extern void n20_cbor_write_byte_string(n20_stream_t *s, n20_slice_t const data);
  */
 extern void n20_cbor_write_text_string(n20_stream_t *s, n20_string_slice_t const text);
 
-extern bool n20_read_cbor_header(n20_istream_t *const s, n20_cbor_type_t *const type, uint64_t *const n);
+extern bool n20_read_cbor_header(n20_istream_t *const s,
+                                 n20_cbor_type_t *const type,
+                                 uint64_t *const n);
 
 extern bool n20_cbor_skip_item(n20_istream_t *const s);
 
@@ -352,13 +354,12 @@ typedef struct n20_open_dice_cwt_s n20_open_dice_cwt_t;
 extern void n20_open_dice_cwt_write(n20_stream_t *const s, n20_open_dice_cwt_t const *const cwt);
 
 extern n20_error_t n20_cose_sign1_payload(n20_crypto_context_t *crypto_ctx,
-                                   n20_crypto_key_t const signing_key,
-                                   int32_t signing_key_algorith_id,
-                                   void (*payload_callback)(n20_stream_t *s, void *ctx),
-                                   void *payload_ctx,
-                                   uint8_t *cose_sign1,
-                                   size_t *cose_sign1_size);
-
+                                          n20_crypto_key_t const signing_key,
+                                          int32_t signing_key_algorith_id,
+                                          void (*payload_callback)(n20_stream_t *s, void *ctx),
+                                          void *payload_ctx,
+                                          uint8_t *cose_sign1,
+                                          size_t *cose_sign1_size);
 
 #ifdef __cplusplus
 }
