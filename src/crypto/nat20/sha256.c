@@ -81,7 +81,7 @@ static uint32_t sigma1(uint32_t x) { return rotr(x, 17) ^ rotr(x, 19) ^ (x >> 10
 #define REG_F(i) R_INDEX(i, 5)
 #define REG_G(i) R_INDEX(i, 6)
 #define REG_H(i) R_INDEX(i, 7)
-#define W_INDEX(i) ((i) & 0x0f)
+#define W_INDEX(i) ((i)&0x0f)
 
 static void n20_sha256_main(n20_sha224_sha256_state_t *state) {
     size_t j = 0;
