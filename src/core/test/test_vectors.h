@@ -48,3 +48,10 @@ extern std::vector<std::tuple<std::string,
                               n20_cert_type_t,
                               std::vector<uint8_t>>>
     x509_test_vectors;
+
+extern std::vector<std::tuple<std::string,
+                              n20_crypto_key_type_t,
+                              n20_crypto_key_type_t,
+                              n20_cert_type_t,
+                              std::vector<uint8_t>>>
+    cwt_cose_test_vectors;

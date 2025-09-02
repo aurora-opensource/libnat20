@@ -162,7 +162,7 @@ typedef uint16_t n20_cose_key_ops_map_t;
  * @param key_ops The bitmask to modify.
  * @param op The operation to set.
  */
-inline void n20_cose_key_ops_set(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
+inline static void n20_cose_key_ops_set(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
     *key_ops |= 1 << (unsigned int)op;
 }
 
@@ -172,7 +172,7 @@ inline void n20_cose_key_ops_set(n20_cose_key_ops_map_t *key_ops, n20_cose_key_o
  * @param key_ops The bitmask to modify.
  * @param op The operation to unset.
  */
-inline void n20_cose_key_ops_unset(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
+inline static void n20_cose_key_ops_unset(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
     *key_ops &= ~(1 << (unsigned int)op);
 }
 
@@ -182,7 +182,7 @@ inline void n20_cose_key_ops_unset(n20_cose_key_ops_map_t *key_ops, n20_cose_key
  * @param key_ops The bitmask to check.
  * @param op The operation to test for.
  */
-inline bool n20_cose_key_ops_is_set(n20_cose_key_ops_map_t key_ops, n20_cose_key_ops_t op) {
+inline static bool n20_cose_key_ops_is_set(n20_cose_key_ops_map_t key_ops, n20_cose_key_ops_t op) {
     return (key_ops & (1 << (unsigned int)op)) != 0;
 }
 
@@ -392,6 +392,8 @@ extern void n20_cose_render_sign1_with_payload(n20_stream_t *s,
                                                void (*payload_callback)(n20_stream_t *s, void *ctx),
                                                void *payload_ctx,
                                                n20_slice_t out_tbs_gather_list[4]);
+
+extern size_t n20_cose_get_signature_size(n20_cose_algorithm_id_t signing_key_algorithm_id);
 
 #ifdef __cplusplus
 }

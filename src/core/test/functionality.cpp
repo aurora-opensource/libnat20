@@ -36,12 +36,15 @@
  */
 
 #include <gtest/gtest.h>
+#include <nat20/cbor.h>
+#include <nat20/constants.h>
 #include <nat20/crypto.h>
 #include <nat20/crypto_bssl/crypto.h>
 #include <nat20/error.h>
 #include <nat20/functionality.h>
 #include <nat20/oid.h>
 #include <nat20/open_dice.h>
+#include <nat20/stream.h>
 #include <nat20/testing/test_bssl_utils.h>
 #include <nat20/testing/test_utils.h>
 #include <nat20/types.h>
@@ -53,7 +56,6 @@
 #include <tuple>
 #include <type_traits>
 
-#include "nat20/constants.h"
 #include "test_vectors.h"
 
 uint8_t const test_cdi[] = {
@@ -222,7 +224,7 @@ class BsslTestFixtureBase : public ::testing::Test {
     }
 };
 
-// Test fixture
+// Functionality tests for X.509 certificate issuance.
 class FunctionalityX509Test
     : public BsslTestFixtureBase,
       public ::testing::WithParamInterface<std::tuple<std::string,
@@ -231,7 +233,7 @@ class FunctionalityX509Test
                                                       n20_cert_type_t,
                                                       std::vector<uint8_t>>> {};
 
-INSTANTIATE_TEST_SUITE_P(FunctionalityTestInstance,
+INSTANTIATE_TEST_SUITE_P(FunctionalityX509TestInstance,
                          FunctionalityX509Test,
                          ::testing::ValuesIn(x509_test_vectors),
                          [](testing::TestParamInfo<FunctionalityX509Test::ParamType> const& info) {
@@ -1654,4 +1656,326 @@ TEST_F(IssueCertificateTestFixture, UnsupportedCertificateFormat) {
                                      certificate,
                                      &certificate_size);
     ASSERT_EQ(err, n20_error_unsupported_certificate_format_e);
+}
+
+#define ASSERT_CBOR_HEADER_TYPE(stream, want_type)            \
+    ASSERT_TRUE(n20_cbor_read_header(stream, &type, &value)); \
+    ASSERT_EQ(want_type, type)
+
+#define ASSERT_CBOR_HEADER(stream, want_type, want_value) \
+    ASSERT_CBOR_HEADER_TYPE(stream, want_type);           \
+    ASSERT_EQ(want_value, value)
+
+#define ASSERT_MAPITEM_STRLIKE(stream, key_type, key_value, value_type) \
+    ASSERT_CBOR_HEADER(stream, key_type, key_value);                    \
+    ASSERT_TRUE(n20_cbor_read_header(stream, &type, &value));           \
+    ASSERT_EQ(value_type, type);                                        \
+    ASSERT_TRUE(n20_istream_get_slice(stream, nullptr, value))
+
+static void check_cwt_cose_sign1(std::vector<uint8_t> const& cert,
+                                 n20_crypto_key_type_t issuer_key_type) {
+
+    n20_istream_t cbor;
+    n20_cbor_type_t type;
+    uint64_t value;
+    n20_istream_init(&cbor, cert.data(), cert.size());
+
+    // Array header with four elements.
+    ASSERT_CBOR_HEADER(&cbor, n20_cbor_type_array_e, 4);
+
+    size_t signature_size;
+    size_t protected_header_size;
+    int64_t alg_value;
+    switch (issuer_key_type) {
+        case n20_crypto_key_type_ed25519_e:
+            signature_size = 64;
+            protected_header_size = 3;
+            alg_value = 7;  // EdDSA -8 = -value - 1
+            break;
+        case n20_crypto_key_type_secp256r1_e:
+            signature_size = 64;
+            protected_header_size = 3;
+            alg_value = 6;  // ES256 -7 = -value - 1
+            break;
+        case n20_crypto_key_type_secp384r1_e:
+            signature_size = 92;
+            protected_header_size = 4;
+            alg_value = 34;  // ES384 -35 = -value - 1
+            return;
+        default:
+            GTEST_FAIL() << "Unsupported issuer key type: " << issuer_key_type;
+            return;
+    }
+    // First element.
+    // Protected header as 3 bytes
+    ASSERT_CBOR_HEADER(&cbor, n20_cbor_type_bytes_e, protected_header_size);
+
+    // Map with 1 entry in the protected header.
+    ASSERT_CBOR_HEADER(&cbor, n20_cbor_type_map_e, 1);
+
+    // First entry in the protected header is the algorithm (label 1) with expected value.
+    ASSERT_CBOR_HEADER(&cbor, n20_cbor_type_uint_e, 1);
+
+    // Algorithm.
+    ASSERT_CBOR_HEADER(&cbor, n20_cbor_type_nint_e, alg_value);
+
+    // Second Element.
+    // Unprotected headers - An empty map.
+    ASSERT_CBOR_HEADER(&cbor, n20_cbor_type_map_e, 0);
+
+    // Third Element.
+    // Payload as byte string. (updates value)
+    ASSERT_CBOR_HEADER_TYPE(&cbor, n20_cbor_type_bytes_e);
+    // Store the payload for comparisson later.
+    size_t payload_size = value;
+    size_t payload_begin = n20_istream_read_position(&cbor);
+
+    // Map with 12 entries in the payload.
+    ASSERT_TRUE(n20_cbor_read_header(&cbor, &type, &value));
+    ASSERT_EQ(n20_cbor_type_map_e, type);
+    ASSERT_EQ(12, value);
+
+    // Issuer identifier (1)
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_uint_e, 1, n20_cbor_type_string_e);
+
+    // Subject identifier (2).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_uint_e, 2, n20_cbor_type_string_e);
+
+    // Code Hash (-4670545 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670544, n20_cbor_type_bytes_e);
+
+    // Code Descriptor (-4670546 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670545, n20_cbor_type_bytes_e);
+
+    // Configuration hash (-4670547 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670546, n20_cbor_type_bytes_e);
+
+    // Configuration Descriptor (-4670548 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670547, n20_cbor_type_bytes_e);
+
+    // Authority hash (-4670549 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670548, n20_cbor_type_bytes_e);
+
+    // Authority Descriptor (-4670550 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670549, n20_cbor_type_bytes_e);
+
+    // Mode (-4670551 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670550, n20_cbor_type_bytes_e);
+
+    // Subject Public key (-4670552 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670551, n20_cbor_type_bytes_e);
+
+    // Key Usage (-4670553 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670552, n20_cbor_type_bytes_e);
+
+    // Profile (-4670554 = -value - 1).
+    ASSERT_MAPITEM_STRLIKE(&cbor, n20_cbor_type_nint_e, 4670553, n20_cbor_type_string_e);
+
+    // Check that the payload size matches the decoded size of the payload.
+    ASSERT_EQ(payload_size, n20_istream_read_position(&cbor) - payload_begin);
+
+    // Fourth element
+    // Signature
+    ASSERT_CBOR_HEADER_TYPE(&cbor, n20_cbor_type_bytes_e);
+    ASSERT_EQ(signature_size, value);
+}
+
+// Functionality tests for CWT/COSE Sign1 certificate issuance.
+class FunctionalityCwtCoseTest
+    : public BsslTestFixtureBase,
+      public ::testing::WithParamInterface<std::tuple<std::string,
+                                                      n20_crypto_key_type_t,
+                                                      n20_crypto_key_type_t,
+                                                      n20_cert_type_t,
+                                                      std::vector<uint8_t>>> {};
+
+INSTANTIATE_TEST_SUITE_P(FunctionalityCoseTestInstance,
+                         FunctionalityCwtCoseTest,
+                         ::testing::ValuesIn(cwt_cose_test_vectors),
+                         [](testing::TestParamInfo<FunctionalityX509Test::ParamType> const& info) {
+                             return std::get<0>(info.param);
+                         });
+
+TEST_P(FunctionalityCwtCoseTest, IssueCwtCoseCertificateTest) {
+    auto [test_name, issuer_key_type, subject_key_type, cert_type, want_cert] = GetParam();
+
+    auto key_deleter = [this](void* key) { crypto_ctx->key_free(crypto_ctx, key); };
+
+    // Get the root CDI from the crypto backend.
+    n20_crypto_key_t issuer_secret = this->GetCdi();
+    KEY_HANDLE_GUARD(issuer_secret);
+
+    // Assemble certificate info.
+
+    n20_open_dice_cert_info_t cert_info = {};
+    cert_info.cert_type = cert_type;
+    switch (cert_info.cert_type) {
+        case n20_cert_type_cdi_e:
+            cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+            break;
+        case n20_cert_type_self_signed_e:
+        case n20_cert_type_eca_e:
+        case n20_cert_type_eca_ee_e:
+        default:
+            GTEST_FAIL() << "Unsupported certificate type: " << cert_info.cert_type;
+            return;
+    }
+    uint8_t certificate[2048] = {};
+    size_t certificate_size = sizeof(certificate);
+
+    ASSERT_EQ(n20_error_ok_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_cose_e,
+                                    certificate,
+                                    &certificate_size))
+        << "Expected buffer size: " << certificate_size;
+
+    auto got_cert = std::vector<uint8_t>(&certificate[sizeof(certificate) - certificate_size],
+                                         &certificate[sizeof(certificate)]);
+
+    // Currently we are using ECDSA with random nonce (k) for signing with
+    // secp256r1 and secp384r1 keys, so the signature will not match the
+    // one in the test vectors.
+    // We can only compare the certificate content without the signature
+    // in these cases. For ed25519, the signature is deterministic
+    // and will match the one in the test vectors.
+    // The test vectors for secp256r1 and secp384r1 are truncated right
+    // before the signature bitstring header.
+    auto comp_got_cert = got_cert;
+
+    if (issuer_key_type == n20_crypto_key_type_secp256r1_e ||
+        issuer_key_type == n20_crypto_key_type_secp384r1_e) {
+        comp_got_cert.resize(got_cert.size() > want_cert.size() ? want_cert.size()
+                                                                : got_cert.size());
+    }
+
+    ASSERT_EQ(want_cert, comp_got_cert)
+        << hexdump_side_by_side("Expected:", want_cert, "Got:", got_cert) << hex(got_cert);
+    ASSERT_EQ(want_cert.size(), comp_got_cert.size());
+
+    check_cwt_cose_sign1(got_cert, issuer_key_type);
+}
+
+TEST_F(FunctionalityCwtCoseTest, IssueCwtCoseCertificateUnsupportedCertificateType) {
+    n20_open_dice_cert_info_t cert_info = {};
+    cert_info.cert_type = n20_cert_type_eca_e;
+    uint8_t certificate[2048] = {};
+    size_t certificate_size = sizeof(certificate);
+
+    n20_crypto_key_t issuer_secret = this->GetCdi();
+    KEY_HANDLE_GUARD(issuer_secret);
+
+    n20_signer_t signer = {
+        .crypto_ctx = nullptr,
+        .signing_key = nullptr,
+        .cb = nullptr,
+    };
+
+    ASSERT_EQ(n20_error_unsupported_certificate_format_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    n20_crypto_key_type_ed25519_e,
+                                    n20_crypto_key_type_ed25519_e,
+                                    &cert_info,
+                                    n20_certificate_format_cose_e,
+                                    certificate,
+                                    &certificate_size));
+}
+
+extern "C" n20_error_t n20_cose_sign1_payload(n20_crypto_context_t* crypto_ctx,
+                                              n20_crypto_key_t const signing_key,
+                                              n20_crypto_key_type_t signing_key_type,
+                                              void (*payload_callback)(n20_stream_t* s, void* ctx),
+                                              void* payload_ctx,
+                                              uint8_t* cose_sign1,
+                                              size_t* cose_sign1_size);
+
+TEST_F(FunctionalityCwtCoseTest, CoseSign1PayloadErrors) {
+    EXPECT_EQ(
+        n20_error_missing_crypto_context_e,
+        n20_cose_sign1_payload(
+            nullptr, nullptr, n20_crypto_key_type_ed25519_e, nullptr, nullptr, nullptr, nullptr));
+
+    EXPECT_EQ(n20_error_crypto_unexpected_null_size_e,
+              n20_cose_sign1_payload(crypto_ctx,
+                                     nullptr,
+                                     n20_crypto_key_type_ed25519_e,
+                                     nullptr,
+                                     nullptr,
+                                     nullptr,
+                                     nullptr));
+
+    size_t cose_sign1_size = 1;
+    EXPECT_EQ(n20_error_crypto_insufficient_buffer_size_e,
+              n20_cose_sign1_payload(crypto_ctx,
+                                     nullptr,
+                                     n20_crypto_key_type_ed25519_e,
+                                     nullptr,
+                                     nullptr,
+                                     nullptr,
+                                     &cose_sign1_size));
+
+    cose_sign1_size = 0;
+    EXPECT_EQ(n20_error_crypto_unknown_algorithm_e,
+              n20_cose_sign1_payload(crypto_ctx,
+                                     nullptr,
+                                     (n20_crypto_key_type_t)0xff,
+                                     nullptr,
+                                     nullptr,
+                                     nullptr,
+                                     &cose_sign1_size));
+
+    cose_sign1_size = 0;
+    EXPECT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_cose_sign1_payload(crypto_ctx,
+                                     nullptr,
+                                     n20_crypto_key_type_ed25519_e,
+                                     nullptr,
+                                     nullptr,
+                                     nullptr,
+                                     &cose_sign1_size));
+
+    cose_sign1_size = 0;
+    EXPECT_EQ(n20_error_write_position_overflow_e,
+              n20_cose_sign1_payload(
+                  crypto_ctx,
+                  nullptr,
+                  n20_crypto_key_type_ed25519_e,
+                  [](n20_stream_t* s, void*) {
+                      s->buffer_overflow = true;
+                      s->write_position_overflow = true;
+                  },
+                  nullptr,
+                  nullptr,
+                  &cose_sign1_size));
+}
+
+TEST_F(FunctionalityCwtCoseTest, CoseSign1PayloadForwardCryptoError) {
+    n20_crypto_key_t cdi_secret = this->GetCdi();
+    KEY_HANDLE_GUARD(cdi_secret);
+    n20_crypto_key_t signing_key;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_derive_key(crypto_ctx,
+                             cdi_secret,
+                             &signing_key,
+                             n20_crypto_key_type_ed25519_e,
+                             N20_SLICE_NULL,
+                             N20_SLICE_NULL));
+    KEY_HANDLE_GUARD(signing_key);
+
+    std::vector<uint8_t> output(400);
+    size_t cose_sign1_size = output.size();
+
+    EXPECT_EQ(n20_error_crypto_unexpected_null_key_in_e,
+              n20_cose_sign1_payload(crypto_ctx,
+                                     nullptr,
+                                     n20_crypto_key_type_ed25519_e,
+                                     nullptr,
+                                     nullptr,
+                                     output.data(),
+                                     &cose_sign1_size));
 }

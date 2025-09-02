@@ -200,12 +200,37 @@ extern size_t n20_stream_byte_count(n20_stream_t const *s);
  * @param s the pointer to the stream that is to be queried.
  * @return pointer to the beginning of the written buffer.
  */
-extern uint8_t const *n20_stream_data(n20_stream_t const *s);
+extern uint8_t *n20_stream_data(n20_stream_t const *s);
+
+/**
+ * @brief Skip a number of bytes in the stream.
+ *
+ * The stream is always written in reverse. This means that
+ * prepending is the only way to write to the stream buffer.
+ * The buffer's write position is moved by `-src_len`
+ * unconditionally. This function does not modify the underlying
+ * buffer. It only moves the write position and updates the
+ * overflow flags accordingly.
+ *
+ * If @p size is exceedingly large such that the the write position
+ * would wrap and point within the writable buffer region, the
+ * stream will remain bad but in addition the overflow flag will be
+ * raised on the stream indicating that even @ref n20_stream_byte_count
+ * is no longer reliable. This condition can be queried using
+ * @ref n20_stream_has_write_position_overflow.
+ *
+ * @param s The stream that is to be updated.
+ * @param size The number of bytes to skip in the stream.
+ * @sa n20_stream_byte_count
+ * @sa n20_stream_has_buffer_overflow
+ * @sa n20_stream_has_write_position_overflow
+ */
+extern void n20_stream_skip(n20_stream_t *s, size_t size);
 
 /**
  * @brief Write a buffer to the front of the stream buffer.
  *
- * The asn1 stream is always written in reverse. This means that
+ * The stream is always written in reverse. This means that
  * prepending is the only way to write to the stream buffer.
  * The buffer's write position is moved by `-src_len`
  * unconditionally. If the stream is good and the new position
@@ -216,7 +241,7 @@ extern uint8_t const *n20_stream_data(n20_stream_t const *s);
  * the number of bytes written without storing any data.
  *
  * If @p src_len is exceedingly large such that the the write position
- * would wrapp and point within the writable buffer region, the
+ * would wrap and point within the writable buffer region, the
  * stream will remain bad but in addition the overflow flag will be
  * raised on the stream indicating that even @ref n20_stream_byte_count
  * is no longer reliable. This condition can be queried using
@@ -226,6 +251,7 @@ extern uint8_t const *n20_stream_data(n20_stream_t const *s);
  * @param src The source buffer that is to be written to the stream.
  * @param src_len The size of the source buffer in bytes.
  * @sa n20_stream_byte_count
+ * @sa n20_stream_has_buffer_overflow
  * @sa n20_stream_has_write_position_overflow
  */
 extern void n20_stream_prepend(n20_stream_t *s, uint8_t const *src, size_t src_len);

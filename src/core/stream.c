@@ -74,8 +74,21 @@ size_t n20_stream_byte_count(n20_stream_t const *const s) {
 // n20_stream_has_buffer_overflow returns false. Also the access must be
 // within the range [p, p + n20_stream_bytes_count) where p is the
 // return value of this function.
-uint8_t const *n20_stream_data(n20_stream_t const *const s) {
+uint8_t *n20_stream_data(n20_stream_t const *const s) {
     return (s != NULL) ? (s->begin + (s->size - s->write_position)) : NULL;
+}
+
+void n20_stream_skip(n20_stream_t *const s, size_t const size) {
+    if (s == NULL) return;
+    // The write position shall be moved unconditionally,
+    // because we use this to calculate the required size later.
+    size_t old_pos = s->write_position;
+    s->write_position += size;
+    s->write_position_overflow = s->write_position_overflow || s->write_position < old_pos;
+    // Mark the stream as bad if it was bad or if the next write.
+    // will overflow the buffer.
+    s->buffer_overflow =
+        s->write_position_overflow || s->buffer_overflow || s->write_position > s->size;
 }
 
 // This function never fails. It might not write to the stream
@@ -84,15 +97,7 @@ uint8_t const *n20_stream_data(n20_stream_t const *const s) {
 // stream state later.
 void n20_stream_prepend(n20_stream_t *const s, uint8_t const *const src, size_t const src_len) {
     if (s == NULL) return;
-    // The write position shall be moved unconditionally,
-    // because we use this to calculate the required size later.
-    size_t old_pos = s->write_position;
-    s->write_position += src_len;
-    s->write_position_overflow = s->write_position_overflow || s->write_position < old_pos;
-    // Mark the stream as bad if it was bad or if the next write.
-    // will overflow the buffer.
-    s->buffer_overflow =
-        s->write_position_overflow || s->buffer_overflow || s->write_position > s->size;
+    n20_stream_skip(s, src_len);
     // If the stream is good we can write at the new position.
     if (!s->buffer_overflow) {
         memcpy(s->begin + (s->size - s->write_position), src, src_len);
