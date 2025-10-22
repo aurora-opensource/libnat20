@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-project(LibNat20 VERSION 0.0.1)
+project(LibNat20 VERSION 0.0.1 LANGUAGES C)
 
 # Enable the libnat20 test suite by specifying
 # -DNAT20_WITH_TESTS=ON on the `cmake -B` command line.
@@ -54,6 +54,13 @@ set(CMAKE_C_STANDARD 11)
 # CMake shall generate a compile_commands.json file for
 # the benfit of clangd based IDE support.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
+    # When building the test suite or the reference crypto implementation,
+    # we need to enable C++ support for the test code.
+    enable_language(CXX)
+    set(CMAKE_CXX_STANDARD 17)
+endif()
 
 ###################################################################################################
 # The following section defines all the groups of source files.
