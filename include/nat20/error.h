@@ -185,6 +185,18 @@ enum n20_error_s {
     n20_error_unexpected_null_response_e = 21,
 
     /**
+     * @brief Incompatible compressed input size.
+     *
+     * The compressed input is the salt generated from the
+     * open dice input data. Its size is hard coded to 64 bytes
+     * (size of SHA512) by default but can be changed to 32 bytes
+     * (size of SHA256) at compile time.
+     * This error is returned if a compressed input is presented
+     * the service that is other than the hard coded supported size.
+     */
+    n20_error_incompatible_compressed_input_size_e = 22,
+
+    /**
      * @brief The crypto context given to an interface was invalid.
      *
      * Implementations must return this error if the context given is
