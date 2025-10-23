@@ -202,12 +202,12 @@ n20_error_t n20_derive_key(n20_crypto_context_t *crypto_ctx,
 }
 
 n20_error_t n20_next_level_cdi_attest(n20_crypto_context_t *crypto_ctx,
-                                      n20_crypto_key_t current,
+                                      n20_crypto_key_t current_cdi,
                                       n20_crypto_key_t *next,
                                       n20_compressed_input_t info) {
 
     return n20_derive_key(crypto_ctx,
-                          current,
+                          current_cdi,
                           next,
                           n20_crypto_key_type_cdi_e,
                           (n20_slice_t){.size = N20_FUNC_COMPRESSED_INPUT_SIZE, .buffer = &info[0]},
