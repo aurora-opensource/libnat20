@@ -35,6 +35,8 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+/** @file */
+
 #pragma once
 
 #include <nat20/crypto.h>
@@ -62,7 +64,7 @@ extern "C" {
  * @param ctx_out Pointer to the context to be initialized.
  * @return n20_error_t Error code indicating success or failure.
  */
-n20_error_t n20_crypto_nat20_open(n20_crypto_digest_context_t** ctx_out);
+extern n20_error_t n20_crypto_nat20_open(n20_crypto_digest_context_t** ctx_out);
 
 /**
  * @brief Close the NAT20 cryptographic context.
@@ -77,8 +79,119 @@ n20_error_t n20_crypto_nat20_open(n20_crypto_digest_context_t** ctx_out);
  * @param ctx_out Pointer to the context to be closed.
  * @return n20_error_t Error code indicating success or failure.
  */
-n20_error_t n20_crypto_nat20_close(n20_crypto_digest_context_t* ctx_out);
+extern n20_error_t n20_crypto_nat20_close(n20_crypto_digest_context_t* ctx_out);
 
+/**
+ * @brief Compute HMAC (Hash-based Message Authentication Code).
+ *
+ * This function computes the HMAC of the input message using the specified
+ * digest algorithm and key.
+ *
+ * This function requires a valid crypto digest context that implements
+ * at least the function @ref n20_crypto_digest_context_s.digest. The context
+ * is not required to implement any other function. This function may be used
+ * to implement @ref n20_crypto_digest_context_s.hmac.
+ *
+ * For errors and expected behavior see @ref n20_crypto_digest_context_s.hmac.
+ *
+ * @param ctx Pointer to the cryptographic context.
+ * @param alg_in Digest algorithm to use.
+ * @param key Secret key for HMAC.
+ * @param msg_in Input message to authenticate.
+ * @param mac_out Output buffer for the computed MAC.
+ * @param mac_size_in_out Input: size of the output buffer. Output: size of the computed MAC.
+ * @return n20_error_t Error code indicating success or failure.
+ */
+extern n20_error_t n20_hmac(n20_crypto_digest_context_t* ctx,
+                            n20_crypto_digest_algorithm_t alg_in,
+                            n20_slice_t const key,
+                            n20_crypto_gather_list_t const* msg_in,
+                            uint8_t* mac_out,
+                            size_t* mac_size_in_out);
+
+/**
+ * @brief Compute HKDF (HMAC-based Key Derivation Function).
+ *
+ * This function derives a key of the specified length using the HKDF
+ * algorithm with the given input keying material (IKM), salt, and info.
+ *
+ * This function requires a valid crypto digest context that implements
+ * at least the functions @ref n20_crypto_digest_context_s.hkdf_extract
+ * and @ref n20_crypto_digest_context_s.hkdf_expand.
+ * This function may be used to implement @ref n20_crypto_digest_context_s.hkdf.
+ *
+ * For errors and expected behavior see @ref n20_crypto_digest_context_s.hkdf.
+ *
+ * @param ctx Pointer to the cryptographic context.
+ * @param alg_in Digest algorithm to use.
+ * @param ikm Input keying material.
+ * @param salt Optional salt value (can be empty).
+ * @param info Optional context and application specific information.
+ * @param key_octets Length of the derived key in octets.
+ * @param out Output buffer for the derived key.
+ * @return n20_error_t Error code indicating success or failure.
+ */
+extern n20_error_t n20_hkdf(n20_crypto_digest_context_t* ctx,
+                            n20_crypto_digest_algorithm_t alg_in,
+                            n20_slice_t const ikm,
+                            n20_slice_t const salt,
+                            n20_slice_t const info,
+                            size_t key_octets,
+                            uint8_t* out);
+
+/**
+ * @brief Extract a pseudorandom key (PRK) from input keying material (IKM) and salt.
+ *
+ * This function performs the HKDF extract step, deriving a pseudorandom key (PRK)
+ * from the input keying material (IKM) and an optional salt.
+ *
+ * This function requires a valid crypto digest context that implements
+ * at least the function @ref n20_crypto_digest_context_s.hmac.
+ * This function may be used to implement @ref n20_crypto_digest_context_s.hkdf_extract.
+ *
+ * For errors and expected behavior see @ref n20_crypto_digest_context_s.hkdf_extract.
+ *
+ * @param ctx Pointer to the cryptographic context.
+ * @param alg_in Digest algorithm to use.
+ * @param ikm Input keying material.
+ * @param salt Optional salt value (can be empty).
+ * @param prk Output buffer for the pseudorandom key.
+ * @param prk_size_in_out Input: size of the output buffer. Output: size of the derived PRK.
+ * @return n20_error_t Error code indicating success or failure.
+ */
+extern n20_error_t n20_hkdf_extract(n20_crypto_digest_context_t* ctx,
+                                    n20_crypto_digest_algorithm_t alg_in,
+                                    n20_slice_t ikm,
+                                    n20_slice_t const salt,
+                                    uint8_t* prk,
+                                    size_t* prk_size_in_out);
+
+/**
+ * @brief Expand a pseudorandom key (PRK) into output keying material (OKM).
+ *
+ * This function performs the HKDF expand step, deriving output keying material (OKM)
+ * from a pseudorandom key (PRK) and optional context information.
+ *
+ * This function requires a valid crypto digest context that implements
+ * at least the function @ref n20_crypto_digest_context_s.hmac.
+ * This function may be used to implement @ref n20_crypto_digest_context_s.hkdf_expand.
+ *
+ * For errors and expected behavior see @ref n20_crypto_digest_context_s.hkdf_expand.
+ *
+ * @param ctx Pointer to the cryptographic context.
+ * @param alg_in Digest algorithm to use.
+ * @param prk Pseudorandom key.
+ * @param info Optional context and application specific information.
+ * @param key_octets Length of the derived key in octets.
+ * @param out Output buffer for the derived key.
+ * @return n20_error_t Error code indicating success or failure.
+ */
+extern n20_error_t n20_hkdf_expand(n20_crypto_digest_context_t* ctx,
+                                   n20_crypto_digest_algorithm_t alg_in,
+                                   n20_slice_t const prk,
+                                   n20_slice_t const info,
+                                   size_t key_octets,
+                                   uint8_t* out);
 #ifdef __cplusplus
 }
 #endif
