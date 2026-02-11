@@ -17,13 +17,8 @@
 #include <nat20/crypto.h>
 #include <nat20/crypto/nat20/crypto.h>
 #include <nat20/crypto/nat20/sha.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
-#include <sys/types.h>
-
-#include "nat20/error.h"
-#include "nat20/types.h"
+#include <nat20/error.h>
+#include <nat20/types.h>
 
 union n20_digest_state_u {
     n20_sha384_sha512_state_t sha_512;

@@ -89,8 +89,10 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/cbor.h
     include/nat20/constants.h
     include/nat20/crypto.h
+    include/nat20/endian.h
     include/nat20/error.h
     include/nat20/functionality.h
+    include/nat20/limits.h
     include/nat20/oid.h
     include/nat20/open_dice.h
     include/nat20/stream.h

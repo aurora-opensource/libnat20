@@ -15,7 +15,7 @@
  */
 
 #include <nat20/crypto/nat20/sha.h>
-#include <stdint.h>
+#include <nat20/types.h>
 
 n20_sha384_sha512_state_t n20_sha512_init(void) {
     n20_sha384_sha512_state_t state = {0};

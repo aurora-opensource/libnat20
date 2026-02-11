@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include <endian.h>
 #include <nat20/asn1.h>
+#include <nat20/endian.h>
 #include <nat20/oid.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <stdbool.h>
-#include <string.h>
 
 void n20_asn1_base128_int(n20_stream_t *const s, uint64_t n) {
     // The integer n is written 7 bits at a time starting with the least
@@ -186,7 +184,7 @@ static void n20_asn1_integer_internal_content(n20_stream_t *const s, void *ctx) 
     // compilation unit and assure that it is never NULL.
     uint8_t const *msb = number->n.buffer;
     uint8_t const *end = number->n.buffer + number->n.size;
-    ssize_t inc = 1;
+    ptrdiff_t inc = 1;
     int add_extra = 0;
     uint8_t extra = 0;
 

@@ -19,9 +19,6 @@
 #include <nat20/oid.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <unistd.h>
 
 /** @file */
 

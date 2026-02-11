@@ -15,7 +15,7 @@
  */
 
 #include <nat20/crypto/nat20/sha.h>
-#include <stdint.h>
+#include <nat20/types.h>
 
 n20_sha224_sha256_state_t n20_sha256_init(void) {
     n20_sha224_sha256_state_t state = {0};

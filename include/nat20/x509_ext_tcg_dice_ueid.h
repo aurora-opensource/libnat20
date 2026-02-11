@@ -20,8 +20,7 @@
 
 #include <nat20/asn1.h>
 #include <nat20/oid.h>
-#include <stddef.h>
-#include <stdint.h>
+#include <nat20/types.h>
 
 #ifdef __cplusplus
 extern "C" {

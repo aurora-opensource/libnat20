@@ -15,7 +15,7 @@
  */
 
 #include <nat20/oid.h>
-#include <stdbool.h>
+#include <nat20/types.h>
 
 N20_ASN1_DEFINE_OID(OID_RSA_ENCRYPTION, 1, 2, 840, 113549, 1, 1, 1);
 N20_ASN1_DEFINE_OID(OID_SHA256_WITH_RSA_ENC, 1, 2, 840, 113549, 1, 1, 11);

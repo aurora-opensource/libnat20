@@ -15,10 +15,9 @@
  */
 
 #include <nat20/cbor.h>
+#include <nat20/limits.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <stddef.h>
-#include <stdint.h>
 
 void n20_cbor_write_header(n20_stream_t *const s, n20_cbor_type_t cbor_type, uint64_t n) {
     if ((unsigned int)cbor_type > 7) {

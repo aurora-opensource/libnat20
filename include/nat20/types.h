@@ -18,8 +18,27 @@
 
 #pragma once
 
+#ifdef __KERNEL__
+#include <linux/string.h>
+#include <linux/types.h>
+#else
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <unistd.h>
+#include <string.h>
+#endif
+
+#ifndef fallthrough
+#if __cplusplus >= 201103L
+#define fallthrough [[fallthrough]]
+#elif defined(__GNUC__) && __GNUC__ >= 7
+#define fallthrough __attribute__((fallthrough))
+#else
+#define fallthrough \
+    do {            \
+    } while (0)
+#endif
+#endif  // fallthrough
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,7 +72,7 @@ struct n20_slice_s {
      *
      * A buffer with a capacity of at least @ref size bytes or NULL.
      */
-    uint8_t const *buffer;
+    uint8_t const* buffer;
 };
 
 /**
@@ -103,7 +122,7 @@ struct n20_string_slice_s {
      *
      * A buffer with a capacity of at least @ref size bytes or NULL.
      */
-    char const *buffer;
+    char const* buffer;
 };
 
 /**
@@ -125,8 +144,7 @@ typedef struct n20_string_slice_s n20_string_slice_t;
  *
  * @param str__ The string literal to be converted.
  */
-#define N20_STR_C(str__) \
-    (n20_string_slice_t) { .size = sizeof(str__) - 1, .buffer = str__ "" }
+#define N20_STR_C(str__) (n20_string_slice_t){.size = sizeof(str__) - 1, .buffer = str__ ""}
 
 /**
  * @brief Convenience macro to create an empty string slice.

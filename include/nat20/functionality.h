@@ -26,8 +26,6 @@
 #include <nat20/types.h>
 #include <nat20/x509.h>
 #include <nat20/x509_ext_open_dice_input.h>
-#include <stddef.h>
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

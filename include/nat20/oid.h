@@ -16,9 +16,7 @@
 
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <unistd.h>
+#include <nat20/types.h>
 
 /** @file
  *

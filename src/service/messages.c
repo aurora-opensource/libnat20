@@ -19,7 +19,6 @@
 #include <nat20/service/messages.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <sys/types.h>
 
 #define N20_MSG_LABEL_ISSUER_KEY_TYPE 1
 #define N20_MSG_LABEL_SUBJECT_KEY_TYPE 2

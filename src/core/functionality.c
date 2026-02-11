@@ -24,9 +24,6 @@
 #include <nat20/x509.h>
 #include <nat20/x509_ext_open_dice_input.h>
 #include <nat20/x509_ext_tcg_dice_tcb_freshness.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
 
 /*
  * Buffer holding the utf-8 encoded string "CDI_Attest".
@@ -573,7 +570,7 @@ n20_error_t n20_eca_ee_sign_message(n20_crypto_context_t *crypto_ctx,
     switch (key_usage.size) {
         default:
             cert_info.key_usage[1] = key_usage.buffer[1];
-            /* fallthrough */
+            fallthrough;
         case 1:
             cert_info.key_usage[0] = key_usage.buffer[0];
             break;
