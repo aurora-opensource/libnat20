@@ -18,8 +18,8 @@
 
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
