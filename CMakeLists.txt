@@ -411,7 +411,7 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
                 EXPORT LibNat20Targets
                 ARCHIVE DESTINATION lib
         )
-        install(FILES ${LIBNAT20_PUB_BSSL_HEADERS} DESTINATION include)
+        install(FILES ${LIBNAT20_PUB_BSSL_HEADERS} DESTINATION include/nat20/crypto_bssl)
     endif()
 
     if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
@@ -500,7 +500,7 @@ if (NAT20_WITH_TESTS)
             EXPORT LibNat20Targets
             ARCHIVE DESTINATION lib
     )
-    install(FILES ${LIBNAT20_TEST_UTILS_HEADERS} DESTINATION include)
+    install(FILES ${LIBNAT20_TEST_UTILS_HEADERS} DESTINATION include/nat20/testing)
 
     add_executable(nat20_test_bin)
     target_sources(nat20_test_bin
