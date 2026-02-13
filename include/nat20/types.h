@@ -19,7 +19,7 @@
 #pragma once
 
 #include <stdint.h>
-#include <unistd.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {

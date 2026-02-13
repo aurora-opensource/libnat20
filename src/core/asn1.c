@@ -186,7 +186,7 @@ static void n20_asn1_integer_internal_content(n20_stream_t *const s, void *ctx) 
     // compilation unit and assure that it is never NULL.
     uint8_t const *msb = number->n.buffer;
     uint8_t const *end = number->n.buffer + number->n.size;
-    ssize_t inc = 1;
+    ptrdiff_t inc = 1;
     int add_extra = 0;
     uint8_t extra = 0;
 
