@@ -145,7 +145,7 @@ set(LIBNAT20_DOC_PAGES
     CONTRIBUTING.md
 )
 
-set(LIBNAT20_PUB_BSSL_HEADERS
+set(LIBNAT20_PUB_CRYPTO_BSSL_HEADERS
     include/nat20/crypto_bssl/crypto.h
 )
 
@@ -183,6 +183,7 @@ target_sources(nat20
     PRIVATE ${LIBNAT20_SOURCES}
     PRIVATE ${LIBNAT20_PUB_HEADERS}
 )
+set_target_properties(nat20 PROPERTIES PUBLIC_HEADER "${LIBNAT20_PUB_HEADERS}")
 
 target_compile_options(nat20
     PRIVATE -pedantic
@@ -193,15 +194,14 @@ target_compile_options(nat20
 
 target_include_directories(nat20 PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 install(TARGETS nat20
-        EXPORT LibNat20Targets
-        ARCHIVE DESTINATION lib
-        # PUBLIC_HEADER DESTINATION include/nat20
+    EXPORT LibNat20Targets
+    ARCHIVE DESTINATION lib
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20
 )
-install(FILES ${LIBNAT20_PUB_HEADERS} DESTINATION include/nat20)
 
 if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
     add_library(nat20_coverage STATIC)
@@ -226,7 +226,7 @@ if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
     )
     target_include_directories(nat20_coverage PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
 endif()
 
@@ -242,6 +242,8 @@ target_sources(nat20_service
     PRIVATE ${LIBNAT20_SERVICE_SOURCES}
     PRIVATE ${LIBNAT20_SERVICE_PUB_HEADERS}
 )
+set_target_properties(nat20_service PROPERTIES PUBLIC_HEADER "${LIBNAT20_SERVICE_PUB_HEADERS}")
+
 
 target_compile_options(nat20_service
     PRIVATE -pedantic
@@ -256,18 +258,17 @@ target_compile_definitions(nat20_service
 )
 
 target_include_directories(nat20_service PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 target_link_libraries(nat20_service nat20)
 
 install(TARGETS nat20_service
-        EXPORT LibNat20Targets
-        ARCHIVE DESTINATION lib
-        # PUBLIC_HEADER DESTINATION include
+    EXPORT LibNat20Targets
+    ARCHIVE DESTINATION lib
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/service
 )
-install(FILES ${LIBNAT20_SERVICE_PUB_HEADERS} DESTINATION include/nat20/service)
 
 
 if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
@@ -292,7 +293,7 @@ if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
 
     target_include_directories(nat20_service_coverage PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
 
     target_link_libraries(nat20_service_coverage nat20)
@@ -318,6 +319,7 @@ target_sources(nat20_crypto_nat20
     PRIVATE ${LIBNAT20_CRYPTO_NAT20_SOURCES}
     PRIVATE ${LIBNAT20_CRYPTO_NAT20_PUB_HEADERS}
 )
+set_target_properties(nat20_crypto_nat20 PROPERTIES PUBLIC_HEADER "${LIBNAT20_CRYPTO_NAT20_PUB_HEADERS}")
 
 target_compile_options(nat20_crypto_nat20
     PRIVATE -pedantic
@@ -328,16 +330,14 @@ target_compile_options(nat20_crypto_nat20
 
 target_include_directories(nat20_crypto_nat20 PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 install(TARGETS nat20_crypto_nat20
-        EXPORT LibNat20Targets
-        ARCHIVE DESTINATION lib
-        # PUBLIC_HEADER DESTINATION include
+    EXPORT LibNat20Targets
+    ARCHIVE DESTINATION lib
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/crypto/nat20
 )
-install(FILES ${LIBNAT20_CRYPTO_NAT20_PUB_HEADERS} DESTINATION include/nat20/crypto/nat20)
-
 
 if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
     add_library(nat20_crypto_nat20_coverage STATIC)
@@ -356,7 +356,7 @@ if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
 
     target_include_directories(nat20_crypto_nat20_coverage PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
 
     target_compile_options(nat20_crypto_nat20_coverage
@@ -389,6 +389,7 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
         PRIVATE ${LIBNAT20_CRYPTO_BSSL_SOURCES}
         PRIVATE ${LIBNAT20_PUB_CRYPTO_BSSL_HEADERS}
     )
+    set_target_properties(nat20_crypto_boringssl PROPERTIES PUBLIC_HEADER "${LIBNAT20_PUB_CRYPTO_BSSL_HEADERS}")
 
     target_compile_options(nat20_crypto_boringssl
         PRIVATE -pedantic
@@ -397,10 +398,9 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
         PRIVATE -Werror
     )
 
-
     target_include_directories(nat20_crypto_boringssl PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
 
     target_link_libraries(nat20_crypto_boringssl crypto)
@@ -408,10 +408,10 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
     # Install nat20_crypto_boringssl if building with BoringSSL support
     if(NAT20_WITH_CRYPTO_BSSL)
         install(TARGETS nat20_crypto_boringssl
-                EXPORT LibNat20Targets
-                ARCHIVE DESTINATION lib
+            EXPORT LibNat20Targets
+            ARCHIVE DESTINATION lib
+            PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/crypto_bssl
         )
-        install(FILES ${LIBNAT20_PUB_BSSL_HEADERS} DESTINATION include/nat20/crypto_bssl)
     endif()
 
     if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
@@ -429,11 +429,10 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
             PRIVATE -Werror
         )
 
-
         target_include_directories(nat20_crypto_boringssl_coverage
             PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         )
 
         target_link_libraries(nat20_crypto_boringssl_coverage crypto)
@@ -489,18 +488,20 @@ if (NAT20_WITH_TESTS)
         PRIVATE ${LIBNAT20_TEST_UTILS_SOURCES}
         PRIVATE ${LIBNAT20_TEST_UTILS_HEADERS}
     )
+    set_target_properties(nat20_test_utils PROPERTIES PUBLIC_HEADER "${LIBNAT20_TEST_UTILS_HEADERS}")
+
     target_link_libraries(nat20_test_utils gtest_main nat20 crypto)
     target_include_directories(nat20_test_utils PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
 
     # Install test utils for downstream projects that might need them
     install(TARGETS nat20_test_utils
-            EXPORT LibNat20Targets
-            ARCHIVE DESTINATION lib
+        EXPORT LibNat20Targets
+        ARCHIVE DESTINATION lib
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/testing
     )
-    install(FILES ${LIBNAT20_TEST_UTILS_HEADERS} DESTINATION include/nat20/testing)
 
     add_executable(nat20_test_bin)
     target_sources(nat20_test_bin
