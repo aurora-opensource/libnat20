@@ -20,8 +20,8 @@
 #include <nat20/stream.h>
 #include <nat20/types.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <unistd.h>
 
 /** @file */
 

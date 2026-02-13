@@ -20,8 +20,8 @@
 
 #include <nat20/error.h>
 #include <nat20/types.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
