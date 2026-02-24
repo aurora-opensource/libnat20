@@ -639,6 +639,13 @@ endif() # NAT20_WITH_DOCS
 
 include(CMakePackageConfigHelpers)
 
+# Store whether BoringSSL support was built for use in the config file
+if(NAT20_WITH_CRYPTO_BSSL)
+    set(LIBNAT20_NEEDS_BORINGSSL TRUE)
+else()
+    set(LIBNAT20_NEEDS_BORINGSSL FALSE)
+endif()
+
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LibNat20Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/LibNat20Config.cmake"
