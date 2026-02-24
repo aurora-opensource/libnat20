@@ -206,7 +206,7 @@ target_include_directories(nat20 PUBLIC
 
 install(TARGETS nat20
     EXPORT LibNat20Targets
-    ARCHIVE DESTINATION lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20
 )
 
@@ -273,7 +273,7 @@ target_link_libraries(nat20_service nat20)
 
 install(TARGETS nat20_service
     EXPORT LibNat20Targets
-    ARCHIVE DESTINATION lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/service
 )
 
@@ -342,7 +342,7 @@ target_include_directories(nat20_crypto_nat20 PUBLIC
 
 install(TARGETS nat20_crypto_nat20
     EXPORT LibNat20Targets
-    ARCHIVE DESTINATION lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/crypto/nat20
 )
 
@@ -416,7 +416,7 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
     if(NAT20_WITH_CRYPTO_BSSL)
         install(TARGETS nat20_crypto_boringssl
             EXPORT LibNat20Targets
-            ARCHIVE DESTINATION lib
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
             PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/crypto_bssl
         )
     endif()
@@ -506,7 +506,7 @@ if (NAT20_WITH_TESTS)
     # Install test utils for downstream projects that might need them
     install(TARGETS nat20_test_utils
         EXPORT LibNat20Targets
-        ARCHIVE DESTINATION lib
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/testing
     )
 
@@ -640,19 +640,19 @@ include(CMakePackageConfigHelpers)
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LibNat20Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/LibNat20Config.cmake"
-    INSTALL_DESTINATION lib/cmake/LibNat20
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LibNat20
 )
 
 # Generate and install the targets file
 install(EXPORT LibNat20Targets
     FILE LibNat20Targets.cmake
     NAMESPACE LibNat20::
-    DESTINATION lib/cmake/LibNat20
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LibNat20
 )
 
 # Install the package configuration files
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/LibNat20Config.cmake"
-    DESTINATION lib/cmake/LibNat20
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LibNat20
 )
 
