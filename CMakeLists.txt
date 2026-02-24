@@ -508,7 +508,6 @@ if (NAT20_WITH_TESTS)
 
     # Install test utils for downstream projects that might need them
     install(TARGETS nat20_test_utils
-        EXPORT LibNat20Targets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/testing
     )
