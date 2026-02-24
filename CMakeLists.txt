@@ -185,6 +185,7 @@ set(LIBNAT20_TEST_UTILS_SOURCES
 # The nat20 library is the core product of this project.
 # It will always be compiled.
 add_library(nat20 STATIC)
+add_library(LibNat20::nat20 ALIAS nat20)
 
 target_sources(nat20
     PRIVATE ${LIBNAT20_SOURCES}
@@ -244,6 +245,7 @@ endif()
 # The nat20_service library is also part of the product of this project.
 # It will always be compiled.
 add_library(nat20_service STATIC)
+add_library(LibNat20::nat20_service ALIAS nat20_service)
 
 target_sources(nat20_service
     PRIVATE ${LIBNAT20_SERVICE_SOURCES}
@@ -321,6 +323,7 @@ endif()
 # algorithms using the native C standard library.
 
 add_library(nat20_crypto_nat20 STATIC)
+add_library(LibNat20::nat20_crypto_nat20 ALIAS nat20_crypto_nat20)
 
 target_sources(nat20_crypto_nat20
     PRIVATE ${LIBNAT20_CRYPTO_NAT20_SOURCES}
