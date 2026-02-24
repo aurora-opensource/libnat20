@@ -417,14 +417,13 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
 
     target_link_libraries(nat20_crypto_boringssl crypto)
 
-    # Install nat20_crypto_boringssl if building with BoringSSL support
-    if(NAT20_WITH_CRYPTO_BSSL)
-        install(TARGETS nat20_crypto_boringssl
-            EXPORT LibNat20Targets
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/crypto_bssl
-        )
-    endif()
+    # NOTE:
+    # nat20_crypto_boringssl links against the BoringSSL "crypto" library
+    # obtained via FetchContent. Since that dependency is not installed /
+    # exported as part of this project, installing nat20_crypto_boringssl
+    # would create a non-relocatable target for downstream consumers.
+    # Therefore, nat20_crypto_boringssl is intentionally *not* installed
+    # or exported as part of LibNat20. It is intended for in-tree use only.
 
     if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
         add_library(nat20_crypto_boringssl_coverage)
@@ -641,17 +640,17 @@ endif() # NAT20_WITH_DOCS
 
 include(CMakePackageConfigHelpers)
 
-# Store whether BoringSSL support was built for use in the config file
-if(NAT20_WITH_CRYPTO_BSSL)
-    set(LIBNAT20_NEEDS_BORINGSSL TRUE)
-else()
-    set(LIBNAT20_NEEDS_BORINGSSL FALSE)
-endif()
-
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LibNat20Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/LibNat20Config.cmake"
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LibNat20
+)
+
+# Generate the version file for find_package version checking
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/LibNat20ConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
 )
 
 # Generate and install the targets file
@@ -664,6 +663,7 @@ install(EXPORT LibNat20Targets
 # Install the package configuration files
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/LibNat20Config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/LibNat20ConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LibNat20
 )
 
