@@ -62,6 +62,8 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
     set(CMAKE_CXX_STANDARD 17)
 endif()
 
+include(GNUInstallDirs)
+
 ###################################################################################################
 # The following section defines all the groups of source files.
 # All files must be specified explicitly; no globbing or other generation is allowed.
