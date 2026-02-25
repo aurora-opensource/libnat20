@@ -507,12 +507,6 @@ if (NAT20_WITH_TESTS)
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
 
-    # Install test utils for downstream projects that might need them
-    install(TARGETS nat20_test_utils
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nat20/testing
-    )
-
     add_executable(nat20_test_bin)
     target_sources(nat20_test_bin
         PRIVATE ${LIBNAT20_TEST_SOURCES}
