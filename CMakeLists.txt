@@ -520,7 +520,6 @@ if (NAT20_WITH_TESTS)
         target_link_libraries(nat20_test_bin nat20)
     endif()
     target_link_libraries(nat20_test_bin gtest_main crypto pki nat20_crypto_boringssl nat20_test_utils)
-
     add_test(NAME nat20_test COMMAND nat20_test_bin)
 
     add_executable(nat20_service_test_bin)
@@ -638,6 +637,9 @@ configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LibNat20Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/LibNat20Config.cmake"
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LibNat20
+    PATH_VARS
+        CMAKE_INSTALL_INCLUDEDIR
+        CMAKE_INSTALL_LIBDIR
 )
 
 # Generate the version file for find_package version checking
