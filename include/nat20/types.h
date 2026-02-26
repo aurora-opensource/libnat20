@@ -29,7 +29,7 @@
 #endif
 
 #ifndef fallthrough
-#if __cplusplus >= 201103L
+#if __cplusplus >= 201703L
 #define fallthrough [[fallthrough]]
 #elif defined(__GNUC__) && __GNUC__ >= 7
 #define fallthrough __attribute__((fallthrough))
