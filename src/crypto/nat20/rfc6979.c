@@ -20,40 +20,6 @@
 #include <nat20/types.h>
 
 /**
- * Logical shift the bits in the big number to the right by @p shift.
- */
-void n20_bn_logical_shift_right(n20_bn_t* bn, uint32_t shift) {
-    int32_t words = shift >> 5;
-    int32_t bits = shift & 0x1f;
-    for (size_t i = 0; i < bn->word_count; ++i) {
-        if (i + words < bn->word_count) {
-            bn->words[i] = bn->words[i + words] >> bits;
-            if (i + words + 1 < bn->word_count)
-                bn->words[i] |= bn->words[i + words + 1] << (32 - bits);
-        } else {
-            bn->words[i] = 0;
-        }
-    }
-}
-
-/**
- * Logical shift the bits in the big number to the left by @p shift.
- */
-void n20_bn_logical_left_right(n20_bn_t* bn, uint32_t shift) {
-    size_t words = shift >> 5;
-    int32_t bits = shift & 0x1f;
-    for (size_t i_ = bn->word_count; i_ > 0; --i_) {
-        size_t i = i_ - 1;
-        if (i >= words) {
-            bn->words[i] = bn->words[i - words] << bits;
-            if (i >= (words + 1)) bn->words[i] |= bn->words[i - (words + 1)] >> (32 - bits);
-        } else {
-            bn->words[i] = 0;
-        }
-    }
-}
-
-/**
  * Subtract one big num @p b from another @p a, and stores the result
  * in @p res.
  *
@@ -74,9 +40,13 @@ bool n20_bn_sub_overflow(n20_bn_t const* a, n20_bn_t const* b, n20_bn_t* res) {
 
     for (; i < max_words; ++i) {
         uint32_t res_ = 0;
-        if (i < a->word_count) res_ = a->words[i];
-        carry = __builtin_sub_overflow(res_, carry, &res_);
-        if (i < b->word_count) carry |= __builtin_sub_overflow(res_, b->words[i], &res_);
+        if (i < a->word_count) {
+            res_ = a->words[i];
+        }
+        carry = __builtin_sub_overflow(res_, carry, &res_) ? 1 : 0;
+        if (i < b->word_count) {
+            carry |= __builtin_sub_overflow(res_, b->words[i], &res_) ? 1 : 0;
+        }
 
         if (i < res->word_count) {
             res->words[i] = res_;
@@ -108,20 +78,12 @@ void n20_bn_to_octets(uint8_t* octets, size_t octets_len, n20_bn_t const* bn) {
         size_t word_index = i >> 2;
         size_t byte_index = i & 0x3;
         if (word_index < bn->word_count) {
-            octets[octets_len - i - 1] = (uint8_t)((bn->words[word_index] >> (8 * byte_index)) & 0xff);
+            octets[octets_len - i - 1] =
+                (uint8_t)((bn->words[word_index] >> (8 * byte_index)) & 0xff);
         } else {
             octets[octets_len - i - 1] = 0;
         }
     }
-}
-
-uint32_t n20_bn_num_bits(n20_bn_t* bn) {
-    uint32_t words = bn->word_count;
-    while (words && bn->words[words - 1] == 0) {
-        --words;
-    }
-    if (words == 0) return 0;
-    return words * 32 - __builtin_clz(bn->words[words - 1]);
 }
 
 bool n20_bn_is_zero(n20_bn_t* bn) {
@@ -155,8 +117,11 @@ uint32_t n20_p256_n_bits[] = {
     0xFFFFFFFF,
 };
 
+#define N20_P256_N_OCTETS (sizeof(n20_p256_n_bits))
+#define N20_P256_N_WORDS (N20_P256_N_OCTETS / sizeof(n20_p256_n_bits[0]))
+
 n20_bn_t n20_p256_n = {
-    /* .word_count = */ 8,
+    /* .word_count = */ N20_P256_N_WORDS,
     /* .words = */ n20_p256_n_bits,
 };
 
@@ -175,8 +140,11 @@ uint32_t n20_p384_n_bits[] = {
     0xFFFFFFFF,
 };
 
+#define N20_P384_N_OCTETS (sizeof(n20_p384_n_bits))
+#define N20_P384_N_WORDS (N20_P384_N_OCTETS / sizeof(n20_p384_n_bits[0]))
+
 n20_bn_t n20_p384_n = {
-    /* .word_count = */ 12,
+    /* .word_count = */ N20_P384_N_WORDS,
     /* .words = */ n20_p384_n_bits,
 };
 
@@ -211,10 +179,10 @@ n20_error_t n20_rfc6979_k_generation(n20_crypto_digest_context_t* ctx,
     size_t qlen_octets = 0;
     if (key_type == n20_crypto_key_type_secp256r1_e) {
         q = &n20_p256_n;
-        qlen_octets = 32;
+        qlen_octets = N20_P256_N_OCTETS;
     } else if (key_type == n20_crypto_key_type_secp384r1_e) {
         q = &n20_p384_n;
-        qlen_octets = 48;
+        qlen_octets = N20_P384_N_OCTETS;
     } else {
         return n20_error_crypto_invalid_key_type_e;
     }
@@ -233,14 +201,30 @@ n20_error_t n20_rfc6979_k_generation(n20_crypto_digest_context_t* ctx,
             return err;
         }
 
+        /*
+         * The message digest needs to be converted to an octet sequence using
+         * bits2octets as specified by RFC 6979. This means that the first qlen
+         * bits of the digest are interpreted as a big-endian integer (bits2int)
+         * and then modulo reduced by q to get the final value for h1.
+         * Finally the result is converted back to an octet sequence.
+         *
+         * First truncate the digest to qlen bits by taking the first qlen octets.
+         */
         h1_slice.size = h1_size < qlen_octets ? h1_size : qlen_octets;
         n20_slice_to_bn(k, &h1_slice);
 
+        /*
+         * If the resulting integer is greater than or equal to q, reduce it modulo q.
+         */
         if (n20_bn_cmp(k, q) >= 0) {
             if (n20_bn_sub_overflow(k, q, k)) {
                 return n20_error_crypto_implementation_specific_e;
             }
         }
+
+        /*
+         * Convert the integer back to an octet sequence.
+         */
         h1_size = qlen_octets;
         n20_bn_to_octets(h1_bytes, h1_size, k);
         h1_slice.size = h1_size;
@@ -253,7 +237,9 @@ n20_error_t n20_rfc6979_k_generation(n20_crypto_digest_context_t* ctx,
         return n20_error_crypto_unknown_algorithm_e;
     }
 
+    /* Initialize V with digest_size octets of value 0x01. */
     memset(V, 0x01, digest_size);
+    /* Initialize K with digest_size octets of value 0x00. */
     memset(K, 0x00, digest_size);
 
     uint8_t internal_octet = 0x00;
@@ -268,6 +254,10 @@ n20_error_t n20_rfc6979_k_generation(n20_crypto_digest_context_t* ctx,
     };
     hmac_msg.list = hmac_slices;
 
+    /*
+     * Run two rounds of the pseudorandom number generator to warm up K and V
+     * with the key/seed (x_octets) and the optional message (m_octets).
+     */
     do {
         /* Update K. */
         hmac_msg.count = 4;
@@ -298,12 +288,16 @@ n20_error_t n20_rfc6979_k_generation(n20_crypto_digest_context_t* ctx,
         internal_octet += 1;
     } while (internal_octet < 2);
 
-    /* Internal octet is reused for updateing K below.
+    /* Internal octet is reused for updating K below.
      * It remains 0 though and is never incremented again. */
     internal_octet = 0;
 
     uint8_t T[48];
 
+    /*
+     * Loop until k is valid.
+     * k is valid if it is not zero and less than the group order.
+     */
     while (true) {
         /* Generate T. */
         size_t T_size = 0;
@@ -321,6 +315,7 @@ n20_error_t n20_rfc6979_k_generation(n20_crypto_digest_context_t* ctx,
                 return err;
             }
 
+            /* Copy the generated bytes to T. */
             size_t to_copy =
                 (T_size + digest_size > qlen_octets) ? (qlen_octets - T_size) : digest_size;
             memcpy(T + T_size, V, to_copy);

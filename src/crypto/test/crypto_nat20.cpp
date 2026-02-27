@@ -26,6 +26,7 @@
 #include <nat20/testing/test_vector_reader.h>
 #include <nat20/types.h>
 
+#include <memory>
 #include <vector>
 
 #include "test_vectors.h"
@@ -144,7 +145,7 @@ INSTANTIATE_TEST_CASE_P(
         /*
          * The following test vectors where computed using the same algorithm while
          * verifying that the intermediate h1_digest is equal to the digest of the
-         * emtpy message for the corresponding digest algorithms.
+         * empty message for the corresponding digest algorithms.
          */
         std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
                    EMPTY_MSG,
@@ -199,6 +200,8 @@ TEST_P(Nat20RFC6979KGenerationTestP256, Test_rfc6979_k_P_256_generation) {
 
     n20_crypto_digest_context_t* ctx = nullptr;
     ASSERT_EQ(n20_error_ok_e, n20_crypto_nat20_open(&ctx));
+    auto ctx_ptr_guard =
+        std::unique_ptr<n20_crypto_digest_context_t, decltype(&n20_crypto_nat20_close)>(ctx, n20_crypto_nat20_close);
 
     auto x_octets =
         std::vector<uint8_t>{0xc9, 0xaf, 0xa9, 0xd8, 0x45, 0xba, 0x75, 0x16, 0x6b, 0x5c, 0x21,
@@ -250,8 +253,8 @@ TEST_P(Nat20RFC6979KGenerationTestP256, Test_rfc6979_k_P_256_generation) {
 
     n20_bn_to_octets(got_k1.data(), got_k1.size(), &k_bn);
 
-    ASSERT_EQ(want_k1.value(), got_k1) << "Expected k: " << hex(want_k1.value()) << std::endl
-                                       << "Actual k: " << hex(got_k1) << std::endl;
+    ASSERT_EQ(want_k1.value(), got_k1) << "Expected k1: " << hex(want_k1.value()) << std::endl
+                                       << "Actual k1: " << hex(got_k1) << std::endl;
 }
 
 class Nat20RFC6979KGenerationTestP384
@@ -261,7 +264,7 @@ class Nat20RFC6979KGenerationTestP384
                                                std::string>> {};
 
 INSTANTIATE_TEST_CASE_P(
-    Nat20RFC6979KGenerationTestInstance,
+    Nat20RFC6979KGenerationTestP384Instance,
     Nat20RFC6979KGenerationTestP384,
     testing::Values(
         std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
@@ -315,7 +318,7 @@ INSTANTIATE_TEST_CASE_P(
         /*
          * The following test vectors where computed using the same algorithm while
          * verifying that the intermediate h1_digest is equal to the digest of the
-         * emtpy message for the corresponding digest algorithms.
+         * empty message for the corresponding digest algorithms.
          */
         std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
                    EMPTY_MSG,
@@ -386,6 +389,8 @@ TEST_P(Nat20RFC6979KGenerationTestP384, Test_rfc6979_k_P_384_generation) {
 
     n20_crypto_digest_context_t* ctx = nullptr;
     ASSERT_EQ(n20_error_ok_e, n20_crypto_nat20_open(&ctx));
+    auto ctx_ptr_guard =
+        std::unique_ptr<n20_crypto_digest_context_t, decltype(&n20_crypto_nat20_close)>(ctx, n20_crypto_nat20_close);
 
     auto x_octets = std::vector<uint8_t>{0x6b, 0x9d, 0x3d, 0xad, 0x2e, 0x1b, 0x8c, 0x1c, 0x05, 0xb1,
                                          0x98, 0x75, 0xb6, 0x65, 0x9f, 0x4d, 0xe2, 0x3c, 0x3b, 0x66,

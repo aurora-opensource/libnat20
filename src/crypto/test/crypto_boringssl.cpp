@@ -144,7 +144,7 @@ INSTANTIATE_TEST_CASE_P(
         /*
          * The following test vectors where computed using the same algorithm while
          * verifying that the intermediate h1_digest is equal to the digest of the
-         * emtpy message for the corresponding digest algorithms.
+         * empty message for the corresponding digest algorithms.
          */
         std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
                    EMPTY_MSG,
@@ -255,7 +255,7 @@ INSTANTIATE_TEST_CASE_P(
         /*
          * The following test vectors where computed using the same algorithm while
          * verifying that the intermediate h1_digest is equal to the digest of the
-         * emtpy message for the corresponding digest algorithms.
+         * empty message for the corresponding digest algorithms.
          */
         std::tuple(n20_crypto_digest_algorithm_sha2_224_e,
                    EMPTY_MSG,
