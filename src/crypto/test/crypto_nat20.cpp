@@ -201,7 +201,8 @@ TEST_P(Nat20RFC6979KGenerationTestP256, Test_rfc6979_k_P_256_generation) {
     n20_crypto_digest_context_t* ctx = nullptr;
     ASSERT_EQ(n20_error_ok_e, n20_crypto_nat20_open(&ctx));
     auto ctx_ptr_guard =
-        std::unique_ptr<n20_crypto_digest_context_t, decltype(&n20_crypto_nat20_close)>(ctx, n20_crypto_nat20_close);
+        std::unique_ptr<n20_crypto_digest_context_t, decltype(&n20_crypto_nat20_close)>(
+            ctx, n20_crypto_nat20_close);
 
     auto x_octets =
         std::vector<uint8_t>{0xc9, 0xaf, 0xa9, 0xd8, 0x45, 0xba, 0x75, 0x16, 0x6b, 0x5c, 0x21,
@@ -390,7 +391,8 @@ TEST_P(Nat20RFC6979KGenerationTestP384, Test_rfc6979_k_P_384_generation) {
     n20_crypto_digest_context_t* ctx = nullptr;
     ASSERT_EQ(n20_error_ok_e, n20_crypto_nat20_open(&ctx));
     auto ctx_ptr_guard =
-        std::unique_ptr<n20_crypto_digest_context_t, decltype(&n20_crypto_nat20_close)>(ctx, n20_crypto_nat20_close);
+        std::unique_ptr<n20_crypto_digest_context_t, decltype(&n20_crypto_nat20_close)>(
+            ctx, n20_crypto_nat20_close);
 
     auto x_octets = std::vector<uint8_t>{0x6b, 0x9d, 0x3d, 0xad, 0x2e, 0x1b, 0x8c, 0x1c, 0x05, 0xb1,
                                          0x98, 0x75, 0xb6, 0x65, 0x9f, 0x4d, 0xe2, 0x3c, 0x3b, 0x66,
