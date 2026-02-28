@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #pragma once
 
 #include <gtest/gtest.h>
