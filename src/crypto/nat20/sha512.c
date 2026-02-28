@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <nat20/crypto/nat20/sha.h>
 #include <nat20/types.h>
 

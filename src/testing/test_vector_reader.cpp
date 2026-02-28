@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <istream>
 #include <optional>
 #include <string>

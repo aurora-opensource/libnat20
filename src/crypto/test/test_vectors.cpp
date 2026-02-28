@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include "test_vectors.h"
 
 #include <gtest/gtest.h>

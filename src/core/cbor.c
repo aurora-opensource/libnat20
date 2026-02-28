@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <nat20/cbor.h>
 #include <nat20/limits.h>
 #include <nat20/stream.h>

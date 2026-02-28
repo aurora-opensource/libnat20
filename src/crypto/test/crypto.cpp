@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <gtest/gtest.h>
 #include <nat20/asn1.h>
 #include <nat20/crypto.h>

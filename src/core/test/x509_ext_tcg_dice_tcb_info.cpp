@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include "nat20/x509_ext_tcg_dice_tcb_info.h"
 
 #include <gtest/gtest.h>

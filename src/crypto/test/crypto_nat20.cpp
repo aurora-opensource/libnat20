@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include "crypto_nat20.h"
 
 #include <gtest/gtest.h>

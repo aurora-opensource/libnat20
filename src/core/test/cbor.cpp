@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <gtest/gtest.h>
 #include <nat20/cbor.h>
 #include <nat20/stream.h>

@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <nat20/cbor.h>
 #include <nat20/error.h>
 #include <nat20/service/messages.h>

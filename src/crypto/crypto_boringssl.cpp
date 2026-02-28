@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <nat20/crypto.h>
 #include <nat20/crypto_bssl/crypto.h>
 #include <nat20/error.h>

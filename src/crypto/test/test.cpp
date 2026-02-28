@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <gtest/gtest.h>
 
 #include <iostream>

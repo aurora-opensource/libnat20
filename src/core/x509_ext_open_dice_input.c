@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <nat20/asn1.h>
 #include <nat20/open_dice.h>
 #include <nat20/stream.h>

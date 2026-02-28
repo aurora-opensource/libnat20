@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <gtest/gtest.h>
 #include <nat20/testing/test_bssl_utils.h>
 #include <openssl/ec_key.h>

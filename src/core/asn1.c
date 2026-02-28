@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <nat20/asn1.h>
 #include <nat20/endian.h>
 #include <nat20/oid.h>

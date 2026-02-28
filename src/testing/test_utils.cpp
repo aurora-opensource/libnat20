@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include <nat20/testing/test_utils.h>
 
 #include <cstddef>

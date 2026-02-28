@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 /**
  * @file sha.h
  * @brief Implementation of the SHA-2 family of cryptographic hash functions.

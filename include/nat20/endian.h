@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 /** @file Homogeneous Endian definitions for various environments. */
 
 #pragma once

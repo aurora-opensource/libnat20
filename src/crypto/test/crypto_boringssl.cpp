@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-
 #include "crypto_boringssl.h"
 
 #include <gtest/gtest.h>
