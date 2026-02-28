@@ -32,7 +32,7 @@
  * are wider than @p res, a return value of true may also indicate
  * data loss.
  */
-bool n20_bn_sub_overflow(n20_bn_t const* a, n20_bn_t const* b, n20_bn_t* res) {
+static bool n20_bn_sub_overflow(n20_bn_t const* a, n20_bn_t const* b, n20_bn_t* res) {
     uint32_t carry = 0;
     size_t i = 0;
     size_t max_words = a->word_count > b->word_count ? a->word_count : b->word_count;
@@ -59,7 +59,7 @@ bool n20_bn_sub_overflow(n20_bn_t const* a, n20_bn_t const* b, n20_bn_t* res) {
     return carry;
 }
 
-void n20_slice_to_bn(n20_bn_t* bn, n20_slice_t const* slice) {
+static void n20_slice_to_bn(n20_bn_t* bn, n20_slice_t const* slice) {
     uint32_t octet = slice->size;
     for (size_t i = 0; i < bn->word_count; ++i) {
         bn->words[i] = 0;
@@ -86,22 +86,21 @@ void n20_bn_to_octets(uint8_t* octets, size_t octets_len, n20_bn_t const* bn) {
     }
 }
 
-bool n20_bn_is_zero(n20_bn_t* bn) {
+static bool n20_bn_is_zero(n20_bn_t* bn) {
     for (size_t i = 0; i < bn->word_count; ++i) {
         if (bn->words[i] != 0) return false;
     }
     return true;
 }
 
-int n20_bn_cmp(n20_bn_t* a, n20_bn_t* b) {
+static int n20_bn_cmp(n20_bn_t* a, n20_bn_t* b) {
     size_t max_words = a->word_count > b->word_count ? a->word_count : b->word_count;
     int result = 0;
     for (size_t i_ = max_words; i_ > 0; --i_) {
         size_t i = i_ - 1;
         uint32_t aw = i < a->word_count ? a->words[i] : 0;
         uint32_t bw = i < b->word_count ? b->words[i] : 0;
-        if (result == 0 && aw < bw) result = -1;
-        if (result == 0 && aw > bw) result = 1;
+        result += (!result) * ((aw > bw) - (aw < bw));
     }
     return result;
 }
