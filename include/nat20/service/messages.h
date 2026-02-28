@@ -42,7 +42,6 @@
 #include <nat20/crypto.h>
 #include <nat20/open_dice.h>
 #include <nat20/types.h>
-#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -38,7 +38,6 @@
 
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <string.h>
 
 void n20_stream_init(n20_stream_t *s, uint8_t *const buffer, size_t buffer_size) {
     if (s == NULL) return;

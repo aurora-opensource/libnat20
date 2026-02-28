@@ -40,8 +40,27 @@
 
 #pragma once
 
+#ifdef __KERNEL__
+#include <linux/string.h>
+#include <linux/types.h>
+#else
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <unistd.h>
+#include <string.h>
+#endif
+
+#ifndef fallthrough
+#if __cplusplus >= 201703L
+#define fallthrough [[fallthrough]]
+#elif defined(__GNUC__) && __GNUC__ >= 7
+#define fallthrough __attribute__((fallthrough))
+#else
+#define fallthrough \
+    do {            \
+    } while (0)
+#endif
+#endif  // fallthrough
 
 #ifdef __cplusplus
 extern "C" {
@@ -75,7 +94,7 @@ struct n20_slice_s {
      *
      * A buffer with a capacity of at least @ref size bytes or NULL.
      */
-    uint8_t const *buffer;
+    uint8_t const* buffer;
 };
 
 /**
@@ -125,7 +144,7 @@ struct n20_string_slice_s {
      *
      * A buffer with a capacity of at least @ref size bytes or NULL.
      */
-    char const *buffer;
+    char const* buffer;
 };
 
 /**

@@ -40,8 +40,6 @@
 
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <stdint.h>
-#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -3,6 +3,7 @@
     "include": [
       "**/*.yml",
       "**/CMakeLists.txt",
+      "**/*.cmake.in",
       ".clang-format",
       ".gitignore"
     ],

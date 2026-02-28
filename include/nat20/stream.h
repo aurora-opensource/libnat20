@@ -41,9 +41,6 @@
 /** @file */
 
 #include <nat20/types.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

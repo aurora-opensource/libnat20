@@ -48,8 +48,6 @@
 #include <nat20/types.h>
 #include <nat20/x509.h>
 #include <nat20/x509_ext_open_dice_input.h>
-#include <stddef.h>
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -201,14 +199,14 @@ extern n20_error_t n20_derive_key(n20_crypto_context_t *crypto_ctx,
  * returned in the given buffer.
  *
  * @param crypto_ctx The crypto context.
- * @param current The current CDI secret to derive the key from.
+ * @param current_cdi The current CDI secret to derive the key from.
  * @param next The derived key.
  * @param info The information to use for the derivation.
  *
  * @return n20_error_ok_e on success, or an error code on failure.
  */
 extern n20_error_t n20_next_level_cdi_attest(n20_crypto_context_t *crypto_ctx,
-                                             n20_crypto_key_t current,
+                                             n20_crypto_key_t current_cdi,
                                              n20_crypto_key_t *next,
                                              n20_compressed_input_t info);
 
