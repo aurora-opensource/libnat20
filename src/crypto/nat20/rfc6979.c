@@ -359,6 +359,5 @@ n20_error_t n20_rfc6979_k_generation(n20_crypto_digest_context_t* ctx,
             return err;
         }
     }
-
-    return n20_error_crypto_implementation_specific_e;
+    // Unreachable.
 }
