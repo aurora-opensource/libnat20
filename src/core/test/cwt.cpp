@@ -46,6 +46,8 @@
 #include <nat20/types.h>
 
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <tuple>
 #include <vector>
 
