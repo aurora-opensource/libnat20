@@ -1,6 +1,8 @@
 /*
  * Copyright 2026 Aurora Operations, Inc.
  *
+ * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
+ *
  * This work is dual licensed.
  * You may use it under Apache-2.0 or GPL-2.0 at your option.
  *
