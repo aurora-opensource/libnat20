@@ -327,6 +327,10 @@ extern void n20_cose_write_key(n20_stream_t *const s, n20_cose_key_t const *cons
  * Following the libnat20 paradigm, must not fail, and must render
  * valid CBOR as long as all data is valid or NULL.
  *
+ * Note that the function only renders the structure and the payload,
+ * but not the signature. The caller is responsible for appending the
+ * signature bytes after the structure is rendered.
+ *
  * This function will prefix the payload with a byte string header of
  * inferred from the callback's effect on the stream. The callback
  * must advance the stream's write position even if a buffer overflow

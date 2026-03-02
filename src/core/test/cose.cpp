@@ -40,14 +40,6 @@
 #include <nat20/stream.h>
 #include <nat20/testing/test_utils.h>
 
-static uint8_t testkeybuf[97] = {
-    0x25, 0x69, 0x9b, 0x1c, 0xf4, 0xe8, 0x7b, 0x67, 0x05, 0x74, 0xbe, 0x41, 0xd6, 0xe4, 0x02, 0x7f,
-    0xab, 0x2c, 0x96, 0x38, 0xe3, 0x02, 0xa0, 0x1c, 0x79, 0x29, 0xb1, 0x0f, 0xa9, 0x4a, 0x1a, 0x92,
-    0x69, 0xc9, 0x9f, 0x5c, 0x66, 0x08, 0x0f, 0x25, 0x5a, 0xdb, 0xd0, 0x5c, 0x77, 0x95, 0xb1, 0x29,
-    0x38, 0x73, 0x0b, 0x3b, 0x31, 0x50, 0x28, 0xec, 0x25, 0x71, 0x26, 0x7e, 0xdf, 0xbd, 0xce, 0xd9,
-    0x71, 0xdc, 0x83, 0x9f, 0x51, 0xdd, 0x29, 0x51, 0xcc, 0x0f, 0xc8, 0x6e, 0xe8, 0x8b, 0x51, 0xd0,
-    0xe4, 0x51, 0x54, 0x2e, 0xca, 0x09, 0x36, 0x44, 0x6c, 0x7e, 0x82, 0x71, 0x69, 0xca, 0x5b, 0x83};
-
 static uint8_t const TEST_X_COORDINATE[] = {
     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
@@ -135,7 +127,7 @@ std::vector<uint8_t> const TEST_COSE_PUBLIC_KEY_ES256 = {
     0xa6,
     // kty: EC2 (2)
     0x01, 0x02,
-    // alg: ES384 (-7)
+    // alg: ES256 (-7)
     0x03, 0x26,
     // key ops: verify (2)
     0x04, 0x81, 0x02,
@@ -268,7 +260,7 @@ INSTANTIATE_TEST_CASE_P(
     WriteCoseKeyTestFixture,
     testing::Values(std::make_tuple(
                         n20_cose_key_t{
-                            .key_ops = (n20_cose_key_ops_t)(1 << n20_cose_key_op_verify_e),
+                            .key_ops = (n20_cose_key_ops_map_t)(1 << n20_cose_key_op_verify_e),
                             .algorithm_id = n20_cose_algorithm_id_es384_e,
                             .x = {.size = 48, .buffer = TEST_X_COORDINATE},
                             .y = {.size = 48, .buffer = TEST_Y_COORDINATE},
@@ -277,7 +269,7 @@ INSTANTIATE_TEST_CASE_P(
                         TEST_COSE_PUBLIC_KEY_ES384),
                     std::make_tuple(
                         n20_cose_key_t{
-                            .key_ops = (n20_cose_key_ops_t)((1 << n20_cose_key_op_verify_e) |
+                            .key_ops = (n20_cose_key_ops_map_t)((1 << n20_cose_key_op_verify_e) |
                                                             (1 << n20_cose_key_op_sign_e)),
                             .algorithm_id = n20_cose_algorithm_id_es384_e,
                             .x = {.size = 48, .buffer = TEST_X_COORDINATE},
@@ -287,7 +279,7 @@ INSTANTIATE_TEST_CASE_P(
                         TEST_COSE_PRIVATE_PUBLIC_KEY_ES384),
                     std::make_tuple(
                         n20_cose_key_t{
-                            .key_ops = (n20_cose_key_ops_t)(1 << n20_cose_key_op_verify_e),
+                            .key_ops = (n20_cose_key_ops_map_t)(1 << n20_cose_key_op_verify_e),
                             .algorithm_id = n20_cose_algorithm_id_es256_e,
                             .x = {.size = 32, .buffer = TEST_X_COORDINATE},
                             .y = {.size = 32, .buffer = TEST_Y_COORDINATE},
@@ -296,7 +288,7 @@ INSTANTIATE_TEST_CASE_P(
                         TEST_COSE_PUBLIC_KEY_ES256),
                     std::make_tuple(
                         n20_cose_key_t{
-                            .key_ops = (n20_cose_key_ops_t)((1 << n20_cose_key_op_verify_e) |
+                            .key_ops = (n20_cose_key_ops_map_t)((1 << n20_cose_key_op_verify_e) |
                                                             (1 << n20_cose_key_op_sign_e)),
                             .algorithm_id = n20_cose_algorithm_id_es256_e,
                             .x = {.size = 32, .buffer = TEST_X_COORDINATE},
@@ -306,7 +298,7 @@ INSTANTIATE_TEST_CASE_P(
                         TEST_COSE_PRIVATE_PUBLIC_KEY_ES256),
                     std::make_tuple(
                         n20_cose_key_t{
-                            .key_ops = (n20_cose_key_ops_t)(1 << n20_cose_key_op_verify_e),
+                            .key_ops = (n20_cose_key_ops_map_t)(1 << n20_cose_key_op_verify_e),
                             .algorithm_id = n20_cose_algorithm_id_eddsa_e,
                             .x = {.size = 32, .buffer = TEST_X_COORDINATE},
                             .y = N20_SLICE_NULL,
@@ -315,7 +307,7 @@ INSTANTIATE_TEST_CASE_P(
                         TEST_COSE_PUBLIC_KEY_EDDSA),
                     std::make_tuple(
                         n20_cose_key_t{
-                            .key_ops = (n20_cose_key_ops_t)((1 << n20_cose_key_op_verify_e) |
+                            .key_ops = (n20_cose_key_ops_map_t)((1 << n20_cose_key_op_verify_e) |
                                                             (1 << n20_cose_key_op_sign_e)),
                             .algorithm_id = n20_cose_algorithm_id_eddsa_e,
                             .x = {.size = 32, .buffer = TEST_X_COORDINATE},
@@ -325,7 +317,7 @@ INSTANTIATE_TEST_CASE_P(
                         TEST_COSE_PRIVATE_PUBLIC_KEY_EDDSA),
                     std::make_tuple(
                         n20_cose_key_t{
-                            .key_ops = (n20_cose_key_ops_t)(1 << n20_cose_key_op_sign_e |
+                            .key_ops = (n20_cose_key_ops_map_t)(1 << n20_cose_key_op_sign_e |
                                                             1 << n20_cose_key_op_verify_e |
                                                             1 << n20_cose_key_op_encrypt_e |
                                                             1 << n20_cose_key_op_decrypt_e |
@@ -425,10 +417,10 @@ TEST(CoseTest, KeyOpsIsSetTest) {
     ASSERT_FALSE(n20_cose_key_ops_is_set(key.key_ops, n20_cose_key_op_mac_sign_e));
     ASSERT_FALSE(n20_cose_key_ops_is_set(key.key_ops, n20_cose_key_op_mac_verify_e));
 
-    for (int i = 0; i < n20_cose_key_op_mac_verify_e; i++) {
+    for (int i = 1; i <= n20_cose_key_op_mac_verify_e; i++) {
         ASSERT_FALSE(n20_cose_key_ops_is_set(key.key_ops, (n20_cose_key_ops_t)i));
         n20_cose_key_ops_set(&key.key_ops, (n20_cose_key_ops_t)i);
-        for (int j = 0; j < n20_cose_key_op_mac_verify_e; j++) {
+        for (int j = 1; j <= n20_cose_key_op_mac_verify_e; j++) {
             if (i == j) {
                 ASSERT_TRUE(n20_cose_key_ops_is_set(key.key_ops, (n20_cose_key_ops_t)j));
             } else {
@@ -496,9 +488,9 @@ std::vector<uint8_t> const TEST_COSE_SIGN1_INVALID_ALG = {
     0xa1, 0x01, 0x00,
     //   Empty map (unprotected header)
     0xa0,
-    // Byte string of length 3 (payload): "abcd"
+    // Byte string of length 4 (payload): "abcd"
     0x44, 0x61, 0x62, 0x63, 0x64,
-    // Byte string of length 64 (signature)
+    // Empty byte string (signature)
     0x40
 };
 // clang-format on
@@ -522,7 +514,7 @@ INSTANTIATE_TEST_CASE_P(
                             n20_slice_t *payload = (n20_slice_t *)ctx;
                             n20_stream_prepend(s, payload->buffer, payload->size);
                         },
-                        (n20_slice_t{.size = 3, .buffer = (uint8_t *)"abc"}),
+                        (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
                         TEST_COSE_SIGN1_ES256,
                         // protected attributes offset
                         1,
@@ -538,7 +530,7 @@ INSTANTIATE_TEST_CASE_P(
                             n20_slice_t *payload = (n20_slice_t *)ctx;
                             n20_stream_prepend(s, payload->buffer, payload->size);
                         },
-                        (n20_slice_t{.size = 3, .buffer = (uint8_t *)"abc"}),
+                        (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
                         TEST_COSE_SIGN1_ES384,
                         // protected attributes offset
                         1,
@@ -554,7 +546,7 @@ INSTANTIATE_TEST_CASE_P(
                             n20_slice_t *payload = (n20_slice_t *)ctx;
                             n20_stream_prepend(s, payload->buffer, payload->size);
                         },
-                        (n20_slice_t{.size = 3, .buffer = (uint8_t *)"abc"}),
+                        (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
                         TEST_COSE_SIGN1_EDDSA,
                         // protected attributes offset
                         1,
@@ -571,7 +563,7 @@ INSTANTIATE_TEST_CASE_P(
                             n20_slice_t *payload = (n20_slice_t *)ctx;
                             n20_stream_prepend(s, payload->buffer, payload->size);
                         },
-                        (n20_slice_t{.size = 4, .buffer = (uint8_t *)"abcd"}),
+                        (n20_slice_t{.size = 4, .buffer = reinterpret_cast<uint8_t const *>("abcd")}),
                         TEST_COSE_SIGN1_INVALID_ALG,
                         // protected attributes offset
                         1,

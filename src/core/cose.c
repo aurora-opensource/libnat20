@@ -150,7 +150,7 @@ size_t n20_cose_get_signature_size(n20_cose_algorithm_id_t signing_key_algorithm
             return 64;
         case n20_cose_algorithm_id_es384_e:
         case n20_cose_algorithm_id_esp384_e:
-            /* ECDSA P-384 or ED448 signature size */
+            /* ECDSA P-384 signature size */
             return 96;
         default:
             return 0;
@@ -168,7 +168,8 @@ void n20_cose_render_sign1_with_payload(n20_stream_t *s,
     /* Empty bytestring for external additional authenticated data EAAD */
     tbs_gather_list[2] = EMPTY_BYTES_STRING;
 
-    /* The byte string header for the signature. */
+    /* The byte string header for the signature.
+     * The actual signature bytes are expected to be added by the caller. */
     n20_cbor_write_header(s, n20_cbor_type_bytes_e, signature_size);
 
     /* Mark the end of the payload. */
