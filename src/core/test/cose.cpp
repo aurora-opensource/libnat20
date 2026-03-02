@@ -270,7 +270,7 @@ INSTANTIATE_TEST_CASE_P(
                     std::make_tuple(
                         n20_cose_key_t{
                             .key_ops = (n20_cose_key_ops_map_t)((1 << n20_cose_key_op_verify_e) |
-                                                            (1 << n20_cose_key_op_sign_e)),
+                                                                (1 << n20_cose_key_op_sign_e)),
                             .algorithm_id = n20_cose_algorithm_id_es384_e,
                             .x = {.size = 48, .buffer = TEST_X_COORDINATE},
                             .y = {.size = 48, .buffer = TEST_Y_COORDINATE},
@@ -289,7 +289,7 @@ INSTANTIATE_TEST_CASE_P(
                     std::make_tuple(
                         n20_cose_key_t{
                             .key_ops = (n20_cose_key_ops_map_t)((1 << n20_cose_key_op_verify_e) |
-                                                            (1 << n20_cose_key_op_sign_e)),
+                                                                (1 << n20_cose_key_op_sign_e)),
                             .algorithm_id = n20_cose_algorithm_id_es256_e,
                             .x = {.size = 32, .buffer = TEST_X_COORDINATE},
                             .y = {.size = 32, .buffer = TEST_Y_COORDINATE},
@@ -308,7 +308,7 @@ INSTANTIATE_TEST_CASE_P(
                     std::make_tuple(
                         n20_cose_key_t{
                             .key_ops = (n20_cose_key_ops_map_t)((1 << n20_cose_key_op_verify_e) |
-                                                            (1 << n20_cose_key_op_sign_e)),
+                                                                (1 << n20_cose_key_op_sign_e)),
                             .algorithm_id = n20_cose_algorithm_id_eddsa_e,
                             .x = {.size = 32, .buffer = TEST_X_COORDINATE},
                             .y = N20_SLICE_NULL,
@@ -318,15 +318,15 @@ INSTANTIATE_TEST_CASE_P(
                     std::make_tuple(
                         n20_cose_key_t{
                             .key_ops = (n20_cose_key_ops_map_t)(1 << n20_cose_key_op_sign_e |
-                                                            1 << n20_cose_key_op_verify_e |
-                                                            1 << n20_cose_key_op_encrypt_e |
-                                                            1 << n20_cose_key_op_decrypt_e |
-                                                            1 << n20_cose_key_op_wrap_e |
-                                                            1 << n20_cose_key_op_unwrap_e |
-                                                            1 << n20_cose_key_op_derive_key_e |
-                                                            1 << n20_cose_key_op_derive_bits_e |
-                                                            1 << n20_cose_key_op_mac_sign_e |
-                                                            1 << n20_cose_key_op_mac_verify_e),
+                                                                1 << n20_cose_key_op_verify_e |
+                                                                1 << n20_cose_key_op_encrypt_e |
+                                                                1 << n20_cose_key_op_decrypt_e |
+                                                                1 << n20_cose_key_op_wrap_e |
+                                                                1 << n20_cose_key_op_unwrap_e |
+                                                                1 << n20_cose_key_op_derive_key_e |
+                                                                1 << n20_cose_key_op_derive_bits_e |
+                                                                1 << n20_cose_key_op_mac_sign_e |
+                                                                1 << n20_cose_key_op_mac_verify_e),
                             .algorithm_id = n20_cose_algorithm_id_eddsa_e,
                             .x = {.size = 32, .buffer = TEST_X_COORDINATE},
                             .y = N20_SLICE_NULL,
@@ -508,71 +508,72 @@ class WriteCoseSign1TestFixture
 INSTANTIATE_TEST_CASE_P(
     WriteCoseSign1TestCase,
     WriteCoseSign1TestFixture,
-    testing::Values(std::make_tuple(
-                        n20_cose_algorithm_id_es256_e,
-                        [](n20_stream_t *s, void *ctx) {
-                            n20_slice_t *payload = (n20_slice_t *)ctx;
-                            n20_stream_prepend(s, payload->buffer, payload->size);
-                        },
-                        (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
-                        TEST_COSE_SIGN1_ES256,
-                        // protected attributes offset
-                        1,
-                        // protected attributes size
-                        4,
-                        // payload offset
-                        6,
-                        // payload size
-                        4),
-                    std::make_tuple(
-                        n20_cose_algorithm_id_es384_e,
-                        [](n20_stream_t *s, void *ctx) {
-                            n20_slice_t *payload = (n20_slice_t *)ctx;
-                            n20_stream_prepend(s, payload->buffer, payload->size);
-                        },
-                        (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
-                        TEST_COSE_SIGN1_ES384,
-                        // protected attributes offset
-                        1,
-                        // protected attributes size
-                        5,
-                        // payload offset
-                        7,
-                        // payload size
-                        4),
-                    std::make_tuple(
-                        n20_cose_algorithm_id_eddsa_e,
-                        [](n20_stream_t *s, void *ctx) {
-                            n20_slice_t *payload = (n20_slice_t *)ctx;
-                            n20_stream_prepend(s, payload->buffer, payload->size);
-                        },
-                        (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
-                        TEST_COSE_SIGN1_EDDSA,
-                        // protected attributes offset
-                        1,
-                        // protected attributes size
-                        4,
-                        // payload offset
-                        6,
-                        // payload size
-                        4),
-                    std::make_tuple(
-                        // Invalid algorithm ID
-                        (n20_cose_algorithm_id_t)0,
-                        [](n20_stream_t *s, void *ctx) {
-                            n20_slice_t *payload = (n20_slice_t *)ctx;
-                            n20_stream_prepend(s, payload->buffer, payload->size);
-                        },
-                        (n20_slice_t{.size = 4, .buffer = reinterpret_cast<uint8_t const *>("abcd")}),
-                        TEST_COSE_SIGN1_INVALID_ALG,
-                        // protected attributes offset
-                        1,
-                        // protected attributes size
-                        4,
-                        // payload offset
-                        6,
-                        // payload size
-                        5)));
+    testing::Values(
+        std::make_tuple(
+            n20_cose_algorithm_id_es256_e,
+            [](n20_stream_t *s, void *ctx) {
+                n20_slice_t *payload = (n20_slice_t *)ctx;
+                n20_stream_prepend(s, payload->buffer, payload->size);
+            },
+            (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
+            TEST_COSE_SIGN1_ES256,
+            // protected attributes offset
+            1,
+            // protected attributes size
+            4,
+            // payload offset
+            6,
+            // payload size
+            4),
+        std::make_tuple(
+            n20_cose_algorithm_id_es384_e,
+            [](n20_stream_t *s, void *ctx) {
+                n20_slice_t *payload = (n20_slice_t *)ctx;
+                n20_stream_prepend(s, payload->buffer, payload->size);
+            },
+            (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
+            TEST_COSE_SIGN1_ES384,
+            // protected attributes offset
+            1,
+            // protected attributes size
+            5,
+            // payload offset
+            7,
+            // payload size
+            4),
+        std::make_tuple(
+            n20_cose_algorithm_id_eddsa_e,
+            [](n20_stream_t *s, void *ctx) {
+                n20_slice_t *payload = (n20_slice_t *)ctx;
+                n20_stream_prepend(s, payload->buffer, payload->size);
+            },
+            (n20_slice_t{.size = 3, .buffer = reinterpret_cast<uint8_t const *>("abc")}),
+            TEST_COSE_SIGN1_EDDSA,
+            // protected attributes offset
+            1,
+            // protected attributes size
+            4,
+            // payload offset
+            6,
+            // payload size
+            4),
+        std::make_tuple(
+            // Invalid algorithm ID
+            (n20_cose_algorithm_id_t)0,
+            [](n20_stream_t *s, void *ctx) {
+                n20_slice_t *payload = (n20_slice_t *)ctx;
+                n20_stream_prepend(s, payload->buffer, payload->size);
+            },
+            (n20_slice_t{.size = 4, .buffer = reinterpret_cast<uint8_t const *>("abcd")}),
+            TEST_COSE_SIGN1_INVALID_ALG,
+            // protected attributes offset
+            1,
+            // protected attributes size
+            4,
+            // payload offset
+            6,
+            // payload size
+            5)));
 
 TEST_P(WriteCoseSign1TestFixture, WriteCoseSign1Test) {
     auto [algorithm_id,
