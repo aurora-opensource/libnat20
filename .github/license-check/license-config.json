@@ -7,7 +7,7 @@
       ".clang-format",
       ".gitignore"
     ],
-    "license": "./.github/license-check/header-apache2-hashtag.txt"
+    "license": "./.github/license-check/header-apache2-or-gpl2-hashtag.txt"
   },
   {
     "include": [
@@ -15,13 +15,13 @@
       "**/*.h",
       "**/*.cpp"
     ],
-    "license": "./.github/license-check/header-apache2-slash-star.txt"
+    "license": "./.github/license-check/header-apache2-or-gpl2-slash-star.txt"
   },
   {
     "include": [
       "**/*.cddl"
     ],
-    "license": "./.github/license-check/header-apache2-semicolon.txt"
+    "license": "./.github/license-check/header-apache2-or-gpl2-semicolon.txt"
   },
   {
     "include": [
