@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Aurora Operations, Inc.
+ * Copyright 2026 Aurora Operations, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
  *
@@ -49,19 +49,41 @@ extern "C" {
 
 /** @file */
 
-#define N20_OPEN_DICE_CWT_LABEL_CODE_HASH (-4670545)
-#define N20_OPEN_DICE_CWT_LABEL_CODE_DESCRIPTOR (-4670546)
-#define N20_OPEN_DICE_CWT_LABEL_CONFIGURATION_HASH (-4670547)
-#define N20_OPEN_DICE_CWT_LABEL_CONFIGURATION_DESCRIPTOR (-4670548)
-#define N20_OPEN_DICE_CWT_LABEL_AUTHORITY_HASH (-4670549)
-#define N20_OPEN_DICE_CWT_LABEL_AUTHORITY_DESCRIPTOR (-4670550)
-#define N20_OPEN_DICE_CWT_LABEL_MODE (-4670551)
-#define N20_OPEN_DICE_CWT_LABEL_SUBJECT_PUBLIC_KEY (-4670552)
-#define N20_OPEN_DICE_CWT_LABEL_KEY_USAGE (-4670553)
-#define N20_OPEN_DICE_CWT_LABEL_PROFILE (-4670554)
+/**
+ * @defgroup open_dice_cwt_labels Open DICE CWT Label Constants
+ *
+ * These constants are defined in the OpenDice specification and represent
+ * the labels used in the Open DICE CWT structure.
+ *
+ * [OpenDICE specification](https://pigweed.googlesource.com/open-dice/+/HEAD/docs/specification.md#cbor-cdi-certificates)
+ *
+ * @{
+ */
+#define N20_OPEN_DICE_CWT_LABEL_CODE_HASH (-4670545) /**< Label for code hash. */
+#define N20_OPEN_DICE_CWT_LABEL_CODE_DESCRIPTOR (-4670546) /**< Label for code descriptor. */
+#define N20_OPEN_DICE_CWT_LABEL_CONFIGURATION_HASH (-4670547) /**< Label for configuration hash. */
+#define N20_OPEN_DICE_CWT_LABEL_CONFIGURATION_DESCRIPTOR (-4670548) /**< Label for configuration descriptor. */
+#define N20_OPEN_DICE_CWT_LABEL_AUTHORITY_HASH (-4670549) /**< Label for authority hash. */
+#define N20_OPEN_DICE_CWT_LABEL_AUTHORITY_DESCRIPTOR (-4670550) /**< Label for authority descriptor. */
+#define N20_OPEN_DICE_CWT_LABEL_MODE (-4670551) /**< Label for DICE mode. */
+#define N20_OPEN_DICE_CWT_LABEL_SUBJECT_PUBLIC_KEY (-4670552) /**< Label for subject public key. */
+#define N20_OPEN_DICE_CWT_LABEL_KEY_USAGE (-4670553) /**< Label for key usage. */
+#define N20_OPEN_DICE_CWT_LABEL_PROFILE (-4670554) /**< Label for profile name. */
+/** @} */
 
-#define N20_CWD_LABEL_ISSUER (1)
-#define N20_CWD_LABEL_SUBJECT (2)
+/**
+ * @defgroup cwt_labels CBOR Web Token (CWT) Label Constants
+ *
+ * These constants are defined in the CWT specification and represent
+ * the labels used in the CWT structure.
+ *
+ * [CWT specification](https://tools.ietf.org/html/rfc8392)
+ *
+ * @{
+ */
+#define N20_CWT_LABEL_ISSUER (1) /**< Label for issuer. */
+#define N20_CWT_LABEL_SUBJECT (2) /**< Label for subject. */
+/** @} */
 
 struct n20_cwt_s {
     n20_string_slice_t issuer;

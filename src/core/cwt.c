@@ -215,13 +215,13 @@ void n20_open_dice_cwt_write(n20_stream_t *const s, n20_open_dice_cert_info_t co
 
     if (cwt->subject.size > 0) {
         n20_open_dice_write_name_as_hex(s, cwt->subject);
-        n20_cbor_write_int(s, N20_CWD_LABEL_SUBJECT);
+        n20_cbor_write_int(s, N20_CWT_LABEL_SUBJECT);
         ++pairs;
     }
 
     if (cwt->issuer.size > 0) {
         n20_open_dice_write_name_as_hex(s, cwt->issuer);
-        n20_cbor_write_int(s, N20_CWD_LABEL_ISSUER);
+        n20_cbor_write_int(s, N20_CWT_LABEL_ISSUER);
         ++pairs;
     }
 
