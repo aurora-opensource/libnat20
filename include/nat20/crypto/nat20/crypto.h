@@ -35,7 +35,6 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-/** @file */
 #pragma once
 
 #include <nat20/crypto.h>
