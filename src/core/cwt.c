@@ -101,7 +101,6 @@ void n20_cwt_key_info_to_cose(n20_cose_key_t *const cose_key,
 }
 
 void n20_open_dice_cwt_write(n20_stream_t *const s, n20_open_dice_cert_info_t const *const cwt) {
-
     uint32_t pairs = 0;
 
     // Write Profile Name
