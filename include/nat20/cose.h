@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Aurora Operations, Inc.
+ * Copyright 2026 Aurora Operations, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
  *
@@ -331,8 +331,8 @@ extern void n20_cose_write_key(n20_stream_t *const s, n20_cose_key_t const *cons
  * but not the signature. The caller is responsible for appending the
  * signature bytes after the structure is rendered.
  *
- * This function will prefix the payload with a byte string header of
- * inferred from the callback's effect on the stream. The callback
+ * This function will prefix the payload with a byte string header
+ * with a size inferred from the callback's effect on the stream. The callback
  * must advance the stream's write position even if a buffer overflow
  * occurs for the function to return the COSE Sign1 structure size correctly
  * even in the case that the stream buffer is too small or NULL.
