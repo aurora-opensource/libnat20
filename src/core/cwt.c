@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Aurora Operations, Inc.
+ * Copyright 2026 Aurora Operations, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
  *
@@ -63,45 +63,6 @@ static void n20_open_dice_write_name_as_hex(n20_stream_t *const s, n20_slice_t c
     n20_cbor_write_header(s, n20_cbor_type_string_e, name.size * 2);
 }
 
-/**
- * @brief Convert Open DICE public key information to COSE key format.
- *
- * If either argument is NULL this function is a no-op.
- *
- * If the @p key_info->algorithm is not supported, @p cose_key will be left unmodified.
- *
- * Supported algorithms are Ed25519, P-256, and P-384 which are expressed
- * by @ref n20_crypto_key_type_ed25519_e, @ref n20_crypto_key_type_secp256r1_e,
- * and @ref n20_crypto_key_type_secp384r1_e respectively.
- *
- * The function sets the algorithm ID to @ref n20_cose_algorithm_id_eddsa_e,
- * @ref n20_cose_algorithm_id_es256_e, or @ref n20_cose_algorithm_id_es384_e
- * respectively. Note that these values have been deprecated according to [1]
- * but are still in use.
- *
- * The function also populates the public key from the the supplied buffer
- * in @p key_info->key.
- *
- * In the case of P-256 and P-384, the function assumes that the key buffer
- * is formatted as an uncompressed EC point. If the buffer size is odd it
- * is assumed that the first byte is the format header `0x04` which gets ignored.
- * The point is then split into its X and Y coordinates and stored in
- * @p cose_key->x and @p cose_key->y respectively. @p cose_key->d is set to an
- * empty slice.
- *
- * In the case of ED25519, the function expects the key buffer to be in the
- * standard format for EdDSA keys and stores in @p cose_key->x.
- * @p cose_key->y and @p cose_key->d are set to empty slices.
- *
- * Buffers are not copied. Both @p key_info and @p cose_key point to the
- * same underlying buffers. No ownership transfer is implied. The buffers
- * must remain valid for the life time of both structures.
- *
- * [1] https://www.iana.org/assignments/cose/cose.xhtml
- *
- * @param cose_key Pointer to the COSE key structure to populate.
- * @param key_info Pointer to the Open DICE public key information.
- */
 void n20_cwt_key_info_to_cose(n20_cose_key_t *const cose_key,
                               n20_open_dice_public_key_info_t const *const key_info) {
     if (key_info == NULL || cose_key == NULL) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Aurora Operations, Inc.
+ * Copyright 2026 Aurora Operations, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
  *
@@ -137,7 +137,7 @@ TEST(COSEExtKeyInfoToCoseTest, OpenDiceKeyConversionNullArgs) {
     // Check that got_cose_key was not changed.
     ASSERT_EQ(memcmp(&got_cose_key, &want_cose_key, sizeof(n20_cose_key_t)), 0);
 
-    // There is not much to test here but the following invocation should not seqfault.
+    // There is not much to test here but the following invocation should not segfault.
     n20_cwt_key_info_to_cose(nullptr, nullptr);
     n20_open_dice_public_key_info_t key_info = {};
     n20_cwt_key_info_to_cose(nullptr, &key_info);
@@ -471,8 +471,7 @@ std::string const TEST_OPEN_DICE_PROFILE = "Test OpenDICE Profile";
 
 n20_open_dice_public_key_info_t const TEST_OPEN_DICE_PUBLIC_KEY = {
     .key = {.size = 64,
-            .buffer =
-                (uint8_t *)"0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"},
+            .buffer = (uint8_t*)"0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"},
     .algorithm = n20_crypto_key_type_secp256r1_e,
 };
 
@@ -522,14 +521,14 @@ INSTANTIATE_TEST_CASE_P(
                         EXTENSION_WITHOUT_OPTIONALS)));
 
 template <typename T>
-inline static n20_slice_t v2slice(T const &v) {
+inline static n20_slice_t v2slice(T const& v) {
     if (v.has_value()) {
         return n20_slice_t{v->size(), v->data()};
     }
     return N20_SLICE_NULL;
 }
 
-inline static n20_string_slice_t str2slice(std::optional<std::string> const &s) {
+inline static n20_string_slice_t str2slice(std::optional<std::string> const& s) {
     if (s.has_value()) {
         return n20_string_slice_t{.size = s->size(), .buffer = s->c_str()};
     }
@@ -559,8 +558,8 @@ TEST_P(COSEExtOpenDiceInputTest, OpenDiceInputEncoding) {
     set_key_usage(cwt.key_usage);
     cwt.subject_public_key.algorithm = n20_crypto_key_type_secp256r1_e;
     cwt.subject_public_key = public_key_info;
-    cwt.issuer = {.size = 20, .buffer = (uint8_t *)issuer_data.data()};
-    cwt.subject = {.size = 20, .buffer = (uint8_t *)subject_data.data()};
+    cwt.issuer = {.size = issuer_data.size(), .buffer = (uint8_t*)issuer_data.data()};
+    cwt.subject = {.size = subject_data.size(), .buffer = (uint8_t*)subject_data.data()};
     cwt.open_dice_input.code_hash = v2slice(optional_code_hash);
     cwt.open_dice_input.code_descriptor = v2slice(optional_code_descriptor);
     cwt.open_dice_input.configuration_hash = v2slice(optional_configuration_hash);
