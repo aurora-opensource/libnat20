@@ -48,7 +48,7 @@ extern "C" {
 #endif
 
 /**
- * @defgroup messager_map_labels CBOR map labels used by NAT20 service messages.
+ * @defgroup message_map_labels CBOR map labels used by NAT20 service messages.
  *
  * These numeric labels are defined in src/service/messages.cddl and must be
  * kept in sync with that specification.
