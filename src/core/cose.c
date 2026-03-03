@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Aurora Operations, Inc.
+ * Copyright 2026 Aurora Operations, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
  *
@@ -42,6 +42,10 @@
 #include <nat20/stream.h>
 #include <nat20/types.h>
 
+/*
+ * This file contains functions for encoding COSE structures.
+ * These constants are defined in RFC 8152 Section 13.
+ */
 #define N20_COSE_CURVE_P256 (1)
 #define N20_COSE_CURVE_P384 (2)
 #define N20_COSE_CURVE_ED25519 (6)
@@ -57,7 +61,10 @@
 #define N20_COSE_KEY_LABEL_ALGORITHM_ID (3)
 #define N20_COSE_KEY_LABEL_KEY_OPS (4)
 
-#define N20_COSE_PROTECTED_ATTRIBUTES_LABEL_ALGORITHM_ID (1)
+/*
+ * This constant is defined in RFC 8152 Section 3.1.
+ */
+#define N20_COSE_COMMON_HEADER_LABEL_ALGORITHM_ID (1)
 
 void n20_cose_write_key(n20_stream_t *const s, n20_cose_key_t const *const key) {
     uint32_t pairs = 0;
@@ -175,9 +182,9 @@ void n20_cose_render_sign1_with_payload(n20_stream_t *s,
     /* Mark the end of the payload. */
     size_t mark = n20_stream_byte_count(s);
 
-    /* If there is no callback or no context, we can't render the payload.
+    /* If there is no callback, we can't render the payload.
      * This results in an empty payload. */
-    if (payload_callback != NULL && payload_ctx != NULL) {
+    if (payload_callback != NULL) {
         payload_callback(s, payload_ctx);
     }
 
@@ -197,7 +204,7 @@ void n20_cose_render_sign1_with_payload(n20_stream_t *s,
     /* Write protected attributes */
     mark = n20_stream_byte_count(s);
     n20_cbor_write_int(s, signing_key_algorithm_id);
-    n20_cbor_write_int(s, N20_COSE_PROTECTED_ATTRIBUTES_LABEL_ALGORITHM_ID);
+    n20_cbor_write_int(s, N20_COSE_COMMON_HEADER_LABEL_ALGORITHM_ID);
     /* Map header with one pair */
     n20_cbor_write_map_header(s, 1);
     /* The protected attributes are an encoded CBOR map, so

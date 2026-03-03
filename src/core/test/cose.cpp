@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Aurora Operations, Inc.
+ * Copyright 2026 Aurora Operations, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
  *
