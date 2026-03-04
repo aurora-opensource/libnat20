@@ -162,7 +162,7 @@ typedef uint16_t n20_cose_key_ops_map_t;
  * @param key_ops The bitmask to modify.
  * @param op The operation to set.
  */
-inline static void n20_cose_key_ops_set(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
+inline void n20_cose_key_ops_set(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
     *key_ops |= 1 << (unsigned int)op;
 }
 
@@ -172,7 +172,7 @@ inline static void n20_cose_key_ops_set(n20_cose_key_ops_map_t *key_ops, n20_cos
  * @param key_ops The bitmask to modify.
  * @param op The operation to unset.
  */
-inline static void n20_cose_key_ops_unset(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
+inline void n20_cose_key_ops_unset(n20_cose_key_ops_map_t *key_ops, n20_cose_key_ops_t op) {
     *key_ops &= ~(1 << (unsigned int)op);
 }
 
@@ -182,7 +182,7 @@ inline static void n20_cose_key_ops_unset(n20_cose_key_ops_map_t *key_ops, n20_c
  * @param key_ops The bitmask to check.
  * @param op The operation to test for.
  */
-inline static bool n20_cose_key_ops_is_set(n20_cose_key_ops_map_t key_ops, n20_cose_key_ops_t op) {
+inline bool n20_cose_key_ops_is_set(n20_cose_key_ops_map_t key_ops, n20_cose_key_ops_t op) {
     return (key_ops & (1 << (unsigned int)op)) != 0;
 }
 
