@@ -35,6 +35,8 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+/** @file */
+
 #pragma once
 
 #include <nat20/crypto.h>
@@ -289,11 +291,14 @@ struct n20_cose_key_s {
      * - -19: Ed25519 (EdDSA using Ed25519)
      */
     n20_cose_algorithm_id_t algorithm_id;
-    n20_slice_t x;  // X coordinate for EC keys
-    n20_slice_t y;  // Y coordinate for EC keys
-    n20_slice_t d;  // Private key for EC keys
+    n20_slice_t x; /**< @brief X coordinate for EC keys */
+    n20_slice_t y; /**< @brief Y coordinate for EC keys */
+    n20_slice_t d; /**< @brief Private key for EC keys */
 };
 
+/**
+ * @brief Alias for @ref n20_cose_key_s.
+ */
 typedef struct n20_cose_key_s n20_cose_key_t;
 
 /**
@@ -371,6 +376,10 @@ extern void n20_cose_write_key(n20_stream_t *const s, n20_cose_key_t const *cons
  * the stream was not overflowed. The caller must check the stream
  * for buffer overflow using @ref n20_stream_has_buffer_overflow before
  * using the gather list for signing.
+ *
+ * The user should familiarize with @ref n20_stream_t to understand how
+ * the stream's write position and buffer management works in the context
+ * of this function, especially when rendering the payload through the callback.
  *
  * @param s The stream to write the COSE Sign1 structure to.
  * @param signing_key_algorithm_id The algorithm identifier for the signing key.
