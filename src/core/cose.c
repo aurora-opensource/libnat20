@@ -137,12 +137,12 @@ void n20_cose_write_key(n20_stream_t *const s, n20_cose_key_t const *const key) 
     n20_cbor_write_map_header(s, pairs);
 }
 
-n20_slice_t const SIGN_1_CONTEXT_WITH_ARRAY4_HEADER = {
+static n20_slice_t const SIGN_1_CONTEXT_WITH_ARRAY4_HEADER = {
     .buffer = (uint8_t *)"\x84\x6aSignature1",
     .size = 12,
 };
 
-n20_slice_t const EMPTY_BYTES_STRING = {
+static n20_slice_t const EMPTY_BYTES_STRING = {
     .buffer = (uint8_t *)"\x40",
     .size = 1,
 };
