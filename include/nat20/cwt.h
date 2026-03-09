@@ -55,27 +55,31 @@ extern "C" {
  * These constants are defined in the OpenDice specification and represent
  * the labels used in the Open DICE CWT structure.
  *
- * [OpenDICE
- * specification](https://pigweed.googlesource.com/open-dice/+/HEAD/docs/specification.md#cbor-cdi-certificates)
+ * [OpenDICE specification]
+ * (https://pigweed.googlesource.com/open-dice/+/HEAD/docs/specification.md#cbor-cdi-certificates)
  *
  * @{
  */
-#define N20_OPEN_DICE_CWT_LABEL_CODE_HASH (-4670545)       /**< Label for code hash. */
-#define N20_OPEN_DICE_CWT_LABEL_CODE_DESCRIPTOR (-4670546) /**< Label for code descriptor. */
-#define N20_OPEN_DICE_CWT_LABEL_CONFIGURATION_HASH \
-    (-4670547) /**< Label for configuration hash.  \
-                */
-#define N20_OPEN_DICE_CWT_LABEL_CONFIGURATION_DESCRIPTOR \
-    (-4670548) /**< Label for configuration descriptor. */
-#define N20_OPEN_DICE_CWT_LABEL_AUTHORITY_HASH (-4670549) /**< Label for authority hash. */
-#define N20_OPEN_DICE_CWT_LABEL_AUTHORITY_DESCRIPTOR \
-    (-4670550)                                  /**< Label for authority descriptor. */
-#define N20_OPEN_DICE_CWT_LABEL_MODE (-4670551) /**< Label for DICE mode. */
-#define N20_OPEN_DICE_CWT_LABEL_SUBJECT_PUBLIC_KEY                                      \
-    (-4670552)                                       /**< Label for subject public key. \
-                                                      */
-#define N20_OPEN_DICE_CWT_LABEL_KEY_USAGE (-4670553) /**< Label for key usage. */
-#define N20_OPEN_DICE_CWT_LABEL_PROFILE (-4670554)   /**< Label for profile name. */
+/** Label for code hash. */
+#define N20_OPEN_DICE_CWT_LABEL_CODE_HASH (-4670545)
+/** Label for code descriptor. */
+#define N20_OPEN_DICE_CWT_LABEL_CODE_DESCRIPTOR (-4670546)
+/** Label for configuration hash. */
+#define N20_OPEN_DICE_CWT_LABEL_CONFIGURATION_HASH (-4670547)
+/** Label for configuration descriptor. */
+#define N20_OPEN_DICE_CWT_LABEL_CONFIGURATION_DESCRIPTOR (-4670548)
+/** Label for authority hash. */
+#define N20_OPEN_DICE_CWT_LABEL_AUTHORITY_HASH (-4670549)
+/** Label for authority descriptor. */
+#define N20_OPEN_DICE_CWT_LABEL_AUTHORITY_DESCRIPTOR (-4670550)
+/** Label for DICE mode. */
+#define N20_OPEN_DICE_CWT_LABEL_MODE (-4670551)
+/** Label for subject public key. */
+#define N20_OPEN_DICE_CWT_LABEL_SUBJECT_PUBLIC_KEY (-4670552)
+/** Label for key usage. */
+#define N20_OPEN_DICE_CWT_LABEL_KEY_USAGE (-4670553)
+/** Label for profile name. */
+#define N20_OPEN_DICE_CWT_LABEL_PROFILE (-4670554)
 /** @} */
 
 /**
