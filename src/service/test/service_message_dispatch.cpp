@@ -48,6 +48,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 
 namespace {
 
@@ -73,11 +74,15 @@ struct StubState {
     // Payload written back to the caller for cert/sign ops.
     n20_slice_t cert_payload = {0, nullptr};
     n20_slice_t sign_payload = {0, nullptr};
+
+    // Insanely large payloads.
+    bool oversized_payloads = false;
 };
 
 // Write stub payload into the back of [buffer, buffer + *size_in_out).
 static n20_error_t write_stub_payload(uint8_t* buffer, size_t* size_in_out, n20_slice_t payload) {
     if (payload.size > *size_in_out) {
+        *size_in_out = payload.size;
         return n20_error_insufficient_buffer_size_e;
     }
     memcpy(buffer + (*size_in_out - payload.size), payload.buffer, payload.size);
@@ -106,6 +111,10 @@ static n20_error_t stub_issue_cdi_certificate(void* ctx,
     if (s->issue_cdi_cert_rc != n20_error_ok_e) {
         return s->issue_cdi_cert_rc;
     }
+    if (s->oversized_payloads) {
+        *certificate_size = std::numeric_limits<size_t>::max();
+        return n20_error_ok_e;
+    }
     return write_stub_payload(certificate, certificate_size, s->cert_payload);
 }
 
@@ -117,6 +126,10 @@ static n20_error_t stub_issue_eca_certificate(void* ctx,
     s->issue_eca_cert_calls++;
     if (s->issue_eca_cert_rc != n20_error_ok_e) {
         return s->issue_eca_cert_rc;
+    }
+    if (s->oversized_payloads) {
+        *certificate_size = std::numeric_limits<size_t>::max();
+        return n20_error_ok_e;
     }
     return write_stub_payload(certificate, certificate_size, s->cert_payload);
 }
@@ -130,6 +143,10 @@ static n20_error_t stub_issue_eca_ee_certificate(void* ctx,
     if (s->issue_eca_ee_cert_rc != n20_error_ok_e) {
         return s->issue_eca_ee_cert_rc;
     }
+    if (s->oversized_payloads) {
+        *certificate_size = std::numeric_limits<size_t>::max();
+        return n20_error_ok_e;
+    }
     return write_stub_payload(certificate, certificate_size, s->cert_payload);
 }
 
@@ -141,6 +158,10 @@ static n20_error_t stub_eca_sign(void* ctx,
     s->sign_calls++;
     if (s->sign_rc != n20_error_ok_e) {
         return s->sign_rc;
+    }
+    if (s->oversized_payloads) {
+        *signature_size = std::numeric_limits<size_t>::max();
+        return n20_error_ok_e;
     }
     return write_stub_payload(signature, signature_size, s->sign_payload);
 }
@@ -162,7 +183,7 @@ class ServiceMessageDispatchTest : public testing::Test {
         ops_.n20_srv_issue_cdi_certificate = stub_issue_cdi_certificate;
         ops_.n20_srv_issue_eca_certificate = stub_issue_eca_certificate;
         ops_.n20_srv_issue_eca_ee_certificate = stub_issue_eca_ee_certificate;
-        ops_.n20_srv_eca_sign = stub_eca_sign;
+        ops_.n20_srv_eca_ee_sign = stub_eca_sign;
 
         ctx_.ops = &ops_;
         ctx_.ctx = &state_;
@@ -178,6 +199,9 @@ class ServiceMessageDispatchTest : public testing::Test {
         valid_path_element_data_.fill(0x11);
         valid_context_data_.fill(0x22);
         key_usage_data_.fill(0x03);
+
+        state_.oversized_payloads = false;
+        response_buffer_.resize(1024);
     }
 
     // -----------------------------------------------------------------------
@@ -192,12 +216,7 @@ class ServiceMessageDispatchTest : public testing::Test {
     }
 
     // Run the dispatcher; return the return code and the response slice.
-    struct DispatchResult {
-        n20_error_t rc;
-        n20_slice_t response;  // Points into response_buffer_.
-    };
-
-    DispatchResult dispatch(n20_slice_t message) {
+    std::tuple<n20_error_t, n20_slice_t> dispatch(n20_slice_t message) {
         size_t sz = response_buffer_.size();
         n20_error_t rc = n20_service_message_dispatch(&ctx_, response_buffer_.data(), &sz, message);
         n20_slice_t response = {sz, response_buffer_.data() + (response_buffer_.size() - sz)};
@@ -257,7 +276,7 @@ class ServiceMessageDispatchTest : public testing::Test {
     n20_service_message_dispatch_ctx_t ctx_{};
 
     std::array<uint8_t, 1024> request_buffer_{};
-    std::array<uint8_t, 1024> response_buffer_{};
+    std::vector<uint8_t> response_buffer_;
     std::array<uint8_t, kCertSize> cert_payload_data_{};
     std::array<uint8_t, kSignSize> sign_payload_data_{};
     std::array<uint8_t, sizeof(n20_compressed_input_t)> valid_path_element_data_{};
@@ -379,10 +398,20 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertSuccessWrapsCertificate) {
                                        .certificate_format = n20_certificate_format_x509_e}},
     };
 
-    auto const [rc, response] = dispatch(encode_request(req));
+    response_buffer_.resize(0);
+
+    auto [rc, response] = dispatch(encode_request(req));
+
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e, rc);
+    EXPECT_EQ(1u, state_.issue_cdi_cert_calls);
+
+    response_buffer_.resize(response.size);
+
+    std::tie(rc, response) = dispatch(encode_request(req));
 
     ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(1u, state_.issue_cdi_cert_calls);
+    EXPECT_EQ(2u, state_.issue_cdi_cert_calls);
+    EXPECT_EQ(response_buffer_.size(), response.size);
 
     n20_slice_t cert{};
     ASSERT_TRUE(parse_labelled_bytes(response, N20_MSG_LABEL_CERTIFICATE, &cert));
@@ -454,12 +483,8 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertInsufficientBufferSize) {
     n20_error_t rc = n20_service_message_dispatch(
         &ctx_, response_buffer_.data(), &response_size, encode_request(req));
 
-    ASSERT_EQ(n20_error_ok_e, rc);
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e, rc);
     EXPECT_EQ(1u, state_.issue_cdi_cert_calls);
-    EXPECT_EQ(
-        n20_error_insufficient_buffer_size_e,
-        parse_error_response(
-            {response_size, response_buffer_.data() + state_.cert_payload.size - response_size}));
 }
 
 // ---------------------------------------------------------------------------
@@ -478,10 +503,18 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertSuccessWrapsCertificate) {
                                        .challenge = {}}},
     };
 
-    auto const [rc, response] = dispatch(encode_request(req));
+    response_buffer_.resize(0);
+    auto [rc, response] = dispatch(encode_request(req));
+
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e, rc);
+    EXPECT_EQ(1u, state_.issue_eca_cert_calls);
+
+    response_buffer_.resize(response.size);
+    std::tie(rc, response) = dispatch(encode_request(req));
 
     ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(1u, state_.issue_eca_cert_calls);
+    EXPECT_EQ(2u, state_.issue_eca_cert_calls);
+    EXPECT_EQ(response_buffer_.size(), response.size);
 
     n20_slice_t cert{};
     ASSERT_TRUE(parse_labelled_bytes(response, N20_MSG_LABEL_CERTIFICATE, &cert));
@@ -552,12 +585,8 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertInsufficientBufferSize) {
     n20_error_t rc = n20_service_message_dispatch(
         &ctx_, response_buffer_.data(), &response_size, encode_request(req));
 
-    ASSERT_EQ(n20_error_ok_e, rc);
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e, rc);
     EXPECT_EQ(1u, state_.issue_eca_cert_calls);
-    EXPECT_EQ(
-        n20_error_insufficient_buffer_size_e,
-        parse_error_response(
-            {response_size, response_buffer_.data() + state_.cert_payload.size - response_size}));
 }
 
 // ---------------------------------------------------------------------------
@@ -578,10 +607,18 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertSuccessWrapsCertificate) {
                                           .challenge = {}}},
     };
 
-    auto const [rc, response] = dispatch(encode_request(req));
+    response_buffer_.resize(0);
+
+    auto [rc, response] = dispatch(encode_request(req));
+
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e, rc);
+    EXPECT_EQ(1u, state_.issue_eca_ee_cert_calls);
+    response_buffer_.resize(response.size);
+
+    std::tie(rc, response) = dispatch(encode_request(req));
 
     ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(1u, state_.issue_eca_ee_cert_calls);
+    EXPECT_EQ(2u, state_.issue_eca_ee_cert_calls);
 
     n20_slice_t cert{};
     ASSERT_TRUE(parse_labelled_bytes(response, N20_MSG_LABEL_CERTIFICATE, &cert));
@@ -652,17 +689,69 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertInsufficientBufferSize) {
     n20_error_t rc = n20_service_message_dispatch(
         &ctx_, response_buffer_.data(), &response_size, encode_request(req));
 
-    ASSERT_EQ(n20_error_ok_e, rc);
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e, rc);
     EXPECT_EQ(1u, state_.issue_eca_ee_cert_calls);
-    EXPECT_EQ(
-        n20_error_insufficient_buffer_size_e,
-        parse_error_response(
-            {response_size, response_buffer_.data() + state_.cert_payload.size - response_size}));
 }
 
 // ---------------------------------------------------------------------------
 // ECA EE sign tests
 // ---------------------------------------------------------------------------
+
+TEST_F(ServiceMessageDispatchTest, EcaIllinitializedContext) {
+
+    n20_msg_request_t req{};
+
+    ctx_.ops->n20_srv_promote = nullptr;
+    req.request_type = n20_msg_request_type_promote_e;
+    auto [rc, response] = dispatch(encode_request(req));
+    ASSERT_EQ(n20_error_ok_e, rc);
+    EXPECT_EQ(n20_error_request_type_not_implemented_e, parse_error_response(response));
+
+    ctx_.ops->n20_srv_issue_cdi_certificate = nullptr;
+    req.request_type = n20_msg_request_type_issue_cdi_cert_e;
+    std::tie(rc, response) = dispatch(encode_request(req));
+    ASSERT_EQ(n20_error_ok_e, rc);
+    EXPECT_EQ(n20_error_request_type_not_implemented_e, parse_error_response(response));
+
+    ctx_.ops->n20_srv_issue_eca_certificate = nullptr;
+    req.request_type = n20_msg_request_type_issue_eca_cert_e;
+    std::tie(rc, response) = dispatch(encode_request(req));
+    ASSERT_EQ(n20_error_ok_e, rc);
+    EXPECT_EQ(n20_error_request_type_not_implemented_e, parse_error_response(response));
+
+    ctx_.ops->n20_srv_issue_eca_ee_certificate = nullptr;
+    req.request_type = n20_msg_request_type_issue_eca_ee_cert_e;
+    std::tie(rc, response) = dispatch(encode_request(req));
+    ASSERT_EQ(n20_error_ok_e, rc);
+    EXPECT_EQ(n20_error_request_type_not_implemented_e, parse_error_response(response));
+
+    ctx_.ops->n20_srv_eca_ee_sign = nullptr;
+    req.request_type = n20_msg_request_type_eca_ee_sign_e;
+    std::tie(rc, response) = dispatch(encode_request(req));
+    ASSERT_EQ(n20_error_ok_e, rc);
+    EXPECT_EQ(n20_error_request_type_not_implemented_e, parse_error_response(response));
+
+    ctx_.ops = nullptr;
+
+    std::tie(rc, response) = dispatch(encode_request(req));
+    ASSERT_EQ(n20_error_unexpected_null_service_ops_e, rc);
+
+    size_t response_size = response_buffer_.size();
+    rc = n20_service_message_dispatch(
+        nullptr, response_buffer_.data(), &response_size, encode_request(req));
+    ASSERT_EQ(n20_error_unexpected_null_dispatch_context_e, rc);
+}
+
+TEST_F(ServiceMessageDispatchTest, DispatchWithNullResponseBufferSize) {
+    n20_msg_request_t req{
+        .request_type = n20_msg_request_type_promote_e,
+        .payload = {.promote = {.compressed_context = valid_context()}},
+    };
+
+    n20_error_t rc = n20_service_message_dispatch(&ctx_, nullptr, nullptr, encode_request(req));
+
+    ASSERT_EQ(n20_error_unexpected_null_buffer_size_e, rc);
+}
 
 TEST_F(ServiceMessageDispatchTest, EcaEeSignSuccessWrapsSignature) {
     n20_slice_t const path = valid_path_element();
@@ -678,10 +767,19 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignSuccessWrapsSignature) {
                                                 const_cast<uint8_t*>(msg_bytes.data())}}},
     };
 
-    auto const [rc, response] = dispatch(encode_request(req));
+    response_buffer_.resize(1);
 
-    ASSERT_EQ(n20_error_ok_e, rc);
+    auto [rc, response] = dispatch(encode_request(req));
+
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e, rc);
     EXPECT_EQ(1u, state_.sign_calls);
+
+    response_buffer_.resize(response.size);
+
+    std::tie(rc, response) = dispatch(encode_request(req));
+    ASSERT_EQ(n20_error_ok_e, rc);
+    EXPECT_EQ(2u, state_.sign_calls);
+    EXPECT_EQ(response_buffer_.size(), response.size);
 
     n20_slice_t sig{};
     ASSERT_TRUE(parse_labelled_bytes(response, N20_MSG_LABEL_SIGNATURE, &sig));
@@ -768,12 +866,26 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignEeCertInsufficientBufferSize) {
     n20_error_t rc = n20_service_message_dispatch(
         &ctx_, response_buffer_.data(), &response_size, encode_request(req));
 
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e, rc);
+}
+
+TEST_F(ServiceMessageDispatchTest, WritePositionOverflow) {
+    // This test covers the case where the service writes so large of a response
+    // that it doesn't just overflow the prived buffer but the write position
+    // counter.
+
+    size_t const original_size = response_buffer_.size();
+
+    n20_msg_request_t req{
+        .request_type = n20_msg_request_type_issue_cdi_cert_e,
+    };
+
+    state_.oversized_payloads = true;
+
+    auto const [rc, response] = dispatch(encode_request(req));
+
     ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(1u, state_.sign_calls);
-    EXPECT_EQ(
-        n20_error_insufficient_buffer_size_e,
-        parse_error_response(
-            {response_size, response_buffer_.data() + state_.sign_payload.size - response_size}));
+    EXPECT_EQ(n20_error_write_position_overflow_e, parse_error_response(response));
 }
 
 }  // namespace

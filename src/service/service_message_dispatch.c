@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Aurora Operations, Inc.
+ * Copyright 2026 Aurora Operations, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
  *
@@ -46,6 +46,7 @@
 #include <nat20/service/service_message_dispatch.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
+#include <regex.h>
 
 static n20_error_t sanitize_parent_path(size_t parent_path_length, n20_slice_t const* parent_path) {
     if (parent_path_length > N20_STATELESS_MAX_PATH_LENGTH) {
@@ -71,25 +72,32 @@ static n20_error_t prefix_response_header(uint8_t* response_buffer,
                                           size_t total_buffer_size,
                                           uint64_t label) {
     n20_stream_t s;
-    n20_stream_init(&s, response_buffer, total_buffer_size - *response_size_in_out);
+    n20_stream_init(&s, response_buffer, total_buffer_size);
+    s.write_position = *response_size_in_out;
+    s.buffer_overflow = total_buffer_size < *response_size_in_out;
 
     n20_cbor_write_header(&s, n20_cbor_type_bytes_e, *response_size_in_out);
     n20_cbor_write_int(&s, label);
     n20_cbor_write_map_header(&s, 1);
 
-    if (n20_stream_has_buffer_overflow(&s)) {
-        return n20_error_insufficient_buffer_size_e;
+    if (n20_stream_has_write_position_overflow(&s)) {
+        return n20_error_write_position_overflow_e;
     }
 
-    *response_size_in_out += n20_stream_byte_count(&s);
+    *response_size_in_out = n20_stream_byte_count(&s);
 
-    return n20_error_ok_e;
+    return n20_stream_has_buffer_overflow(&s) ? n20_error_insufficient_buffer_size_e
+                                              : n20_error_ok_e;
 }
 
 static n20_error_t dispatch_promote_request(n20_service_message_dispatch_ctx_t* ctx,
                                             uint8_t* response_buffer,
                                             size_t* response_size_in_out,
                                             n20_msg_promote_request_t* request) {
+    if (ctx->ops->n20_srv_promote == NULL) {
+        return n20_error_request_type_not_implemented_e;
+    }
+
     if (request->compressed_context.size != sizeof(n20_compressed_input_t)) {
         // Handle error: invalid compressed context size
         return n20_error_incompatible_compressed_input_size_e;
@@ -113,6 +121,10 @@ static n20_error_t dispatch_issue_cdi_cert_request(n20_service_message_dispatch_
                                                    uint8_t* response_buffer,
                                                    size_t* response_size_in_out,
                                                    n20_msg_issue_cdi_cert_request_t* request) {
+    if (ctx->ops->n20_srv_issue_cdi_certificate == NULL) {
+        return n20_error_request_type_not_implemented_e;
+    }
+
     n20_error_t rc = sanitize_parent_path(request->parent_path_length, request->parent_path);
     if (rc != n20_error_ok_e) {
         return rc;
@@ -123,23 +135,22 @@ static n20_error_t dispatch_issue_cdi_cert_request(n20_service_message_dispatch_
     rc = ctx->ops->n20_srv_issue_cdi_certificate(
         ctx->ctx, request, response_buffer, response_size_in_out);
 
-    if (rc != n20_error_ok_e) {
+    if (rc != n20_error_ok_e && rc != n20_error_insufficient_buffer_size_e) {
         return rc;
     }
 
-    rc = prefix_response_header(
+    return prefix_response_header(
         response_buffer, response_size_in_out, total_buffer_size, N20_MSG_LABEL_CERTIFICATE);
-    if (rc != n20_error_ok_e) {
-        return rc;
-    }
-
-    return n20_error_ok_e;
 }
 
 static n20_error_t dispatch_issue_eca_cert_request(n20_service_message_dispatch_ctx_t* ctx,
                                                    uint8_t* response_buffer,
                                                    size_t* response_size_in_out,
                                                    n20_msg_issue_eca_cert_request_t* request) {
+    if (ctx->ops->n20_srv_issue_eca_certificate == NULL) {
+        return n20_error_request_type_not_implemented_e;
+    }
+
     n20_error_t rc = sanitize_parent_path(request->parent_path_length, request->parent_path);
     if (rc != n20_error_ok_e) {
         return rc;
@@ -150,17 +161,12 @@ static n20_error_t dispatch_issue_eca_cert_request(n20_service_message_dispatch_
     rc = ctx->ops->n20_srv_issue_eca_certificate(
         ctx->ctx, request, response_buffer, response_size_in_out);
 
-    if (rc != n20_error_ok_e) {
+    if (rc != n20_error_ok_e && rc != n20_error_insufficient_buffer_size_e) {
         return rc;
     }
 
-    rc = prefix_response_header(
+    return prefix_response_header(
         response_buffer, response_size_in_out, total_buffer_size, N20_MSG_LABEL_CERTIFICATE);
-    if (rc != n20_error_ok_e) {
-        return rc;
-    }
-
-    return n20_error_ok_e;
 }
 
 static n20_error_t dispatch_issue_eca_ee_cert_request(
@@ -168,6 +174,10 @@ static n20_error_t dispatch_issue_eca_ee_cert_request(
     uint8_t* response_buffer,
     size_t* response_size_in_out,
     n20_msg_issue_eca_ee_cert_request_t* request) {
+    if (ctx->ops->n20_srv_issue_eca_ee_certificate == NULL) {
+        return n20_error_request_type_not_implemented_e;
+    }
+
     n20_error_t rc = sanitize_parent_path(request->parent_path_length, request->parent_path);
     if (rc != n20_error_ok_e) {
         return rc;
@@ -177,23 +187,22 @@ static n20_error_t dispatch_issue_eca_ee_cert_request(
 
     rc = ctx->ops->n20_srv_issue_eca_ee_certificate(
         ctx->ctx, request, response_buffer, response_size_in_out);
-    if (rc != n20_error_ok_e) {
+    if (rc != n20_error_ok_e && rc != n20_error_insufficient_buffer_size_e) {
         return rc;
     }
 
-    rc = prefix_response_header(
+    return prefix_response_header(
         response_buffer, response_size_in_out, total_buffer_size, N20_MSG_LABEL_CERTIFICATE);
-    if (rc != n20_error_ok_e) {
-        return rc;
-    }
-
-    return n20_error_ok_e;
 }
 
 static n20_error_t dispatch_eca_ee_sign_request(n20_service_message_dispatch_ctx_t* ctx,
                                                 uint8_t* response_buffer,
                                                 size_t* response_size_in_out,
                                                 n20_msg_eca_ee_sign_request_t* request) {
+    if (ctx->ops->n20_srv_eca_ee_sign == NULL) {
+        return n20_error_request_type_not_implemented_e;
+    }
+
     n20_error_t rc = sanitize_parent_path(request->parent_path_length, request->parent_path);
     if (rc != n20_error_ok_e) {
         return rc;
@@ -201,28 +210,34 @@ static n20_error_t dispatch_eca_ee_sign_request(n20_service_message_dispatch_ctx
 
     size_t const total_buffer_size = *response_size_in_out;
 
-    rc = ctx->ops->n20_srv_eca_sign(ctx->ctx, request, response_buffer, response_size_in_out);
-    if (rc != n20_error_ok_e) {
+    rc = ctx->ops->n20_srv_eca_ee_sign(ctx->ctx, request, response_buffer, response_size_in_out);
+    if (rc != n20_error_ok_e && rc != n20_error_insufficient_buffer_size_e) {
         return rc;
     }
 
-    rc = prefix_response_header(
+    return prefix_response_header(
         response_buffer, response_size_in_out, total_buffer_size, N20_MSG_LABEL_SIGNATURE);
-    if (rc != n20_error_ok_e) {
-        return rc;
-    }
-
-    return n20_error_ok_e;
 }
 
 n20_error_t n20_service_message_dispatch(n20_service_message_dispatch_ctx_t* ctx,
                                          uint8_t* response_buffer,
                                          size_t* response_size_in_out,
                                          n20_slice_t message) {
+    if (ctx == NULL) {
+        return n20_error_unexpected_null_dispatch_context_e;
+    }
+
+    if (ctx->ops == NULL) {
+        return n20_error_unexpected_null_service_ops_e;
+    }
+
+    if (response_size_in_out == NULL) {
+        return n20_error_unexpected_null_buffer_size_e;
+    }
+    size_t const total_buffer_size = *response_size_in_out;
+
     n20_msg_request_t request;
     n20_error_t error = n20_msg_request_read(&request, message);
-
-    size_t const total_buffer_size = *response_size_in_out;
 
     if (error == n20_error_ok_e) {
         switch (request.request_type) {
@@ -256,6 +271,11 @@ n20_error_t n20_service_message_dispatch(n20_service_message_dispatch_ctx_t* ctx
                 break;
         }
     }
+
+    if (error == n20_error_insufficient_buffer_size_e) {
+        return error;
+    }
+
     if (error != n20_error_ok_e) {
         // Prepare an error response.
         n20_msg_error_response_t error_response = {.error_code = error};

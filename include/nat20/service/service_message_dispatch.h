@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Aurora Operations, Inc.
+ * Copyright 2026 Aurora Operations, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
  *
@@ -39,6 +39,7 @@
 
 #pragma once
 
+#include <nat20/error.h>
 #include <nat20/service/messages.h>
 #include <nat20/service/service.h>
 #include <nat20/types.h>

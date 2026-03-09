@@ -39,6 +39,7 @@
 
 #pragma once
 
+#include <nat20/error.h>
 #include <nat20/service/messages.h>
 #include <nat20/types.h>
 
@@ -158,10 +159,10 @@ struct n20_service_ops_s {
      * @param signature_size  In: buffer capacity. Out: bytes written.
      * @return @ref n20_error_ok_e on success, an error code otherwise.
      */
-    n20_error_t (*n20_srv_eca_sign)(void* ctx,
-                                    n20_msg_eca_ee_sign_request_t* request,
-                                    uint8_t* signature,
-                                    size_t* signature_size);
+    n20_error_t (*n20_srv_eca_ee_sign)(void* ctx,
+                                       n20_msg_eca_ee_sign_request_t* request,
+                                       uint8_t* signature,
+                                       size_t* signature_size);
 };
 
 /**
