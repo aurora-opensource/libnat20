@@ -65,6 +65,12 @@ enum n20_certificate_format_s {
      * This is used to request an X.509 certificate with DER encoding.
      */
     n20_certificate_format_x509_e = 1,
+    /**
+     * @brief COSE certificate format.
+     *
+     * This is used to request a COSE_Sign1 message with CWT payload.
+     */
+    n20_certificate_format_cose_e = 2,
 };
 
 /**

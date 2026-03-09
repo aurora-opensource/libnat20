@@ -41,34 +41,11 @@
 #include <nat20/stream.h>
 #include <nat20/types.h>
 
-#define N20_MSG_LABEL_ISSUER_KEY_TYPE 1
-#define N20_MSG_LABEL_SUBJECT_KEY_TYPE 2
-#define N20_MSG_LABEL_OPEN_DICE_INPUT 3
-#define N20_MSG_LABEL_PARENT_PATH 4
-#define N20_MSG_LABEL_CERTIFICATE_FORMAT 5
-#define N20_MSG_LABEL_NAME 6
-#define N20_MSG_LABEL_KEY_USAGE 7
-#define N20_MSG_LABEL_CHALLENGE 8
-#define N20_MSG_LABEL_MESSAGE 9
-#define N20_MSG_LABEL_CODE_HASH 10
-#define N20_MSG_LABEL_CODE_DESCRIPTOR 11
-#define N20_MSG_LABEL_CONFIGURATION_HASH 12
-#define N20_MSG_LABEL_CONFIGURATION_DESCRIPTOR 13
-#define N20_MSG_LABEL_AUTHORITY_HASH 14
-#define N20_MSG_LABEL_AUTHORITY_DESCRIPTOR 15
-#define N20_MSG_LABEL_MODE 16
-#define N20_MSG_LABEL_HIDDEN 17
-#define N20_MSG_LABEL_PROFILE_NAME 18
-#define N20_MSG_LABEL_COMPRESSED_CONTEXT 19
-#define N20_MSG_LABEL_ERROR_CODE 20
-#define N20_MSG_LABEL_CERTIFICATE 21
-#define N20_MSG_LABEL_SIGNATURE 22
-
-n20_error_t n20_msg_read_map_with_int_key(n20_istream_t *istream,
-                                          n20_error_t (*cb)(n20_istream_t *istream,
+n20_error_t n20_msg_read_map_with_int_key(n20_istream_t* istream,
+                                          n20_error_t (*cb)(n20_istream_t* istream,
                                                             int64_t key,
-                                                            void *context),
-                                          void *context) {
+                                                            void* context),
+                                          void* context) {
     n20_cbor_type_t cbor_type;
     uint64_t map_size;
     uint64_t cbor_value;
@@ -101,8 +78,8 @@ n20_error_t n20_msg_read_map_with_int_key(n20_istream_t *istream,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_promote_request_read_cb(n20_istream_t *istream, int64_t key, void *context) {
-    n20_msg_promote_request_t *request = (n20_msg_promote_request_t *)context;
+n20_error_t n20_msg_promote_request_read_cb(n20_istream_t* istream, int64_t key, void* context) {
+    n20_msg_promote_request_t* request = (n20_msg_promote_request_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
@@ -126,13 +103,13 @@ n20_error_t n20_msg_promote_request_read_cb(n20_istream_t *istream, int64_t key,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_promote_request_read(n20_istream_t *istream,
-                                         n20_msg_promote_request_t *request) {
+n20_error_t n20_msg_promote_request_read(n20_istream_t* istream,
+                                         n20_msg_promote_request_t* request) {
     return n20_msg_read_map_with_int_key(istream, n20_msg_promote_request_read_cb, request);
 }
 
-n20_error_t n20_msg_open_dice_input_read_cb(n20_istream_t *istream, int64_t key, void *context) {
-    n20_open_dice_input_t *input = (n20_open_dice_input_t *)context;
+n20_error_t n20_msg_open_dice_input_read_cb(n20_istream_t* istream, int64_t key, void* context) {
+    n20_open_dice_input_t* input = (n20_open_dice_input_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
@@ -239,8 +216,8 @@ n20_error_t n20_msg_open_dice_input_read_cb(n20_istream_t *istream, int64_t key,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_open_dice_input_read(n20_istream_t *istream, void *context) {
-    n20_open_dice_input_t *input = (n20_open_dice_input_t *)context;
+n20_error_t n20_msg_open_dice_input_read(n20_istream_t* istream, void* context) {
+    n20_open_dice_input_t* input = (n20_open_dice_input_t*)context;
 
     *input = (n20_open_dice_input_t){
         .code_hash = N20_SLICE_NULL,
@@ -258,8 +235,8 @@ n20_error_t n20_msg_open_dice_input_read(n20_istream_t *istream, void *context) 
 }
 
 static void n20_msg_compressed_context_array_write(
-    n20_stream_t *s,
-    n20_slice_t const *const compressed_context_array,
+    n20_stream_t* s,
+    n20_slice_t const* const compressed_context_array,
     size_t const compressed_context_array_size) {
     size_t i = compressed_context_array_size;
     do {
@@ -270,9 +247,9 @@ static void n20_msg_compressed_context_array_write(
     n20_cbor_write_int(s, N20_MSG_LABEL_PARENT_PATH);
 }
 
-n20_error_t n20_msg_compressed_context_array_read(n20_istream_t *istream,
-                                                  n20_slice_t *compressed_context,
-                                                  size_t *path_length_in_out) {
+n20_error_t n20_msg_compressed_context_array_read(n20_istream_t* istream,
+                                                  n20_slice_t* compressed_context,
+                                                  size_t* path_length_in_out) {
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
     if (!n20_cbor_read_header(istream, &cbor_type, &cbor_value) ||
@@ -302,10 +279,10 @@ n20_error_t n20_msg_compressed_context_array_read(n20_istream_t *istream,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_issue_cdi_cert_request_read_cb(n20_istream_t *istream,
+n20_error_t n20_msg_issue_cdi_cert_request_read_cb(n20_istream_t* istream,
                                                    int64_t key,
-                                                   void *context) {
-    n20_msg_issue_cdi_cert_request_t *request = (n20_msg_issue_cdi_cert_request_t *)context;
+                                                   void* context) {
+    n20_msg_issue_cdi_cert_request_t* request = (n20_msg_issue_cdi_cert_request_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
     n20_error_t error;
@@ -358,8 +335,8 @@ n20_error_t n20_msg_issue_cdi_cert_request_read_cb(n20_istream_t *istream,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_issue_cdi_cert_request_read(n20_istream_t *istream,
-                                                n20_msg_issue_cdi_cert_request_t *request) {
+n20_error_t n20_msg_issue_cdi_cert_request_read(n20_istream_t* istream,
+                                                n20_msg_issue_cdi_cert_request_t* request) {
     request->parent_path_length = 0;
     request->issuer_key_type = n20_crypto_key_type_none_e;
     request->subject_key_type = n20_crypto_key_type_none_e;
@@ -368,10 +345,10 @@ n20_error_t n20_msg_issue_cdi_cert_request_read(n20_istream_t *istream,
     return n20_msg_read_map_with_int_key(istream, n20_msg_issue_cdi_cert_request_read_cb, request);
 }
 
-n20_error_t n20_msg_issue_eca_cert_request_read_cb(n20_istream_t *istream,
+n20_error_t n20_msg_issue_eca_cert_request_read_cb(n20_istream_t* istream,
                                                    int64_t key,
-                                                   void *context) {
-    n20_msg_issue_eca_cert_request_t *request = (n20_msg_issue_eca_cert_request_t *)context;
+                                                   void* context) {
+    n20_msg_issue_eca_cert_request_t* request = (n20_msg_issue_eca_cert_request_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
     n20_error_t error;
@@ -428,8 +405,8 @@ n20_error_t n20_msg_issue_eca_cert_request_read_cb(n20_istream_t *istream,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_issue_eca_cert_request_read(n20_istream_t *istream,
-                                                n20_msg_issue_eca_cert_request_t *request) {
+n20_error_t n20_msg_issue_eca_cert_request_read(n20_istream_t* istream,
+                                                n20_msg_issue_eca_cert_request_t* request) {
     request->parent_path_length = 0;
     request->issuer_key_type = n20_crypto_key_type_none_e;
     request->subject_key_type = n20_crypto_key_type_none_e;
@@ -439,10 +416,10 @@ n20_error_t n20_msg_issue_eca_cert_request_read(n20_istream_t *istream,
     return n20_msg_read_map_with_int_key(istream, n20_msg_issue_eca_cert_request_read_cb, request);
 }
 
-n20_error_t n20_msg_issue_eca_ee_cert_request_read_cb(n20_istream_t *istream,
+n20_error_t n20_msg_issue_eca_ee_cert_request_read_cb(n20_istream_t* istream,
                                                       int64_t key,
-                                                      void *context) {
-    n20_msg_issue_eca_ee_cert_request_t *request = (n20_msg_issue_eca_ee_cert_request_t *)context;
+                                                      void* context) {
+    n20_msg_issue_eca_ee_cert_request_t* request = (n20_msg_issue_eca_ee_cert_request_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
     n20_error_t error;
@@ -519,8 +496,8 @@ n20_error_t n20_msg_issue_eca_ee_cert_request_read_cb(n20_istream_t *istream,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_issue_eca_ee_cert_request_read(n20_istream_t *istream,
-                                                   n20_msg_issue_eca_ee_cert_request_t *request) {
+n20_error_t n20_msg_issue_eca_ee_cert_request_read(n20_istream_t* istream,
+                                                   n20_msg_issue_eca_ee_cert_request_t* request) {
     request->parent_path_length = 0;
     request->issuer_key_type = n20_crypto_key_type_none_e;
     request->subject_key_type = n20_crypto_key_type_none_e;
@@ -533,10 +510,10 @@ n20_error_t n20_msg_issue_eca_ee_cert_request_read(n20_istream_t *istream,
         istream, n20_msg_issue_eca_ee_cert_request_read_cb, request);
 }
 
-n20_error_t n20_msg_eca_ee_sign_request_read_cb(n20_istream_t *istream,
+n20_error_t n20_msg_eca_ee_sign_request_read_cb(n20_istream_t* istream,
                                                 int64_t key,
-                                                void *context) {
-    n20_msg_eca_ee_sign_request_t *request = (n20_msg_eca_ee_sign_request_t *)context;
+                                                void* context) {
+    n20_msg_eca_ee_sign_request_t* request = (n20_msg_eca_ee_sign_request_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
     n20_error_t error;
@@ -597,8 +574,8 @@ n20_error_t n20_msg_eca_ee_sign_request_read_cb(n20_istream_t *istream,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_eca_ee_sign_request_read(n20_istream_t *istream,
-                                             n20_msg_eca_ee_sign_request_t *request) {
+n20_error_t n20_msg_eca_ee_sign_request_read(n20_istream_t* istream,
+                                             n20_msg_eca_ee_sign_request_t* request) {
     request->parent_path_length = 0;
     request->subject_key_type = n20_crypto_key_type_none_e;
     request->name = N20_STR_NULL;
@@ -608,7 +585,7 @@ n20_error_t n20_msg_eca_ee_sign_request_read(n20_istream_t *istream,
     return n20_msg_read_map_with_int_key(istream, n20_msg_eca_ee_sign_request_read_cb, request);
 }
 
-n20_error_t n20_msg_request_read(n20_msg_request_t *request, n20_slice_t const msg_buffer) {
+n20_error_t n20_msg_request_read(n20_msg_request_t* request, n20_slice_t const msg_buffer) {
     if (request == NULL) {
         return n20_error_unexpected_null_request_e;
     }
@@ -654,14 +631,14 @@ n20_error_t n20_msg_request_read(n20_msg_request_t *request, n20_slice_t const m
     return n20_error_request_type_unknown_e;
 }
 
-void n20_msg_promote_request_write(n20_stream_t *stream, n20_msg_promote_request_t const *request) {
+void n20_msg_promote_request_write(n20_stream_t* stream, n20_msg_promote_request_t const* request) {
     n20_cbor_write_byte_string(stream, request->compressed_context);
     n20_cbor_write_int(stream, N20_MSG_LABEL_COMPRESSED_CONTEXT);
 
     n20_cbor_write_map_header(stream, 1);
 }
 
-void n20_msg_open_dice_input_write(n20_stream_t *stream, n20_open_dice_input_t const *input) {
+void n20_msg_open_dice_input_write(n20_stream_t* stream, n20_open_dice_input_t const* input) {
     int pairs = 0;
 
     if (input->profile_name.size != 0) {
@@ -720,8 +697,8 @@ void n20_msg_open_dice_input_write(n20_stream_t *stream, n20_open_dice_input_t c
     n20_cbor_write_map_header(stream, pairs);
 }
 
-void n20_msg_issue_cdi_cert_request_write(n20_stream_t *s,
-                                          n20_msg_issue_cdi_cert_request_t const *request) {
+void n20_msg_issue_cdi_cert_request_write(n20_stream_t* s,
+                                          n20_msg_issue_cdi_cert_request_t const* request) {
     int pairs = 4;
 
     n20_cbor_write_int(s, (uint64_t)request->certificate_format);
@@ -745,8 +722,8 @@ void n20_msg_issue_cdi_cert_request_write(n20_stream_t *s,
     n20_cbor_write_map_header(s, pairs);
 }
 
-void n20_msg_issue_eca_cert_request_write(n20_stream_t *s,
-                                          n20_msg_issue_eca_cert_request_t const *request) {
+void n20_msg_issue_eca_cert_request_write(n20_stream_t* s,
+                                          n20_msg_issue_eca_cert_request_t const* request) {
     int pairs = 3;
 
     /* Write fields in reverse order */
@@ -774,8 +751,8 @@ void n20_msg_issue_eca_cert_request_write(n20_stream_t *s,
     n20_cbor_write_map_header(s, pairs);
 }
 
-void n20_msg_issue_eca_ee_cert_request_write(n20_stream_t *s,
-                                             n20_msg_issue_eca_ee_cert_request_t const *request) {
+void n20_msg_issue_eca_ee_cert_request_write(n20_stream_t* s,
+                                             n20_msg_issue_eca_ee_cert_request_t const* request) {
     int pairs = 3;
 
     /* Write fields in reverse order */
@@ -815,8 +792,8 @@ void n20_msg_issue_eca_ee_cert_request_write(n20_stream_t *s,
     n20_cbor_write_map_header(s, pairs);
 }
 
-void n20_msg_eca_ee_sign_request_write(n20_stream_t *s,
-                                       n20_msg_eca_ee_sign_request_t const *request) {
+void n20_msg_eca_ee_sign_request_write(n20_stream_t* s,
+                                       n20_msg_eca_ee_sign_request_t const* request) {
     int pairs = 2;
 
     /* Write fields in reverse order */
@@ -847,9 +824,9 @@ void n20_msg_eca_ee_sign_request_write(n20_stream_t *s,
     n20_cbor_write_map_header(s, pairs);
 }
 
-n20_error_t n20_msg_request_write(n20_msg_request_t const *request,
-                                  uint8_t *buffer,
-                                  size_t *buffer_size) {
+n20_error_t n20_msg_request_write(n20_msg_request_t const* request,
+                                  uint8_t* buffer,
+                                  size_t* buffer_size) {
     n20_stream_t stream;
     n20_stream_init(&stream, buffer, *buffer_size);
 
@@ -886,10 +863,10 @@ n20_error_t n20_msg_request_write(n20_msg_request_t const *request,
                                                    : n20_error_ok_e;
 }
 
-n20_error_t n20_msg_issue_cert_response_read_cb(n20_istream_t *istream,
+n20_error_t n20_msg_issue_cert_response_read_cb(n20_istream_t* istream,
                                                 int64_t key,
-                                                void *context) {
-    n20_msg_issue_cert_response_t *response = (n20_msg_issue_cert_response_t *)context;
+                                                void* context) {
+    n20_msg_issue_cert_response_t* response = (n20_msg_issue_cert_response_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
@@ -921,7 +898,7 @@ n20_error_t n20_msg_issue_cert_response_read_cb(n20_istream_t *istream,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_issue_cert_response_read(n20_msg_issue_cert_response_t *response,
+n20_error_t n20_msg_issue_cert_response_read(n20_msg_issue_cert_response_t* response,
                                              n20_slice_t buffer) {
     if (response == NULL) {
         return n20_error_unexpected_null_response_e;
@@ -937,9 +914,9 @@ n20_error_t n20_msg_issue_cert_response_read(n20_msg_issue_cert_response_t *resp
     return n20_msg_read_map_with_int_key(&istream, n20_msg_issue_cert_response_read_cb, response);
 }
 
-n20_error_t n20_msg_issue_cert_response_write(n20_msg_issue_cert_response_t const *response,
-                                              uint8_t *buffer,
-                                              size_t *const buffer_size_in_out) {
+n20_error_t n20_msg_issue_cert_response_write(n20_msg_issue_cert_response_t const* response,
+                                              uint8_t* buffer,
+                                              size_t* const buffer_size_in_out) {
     if (response == NULL) {
         return n20_error_unexpected_null_response_e;
     }
@@ -974,8 +951,8 @@ n20_error_t n20_msg_issue_cert_response_write(n20_msg_issue_cert_response_t cons
                                                    : n20_error_ok_e;
 }
 
-n20_error_t n20_msg_error_response_read_cb(n20_istream_t *istream, int64_t key, void *context) {
-    n20_msg_error_response_t *response = (n20_msg_error_response_t *)context;
+n20_error_t n20_msg_error_response_read_cb(n20_istream_t* istream, int64_t key, void* context) {
+    n20_msg_error_response_t* response = (n20_msg_error_response_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
@@ -997,7 +974,7 @@ n20_error_t n20_msg_error_response_read_cb(n20_istream_t *istream, int64_t key, 
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_error_response_read(n20_msg_error_response_t *response,
+n20_error_t n20_msg_error_response_read(n20_msg_error_response_t* response,
                                         n20_slice_t const buffer) {
     if (response == NULL) {
         return n20_error_unexpected_null_response_e;
@@ -1011,9 +988,9 @@ n20_error_t n20_msg_error_response_read(n20_msg_error_response_t *response,
     return n20_msg_read_map_with_int_key(&istream, n20_msg_error_response_read_cb, response);
 }
 
-n20_error_t n20_msg_error_response_write(n20_msg_error_response_t const *response,
-                                         uint8_t *buffer,
-                                         size_t *const buffer_size_in_out) {
+n20_error_t n20_msg_error_response_write(n20_msg_error_response_t const* response,
+                                         uint8_t* buffer,
+                                         size_t* const buffer_size_in_out) {
     if (response == NULL) {
         return n20_error_unexpected_null_response_e;
     }
@@ -1048,10 +1025,10 @@ n20_error_t n20_msg_error_response_write(n20_msg_error_response_t const *respons
                                                    : n20_error_ok_e;
 }
 
-n20_error_t n20_msg_eca_ee_sign_response_read_cb(n20_istream_t *istream,
+n20_error_t n20_msg_eca_ee_sign_response_read_cb(n20_istream_t* istream,
                                                  int64_t key,
-                                                 void *context) {
-    n20_msg_eca_ee_sign_response_t *response = (n20_msg_eca_ee_sign_response_t *)context;
+                                                 void* context) {
+    n20_msg_eca_ee_sign_response_t* response = (n20_msg_eca_ee_sign_response_t*)context;
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
@@ -1083,7 +1060,7 @@ n20_error_t n20_msg_eca_ee_sign_response_read_cb(n20_istream_t *istream,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_eca_ee_sign_response_read(n20_msg_eca_ee_sign_response_t *response,
+n20_error_t n20_msg_eca_ee_sign_response_read(n20_msg_eca_ee_sign_response_t* response,
                                               n20_slice_t buffer) {
     if (response == NULL) {
         return n20_error_unexpected_null_response_e;
@@ -1099,9 +1076,9 @@ n20_error_t n20_msg_eca_ee_sign_response_read(n20_msg_eca_ee_sign_response_t *re
     return n20_msg_read_map_with_int_key(&istream, n20_msg_eca_ee_sign_response_read_cb, response);
 }
 
-n20_error_t n20_msg_eca_ee_sign_response_write(n20_msg_eca_ee_sign_response_t const *response,
-                                               uint8_t *buffer,
-                                               size_t *const buffer_size_in_out) {
+n20_error_t n20_msg_eca_ee_sign_response_write(n20_msg_eca_ee_sign_response_t const* response,
+                                               uint8_t* buffer,
+                                               size_t* const buffer_size_in_out) {
     if (response == NULL) {
         return n20_error_unexpected_null_response_e;
     }

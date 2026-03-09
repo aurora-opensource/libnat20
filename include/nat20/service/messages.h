@@ -35,6 +35,7 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+/** @file */
 #pragma once
 
 #include <nat20/constants.h>
@@ -45,6 +46,37 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @defgroup message_map_labels CBOR map labels used by NAT20 service messages.
+ *
+ * These numeric labels are defined in src/service/messages.cddl and must be
+ * kept in sync with that specification.
+ * @{
+ */
+#define N20_MSG_LABEL_ISSUER_KEY_TYPE 1           /**< Label for issuer key type. */
+#define N20_MSG_LABEL_SUBJECT_KEY_TYPE 2          /**< Label for subject key type. */
+#define N20_MSG_LABEL_OPEN_DICE_INPUT 3           /**< Label for OpenDICE input map. */
+#define N20_MSG_LABEL_PARENT_PATH 4               /**< Label for parent path array. */
+#define N20_MSG_LABEL_CERTIFICATE_FORMAT 5        /**< Label for certificate format. */
+#define N20_MSG_LABEL_NAME 6                      /**< Label for key/context name. */
+#define N20_MSG_LABEL_KEY_USAGE 7                 /**< Label for key usage bytes. */
+#define N20_MSG_LABEL_CHALLENGE 8                 /**< Label for challenge bytes. */
+#define N20_MSG_LABEL_MESSAGE 9                   /**< Label for message bytes. */
+#define N20_MSG_LABEL_CODE_HASH 10                /**< Label for code hash. */
+#define N20_MSG_LABEL_CODE_DESCRIPTOR 11          /**< Label for code descriptor. */
+#define N20_MSG_LABEL_CONFIGURATION_HASH 12       /**< Label for configuration hash. */
+#define N20_MSG_LABEL_CONFIGURATION_DESCRIPTOR 13 /**< Label for configuration descriptor. */
+#define N20_MSG_LABEL_AUTHORITY_HASH 14           /**< Label for authority hash. */
+#define N20_MSG_LABEL_AUTHORITY_DESCRIPTOR 15     /**< Label for authority descriptor. */
+#define N20_MSG_LABEL_MODE 16                     /**< Label for DICE mode. */
+#define N20_MSG_LABEL_HIDDEN 17                   /**< Label for hidden input bytes. */
+#define N20_MSG_LABEL_PROFILE_NAME 18             /**< Label for profile name. */
+#define N20_MSG_LABEL_COMPRESSED_CONTEXT 19       /**< Label for compressed context bytes. */
+#define N20_MSG_LABEL_ERROR_CODE 20               /**< Label for error code. */
+#define N20_MSG_LABEL_CERTIFICATE 21              /**< Label for certificate bytes. */
+#define N20_MSG_LABEL_SIGNATURE 22                /**< Label for signature bytes. */
+/** @} */
 
 /**
  * @file messages.h
