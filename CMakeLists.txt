@@ -94,6 +94,7 @@ set(LIBNAT20_SOURCES
     # Add the core library source files here.
     src/core/asn1.c
     src/core/cbor.c
+    src/core/cose.c
     src/core/functionality.c
     src/core/oid.c
     src/core/stream.c
@@ -110,6 +111,7 @@ set(LIBNAT20_PUB_HEADERS
     include/nat20/asn1.h
     include/nat20/cbor.h
     include/nat20/constants.h
+    include/nat20/cose.h
     include/nat20/crypto.h
     include/nat20/endian.h
     include/nat20/error.h
@@ -147,6 +149,7 @@ set(LIBNAT20_TEST_SOURCES
     # Add test source files here.
     src/core/test/asn1.cpp
     src/core/test/cbor.cpp
+    src/core/test/cose.cpp
     src/core/test/functionality.cpp
     src/core/test/oid.cpp
     src/core/test/stream.cpp
