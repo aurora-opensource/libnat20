@@ -136,8 +136,8 @@ n20_slice_t const ID_STR_SLICE = {
     .size = 2,
 };
 
-n20_error_t n20_compress_input(n20_crypto_digest_context_t *crypto_ctx,
-                               n20_open_dice_cert_info_t const *input,
+n20_error_t n20_compress_input(n20_crypto_digest_context_t* crypto_ctx,
+                               n20_open_dice_cert_info_t const* input,
                                n20_compressed_input_t digest) {
     // Check if the crypto context is valid
     if (crypto_ctx == NULL) {
@@ -168,7 +168,7 @@ n20_error_t n20_compress_input(n20_crypto_digest_context_t *crypto_ctx,
             input_list[0] =
                 (n20_slice_t){.size = sizeof(input->key_usage), .buffer = input->key_usage};
             input_list[1] = (n20_slice_t){.size = input->eca_ee.name.size,
-                                          .buffer = (uint8_t const *)input->eca_ee.name.buffer};
+                                          .buffer = (uint8_t const*)input->eca_ee.name.buffer};
             input_list_count = 2;
             break;
         case n20_cert_type_self_signed_e:
@@ -196,9 +196,9 @@ n20_error_t n20_compress_input(n20_crypto_digest_context_t *crypto_ctx,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_derive_key(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_derive_key(n20_crypto_context_t* crypto_ctx,
                            n20_crypto_key_t cdi_secret,
-                           n20_crypto_key_t *derived,
+                           n20_crypto_key_t* derived,
                            n20_crypto_key_type_t key_type,
                            n20_slice_t const salt,
                            n20_slice_t const tag) {
@@ -219,17 +219,13 @@ n20_error_t n20_derive_key(n20_crypto_context_t *crypto_ctx,
     return crypto_ctx->kdf(crypto_ctx, cdi_secret, key_type, &derivation_context, derived);
 }
 
-n20_error_t n20_next_level_cdi_attest(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_next_level_cdi_attest(n20_crypto_context_t* crypto_ctx,
                                       n20_crypto_key_t current_cdi,
-                                      n20_crypto_key_t *next,
-                                      n20_compressed_input_t info) {
+                                      n20_crypto_key_t* next,
+                                      n20_slice_t info) {
 
-    return n20_derive_key(crypto_ctx,
-                          current_cdi,
-                          next,
-                          n20_crypto_key_type_cdi_e,
-                          (n20_slice_t){.size = N20_FUNC_COMPRESSED_INPUT_SIZE, .buffer = &info[0]},
-                          CDI_ATTEST_STR_SLICE);
+    return n20_derive_key(
+        crypto_ctx, current_cdi, next, n20_crypto_key_type_cdi_e, info, CDI_ATTEST_STR_SLICE);
 }
 
 /**
@@ -246,26 +242,26 @@ n20_error_t n20_next_level_cdi_attest(n20_crypto_context_t *crypto_ctx,
  *
  * @return n20_error_ok_e on success, or an error code on failure.
  */
-n20_error_t n20_derive_cdi_attestation_key(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_derive_cdi_attestation_key(n20_crypto_context_t* crypto_ctx,
                                            n20_crypto_key_t cdi_secret,
-                                           n20_crypto_key_t *derived,
+                                           n20_crypto_key_t* derived,
                                            n20_crypto_key_type_t key_type) {
     return n20_derive_key(
         crypto_ctx, cdi_secret, derived, key_type, ASYM_SALT_SLICE, ATTEST_KEY_PAIR_STR_SLICE);
 }
 
-n20_error_t n20_derive_eca_key(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_derive_eca_key(n20_crypto_context_t* crypto_ctx,
                                n20_crypto_key_t cdi_secret,
-                               n20_crypto_key_t *derived,
+                               n20_crypto_key_t* derived,
                                n20_crypto_key_type_t key_type) {
     return n20_derive_key(
         crypto_ctx, cdi_secret, derived, key_type, ASYM_SALT_SLICE, ECA_KEY_PAIR_STR_SLICE);
 }
 
-n20_error_t n20_derive_eca_ee_key(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_derive_eca_ee_key(n20_crypto_context_t* crypto_ctx,
                                   n20_crypto_key_t cdi_secret,
                                   n20_slice_t const salt,
-                                  n20_crypto_key_t *derived,
+                                  n20_crypto_key_t* derived,
                                   n20_crypto_key_type_t key_type) {
     return n20_derive_key(
         crypto_ctx, cdi_secret, derived, key_type, salt, ECA_EE_KEY_PAIR_STR_SLICE);
@@ -282,7 +278,7 @@ n20_error_t n20_derive_eca_ee_key(n20_crypto_context_t *crypto_ctx,
  *
  * @return n20_error_ok_e on success, or an error code on failure.
  */
-n20_error_t n20_init_algorithm_identifier(n20_x509_algorithm_identifier_t *algorithm_identifier,
+n20_error_t n20_init_algorithm_identifier(n20_x509_algorithm_identifier_t* algorithm_identifier,
                                           n20_crypto_key_type_t key_type) {
 
     switch (key_type) {
@@ -318,9 +314,9 @@ n20_error_t n20_init_algorithm_identifier(n20_x509_algorithm_identifier_t *algor
  *
  * @return n20_error_ok_e on success, or an error code on failure.
  */
-n20_error_t n20_init_key_info(n20_x509_public_key_info_t *key_info,
+n20_error_t n20_init_key_info(n20_x509_public_key_info_t* key_info,
                               n20_crypto_key_type_t key_type,
-                              n20_slice_t const *public_key) {
+                              n20_slice_t const* public_key) {
     if (key_info == NULL) {
         return n20_error_unexpected_null_key_info_e;
     }
@@ -354,12 +350,12 @@ n20_error_t n20_init_key_info(n20_x509_public_key_info_t *key_info,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_signer_callback(void *ctx,
+n20_error_t n20_signer_callback(void* ctx,
                                 n20_slice_t tbs,
-                                uint8_t *signature,
-                                size_t *signature_size) {
+                                uint8_t* signature,
+                                size_t* signature_size) {
 
-    n20_signer_t *signer = (n20_signer_t *)ctx;
+    n20_signer_t* signer = (n20_signer_t*)ctx;
 
     n20_crypto_gather_list_t tbs_der_gather = {
         .count = 1,
@@ -382,8 +378,8 @@ n20_error_t n20_signer_callback(void *ctx,
  * @param cert_info The OpenDICE certificate information.
  * @param key_usage The X.509 key usage information to populate.
  */
-void n20_func_key_usage_open_dice_to_x509(n20_open_dice_cert_info_t const *cert_info,
-                                          n20_x509_ext_key_usage_t *key_usage) {
+void n20_func_key_usage_open_dice_to_x509(n20_open_dice_cert_info_t const* cert_info,
+                                          n20_x509_ext_key_usage_t* key_usage) {
     if (!cert_info || !key_usage) {
         return;
     }
@@ -397,11 +393,11 @@ void n20_func_key_usage_open_dice_to_x509(n20_open_dice_cert_info_t const *cert_
     }
 }
 
-n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const *cert_info,
-                                n20_signer_t *signer,
+n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
+                                n20_signer_t* signer,
                                 n20_crypto_key_type_t issuer_key_type,
-                                uint8_t *certificate,
-                                size_t *certificate_size) {
+                                uint8_t* certificate,
+                                size_t* certificate_size) {
     n20_error_t err = n20_error_ok_e;
     n20_x509_ext_key_usage_t key_usage = {0};
     n20_x509_tbs_t tbs = {0};
@@ -429,7 +425,7 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const *cert_info,
                 .oid = &OID_OPEN_DICE_INPUT,
                 .critical = 1,
                 .content_cb = n20_x509_ext_open_dice_input_content,
-                .context = (void *)&cert_info->open_dice_input,
+                .context = (void*)&cert_info->open_dice_input,
             };
             break;
         case n20_cert_type_eca_e:
@@ -438,7 +434,7 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const *cert_info,
                     .oid = &OID_TCG_DICE_TCB_FRESHNESS,
                     .critical = 1,
                     .content_cb = n20_x509_ext_tcg_dice_tcb_freshness_content,
-                    .context = (void *)&cert_info->eca.nonce,
+                    .context = (void*)&cert_info->eca.nonce,
                 };
             }
             break;
@@ -448,7 +444,7 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const *cert_info,
                     .oid = &OID_TCG_DICE_TCB_FRESHNESS,
                     .critical = 1,
                     .content_cb = n20_x509_ext_tcg_dice_tcb_freshness_content,
-                    .context = (void *)&cert_info->eca_ee.nonce,
+                    .context = (void*)&cert_info->eca_ee.nonce,
                 };
             }
             break;
@@ -546,7 +542,7 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const *cert_info,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_open_dice_cdi_id(n20_crypto_digest_context_t *digest_ctx,
+n20_error_t n20_open_dice_cdi_id(n20_crypto_digest_context_t* digest_ctx,
                                  n20_slice_t const public_key,
                                  n20_cdi_id_t cdi_id) {
     n20_error_t rc = digest_ctx->hkdf(digest_ctx,
@@ -568,14 +564,14 @@ n20_error_t n20_open_dice_cdi_id(n20_crypto_digest_context_t *digest_ctx,
     return rc;
 }
 
-n20_error_t n20_eca_ee_sign_message(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_eca_ee_sign_message(n20_crypto_context_t* crypto_ctx,
                                     n20_crypto_key_t parent_secret,
                                     n20_crypto_key_type_t key_type,
                                     n20_string_slice_t name,
                                     n20_slice_t key_usage,
                                     n20_slice_t message,
-                                    uint8_t *signature,
-                                    size_t *signature_size_in_out) {
+                                    uint8_t* signature,
+                                    size_t* signature_size_in_out) {
     /* Check if the crypto context is valid. */
     if (crypto_ctx == NULL) {
         return n20_error_missing_crypto_context_e;
@@ -654,16 +650,16 @@ n20_error_t n20_eca_ee_sign_message(n20_crypto_context_t *crypto_ctx,
     return err;
 }
 
-n20_error_t n20_compute_certificate_context(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_compute_certificate_context(n20_crypto_context_t* crypto_ctx,
                                             n20_crypto_key_t issuer_cdi,
-                                            n20_open_dice_cert_info_t const *cert_info,
+                                            n20_open_dice_cert_info_t const* cert_info,
                                             n20_crypto_key_type_t const issuer_key_type,
                                             n20_crypto_key_type_t const subject_key_type,
-                                            n20_crypto_key_t *issuer_key_out,
+                                            n20_crypto_key_t* issuer_key_out,
                                             n20_cdi_id_t issuer_serial_number_out,
                                             n20_cdi_id_t subject_serial_number_out,
-                                            uint8_t *subject_public_key_buffer_out,
-                                            size_t *subject_public_key_buffer_size_in_out) {
+                                            uint8_t* subject_public_key_buffer_out,
+                                            size_t* subject_public_key_buffer_size_in_out) {
 
     if (crypto_ctx == NULL) {
         return n20_error_missing_crypto_context_e;
@@ -698,7 +694,11 @@ n20_error_t n20_compute_certificate_context(n20_crypto_context_t *crypto_ctx,
      * CDI secret first. Otherwise, the issuer CDI is the same as the subject CDI.*/
     if (cert_info->cert_type == n20_cert_type_cdi_e) {
         /* Precondition number of live key handles: 1 */
-        err = n20_next_level_cdi_attest(crypto_ctx, issuer_cdi, &subject_cdi, input_digest);
+        err = n20_next_level_cdi_attest(
+            crypto_ctx,
+            issuer_cdi,
+            &subject_cdi,
+            (n20_slice_t){.size = sizeof(input_digest), .buffer = &input_digest[0]});
         if (err != n20_error_ok_e) {
             return err;
         }
@@ -891,14 +891,14 @@ n20_error_t n20_compute_certificate_context(n20_crypto_context_t *crypto_ctx,
     return n20_error_ok_e;
 }
 
-n20_error_t n20_issue_certificate(n20_crypto_context_t *crypto_ctx,
+n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
                                   n20_crypto_key_t issuer_secret_in,
                                   n20_crypto_key_type_t issuer_key_type_in,
                                   n20_crypto_key_type_t subject_key_type_in,
-                                  n20_open_dice_cert_info_t *cert_info_in,
+                                  n20_open_dice_cert_info_t* cert_info_in,
                                   n20_certificate_format_t certificate_format_in,
-                                  uint8_t *certificate_out,
-                                  size_t *certificate_size_in_out) {
+                                  uint8_t* certificate_out,
+                                  size_t* certificate_size_in_out) {
     /* Check if the crypto context is valid. */
     if (crypto_ctx == NULL) {
         return n20_error_missing_crypto_context_e;
@@ -916,7 +916,7 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t *crypto_ctx,
      * This buffer leaves room for an additional 0x04 prefix
      * indicating uncompressed format. */
     uint8_t public_key_buffer[97];
-    uint8_t *public_key = &public_key_buffer[1];
+    uint8_t* public_key = &public_key_buffer[1];
     size_t public_key_size = sizeof(public_key_buffer) - 1;
 
     switch (cert_info_in->cert_type) {

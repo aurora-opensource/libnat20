@@ -207,7 +207,7 @@ extern n20_error_t n20_derive_key(n20_crypto_context_t *crypto_ctx,
 extern n20_error_t n20_next_level_cdi_attest(n20_crypto_context_t *crypto_ctx,
                                              n20_crypto_key_t current_cdi,
                                              n20_crypto_key_t *next,
-                                             n20_compressed_input_t info);
+                                             n20_slice_t info);
 
 /**
  * @brief Derives an attestation key from the given CDI secret.

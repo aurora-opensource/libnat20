@@ -76,9 +76,8 @@ static n20_error_t n20_gnostic_promote(void* ctx, n20_msg_promote_request_t* req
     n20_crypto_key_t* min_cdi = &node_state->min_cdi;
     n20_crypto_key_t next = NULL;
 
-    /* TODO: FIX compressed input type mismatch. */
     error = n20_next_level_cdi_attest(
-        node_state->crypto_context, *min_cdi, &next, (uint8_t*)request->compressed_context.buffer);
+        node_state->crypto_context, *min_cdi, &next, request->compressed_context);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -108,8 +107,8 @@ static n20_error_t n20_resolve_path(n20_crypto_context_t* crypto_ctx,
     size_t i = 0;
 
     n20_crypto_key_t next = NULL;
-    n20_error_t error = n20_next_level_cdi_attest(
-        crypto_ctx, current_secret, &next, (uint8_t*)parent_path[i].buffer);
+    n20_error_t error =
+        n20_next_level_cdi_attest(crypto_ctx, current_secret, &next, parent_path[i]);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -117,8 +116,7 @@ static n20_error_t n20_resolve_path(n20_crypto_context_t* crypto_ctx,
     ++i;
 
     while (i < parent_path_size) {
-        error = n20_next_level_cdi_attest(
-            crypto_ctx, current_secret, &next, (uint8_t*)parent_path[i].buffer);
+        error = n20_next_level_cdi_attest(crypto_ctx, current_secret, &next, parent_path[i]);
         crypto_ctx->key_free(crypto_ctx, current_secret);
         if (error != n20_error_ok_e) {
             return error;
