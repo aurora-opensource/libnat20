@@ -849,7 +849,7 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignForwardsServiceError) {
     EXPECT_EQ(n20_error_missing_crypto_context_e, parse_error_response(response));
 }
 
-// This test covers the case where the dispatcher runs out of buffer response buffer
+// This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, EcaEeSignEeCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the

@@ -46,7 +46,6 @@
 #include <nat20/service/service_message_dispatch.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
-#include <regex.h>
 
 static n20_error_t sanitize_parent_path(size_t parent_path_length, n20_slice_t const* parent_path) {
     if (parent_path_length > N20_STATELESS_MAX_PATH_LENGTH) {
@@ -74,7 +73,7 @@ static n20_error_t prefix_response_header(uint8_t* response_buffer,
     n20_stream_t s;
     n20_stream_init(&s, response_buffer, total_buffer_size);
     s.write_position = *response_size_in_out;
-    s.buffer_overflow = total_buffer_size < *response_size_in_out;
+    s.buffer_overflow = response_buffer == NULL || total_buffer_size < *response_size_in_out;
 
     n20_cbor_write_header(&s, n20_cbor_type_bytes_e, *response_size_in_out);
     n20_cbor_write_int(&s, label);
