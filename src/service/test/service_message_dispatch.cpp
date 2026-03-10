@@ -466,11 +466,11 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertForwardsServiceError) {
     EXPECT_EQ(n20_error_crypto_invalid_context_e, parse_error_response(response));
 }
 
-// This test covers the case where the dispatcher runs out of buffer response buffer
+// This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, IssueCdiCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
-    // thest payload not not for the response header.
+    // test payload but not for the response header.
     size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
@@ -568,11 +568,11 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertForwardsServiceError) {
     EXPECT_EQ(n20_error_missing_crypto_context_e, parse_error_response(response));
 }
 
-// This test covers the case where the dispatcher runs out of buffer response buffer
+// This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, IssueEcaCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
-    // thest payload not not for the response header.
+    // test payload but not for the response header.
     size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
@@ -672,11 +672,11 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertForwardsServiceError) {
     EXPECT_EQ(n20_error_unsupported_certificate_format_e, parse_error_response(response));
 }
 
-// This test covers the case where the dispatcher runs out of buffer response buffer
+// This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
-    // thest payload not not for the response header.
+    // test payload but not for the response header.
     size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
@@ -853,7 +853,7 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignForwardsServiceError) {
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, EcaEeSignEeCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
-    // thest payload not not for the response header.
+    // test payload but not for the response header.
     size_t const original_size = response_buffer_.size();
     size_t response_size = state_.sign_payload.size;
 
