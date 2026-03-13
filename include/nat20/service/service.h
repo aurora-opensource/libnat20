@@ -50,13 +50,13 @@ extern "C" {
 /**
  * @brief Operations table for the NAT20 service.
  *
- * This structure is a vtable of function pointers that define the operations
+ * This structure is a vector table of function pointers that define the operations
  * a NAT20 service implementation must provide. The message dispatcher calls
  * these functions after decoding an incoming request message.
  *
- * All function pointers must be non-NULL when the dispatch function is called.
- * Each function receives an opaque @p ctx pointer that the implementation may
- * use to access its own state.
+ * Message dispatcher implementations must check each function pointer for
+ * non-NULL before calling it and return @ref n20_error_request_type_not_implemented_e
+ * if any are missing.
  *
  * @sa n20_service_message_dispatch_ctx_s
  */

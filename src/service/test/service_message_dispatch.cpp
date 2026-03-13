@@ -199,6 +199,8 @@ class ServiceMessageDispatchTest : public testing::Test {
         valid_path_element_data_.fill(0x11);
         valid_context_data_.fill(0x22);
         key_usage_data_.fill(0x03);
+        parent_path_elements_ = {
+            {{valid_path_element_data_.size(), valid_path_element_data_.data()}}};
 
         state_.oversized_payloads = false;
         response_buffer_.resize(1024);
@@ -259,6 +261,10 @@ class ServiceMessageDispatchTest : public testing::Test {
                 const_cast<uint8_t*>(valid_path_element_data_.data())};
     }
 
+    n20_parent_path_t valid_path() const {
+        return {.length = 1, .is_encoded = false, .decoded = parent_path_elements_.data()};
+    }
+
     n20_slice_t valid_context() const {
         return {valid_context_data_.size(), const_cast<uint8_t*>(valid_context_data_.data())};
     }
@@ -282,6 +288,7 @@ class ServiceMessageDispatchTest : public testing::Test {
     std::array<uint8_t, sizeof(n20_compressed_input_t)> valid_path_element_data_{};
     std::array<uint8_t, sizeof(n20_compressed_input_t)> valid_context_data_{};
     std::array<uint8_t, 2> key_usage_data_{};
+    std::array<n20_slice_t, 1> parent_path_elements_{};
 };
 
 // ---------------------------------------------------------------------------
@@ -387,14 +394,12 @@ TEST_F(ServiceMessageDispatchTest, PromoteInsufficientBufferSize) {
 // ---------------------------------------------------------------------------
 
 TEST_F(ServiceMessageDispatchTest, IssueCdiCertSuccessWrapsCertificate) {
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_cdi_cert_e,
         .payload = {.issue_cdi_cert = {.issuer_key_type = n20_crypto_key_type_ed25519_e,
                                        .subject_key_type = n20_crypto_key_type_ed25519_e,
                                        .next_context = {},
-                                       .parent_path_length = 1,
-                                       .parent_path = {path},
+                                       .parent_path = valid_path(),
                                        .certificate_format = n20_certificate_format_x509_e}},
     };
 
@@ -419,44 +424,11 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertSuccessWrapsCertificate) {
     EXPECT_EQ(0, memcmp(cert_payload_data_.data(), cert.buffer, kCertSize));
 }
 
-TEST_F(ServiceMessageDispatchTest, IssueCdiCertRejectsPathTooLong) {
-    n20_slice_t const path = valid_path_element();
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_cdi_cert_e,
-        .payload = {.issue_cdi_cert = {.parent_path_length = N20_STATELESS_MAX_PATH_LENGTH + 1,
-                                       .parent_path = {path}}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.issue_cdi_cert_calls);
-    EXPECT_EQ(n20_error_parent_path_size_exceeds_max_e, parse_error_response(response));
-}
-
-TEST_F(ServiceMessageDispatchTest, IssueCdiCertRejectsPathElementWithWrongSize) {
-    // Path element one byte too short.
-    n20_slice_t bad_element = valid_path_element();
-    bad_element.size -= 1;
-
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_cdi_cert_e,
-        .payload = {.issue_cdi_cert = {.parent_path_length = 1, .parent_path = {bad_element}}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.issue_cdi_cert_calls);
-    EXPECT_EQ(n20_error_incompatible_compressed_input_size_e, parse_error_response(response));
-}
-
 TEST_F(ServiceMessageDispatchTest, IssueCdiCertForwardsServiceError) {
     state_.issue_cdi_cert_rc = n20_error_crypto_invalid_context_e;
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_cdi_cert_e,
-        .payload = {.issue_cdi_cert = {.parent_path_length = 1, .parent_path = {path}}},
+        .payload = {.issue_cdi_cert = {.parent_path = valid_path()}},
     };
 
     auto const [rc, response] = dispatch(encode_request(req));
@@ -466,18 +438,17 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertForwardsServiceError) {
     EXPECT_EQ(n20_error_crypto_invalid_context_e, parse_error_response(response));
 }
 
-// This test covers the case where the dispatcher runs out of buffer response buffer
+// This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, IssueCdiCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
-    // thest payload not not for the response header.
+    // test payload but not for the response header.
     size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_cdi_cert_e,
-        .payload = {.issue_cdi_cert = {.parent_path_length = 1, .parent_path = {path}}},
+        .payload = {.issue_cdi_cert = {.parent_path = valid_path()}},
     };
 
     n20_error_t rc = n20_service_message_dispatch(
@@ -492,13 +463,11 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertInsufficientBufferSize) {
 // ---------------------------------------------------------------------------
 
 TEST_F(ServiceMessageDispatchTest, IssueEcaCertSuccessWrapsCertificate) {
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_eca_cert_e,
         .payload = {.issue_eca_cert = {.issuer_key_type = n20_crypto_key_type_ed25519_e,
                                        .subject_key_type = n20_crypto_key_type_ed25519_e,
-                                       .parent_path_length = 1,
-                                       .parent_path = {path},
+                                       .parent_path = valid_path(),
                                        .certificate_format = n20_certificate_format_x509_e,
                                        .challenge = {}}},
     };
@@ -522,43 +491,12 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertSuccessWrapsCertificate) {
     EXPECT_EQ(0, memcmp(cert_payload_data_.data(), cert.buffer, kCertSize));
 }
 
-TEST_F(ServiceMessageDispatchTest, IssueEcaCertRejectsPathElementWithWrongSize) {
-    n20_slice_t bad_element = valid_path_element();
-    bad_element.size += 1;  // One byte too long.
-
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_eca_cert_e,
-        .payload = {.issue_eca_cert = {.parent_path_length = 1, .parent_path = {bad_element}}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.issue_eca_cert_calls);
-    EXPECT_EQ(n20_error_incompatible_compressed_input_size_e, parse_error_response(response));
-}
-
-TEST_F(ServiceMessageDispatchTest, IssueEcaCertRejectsPathTooLong) {
-    n20_slice_t const path = valid_path_element();
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_eca_cert_e,
-        .payload = {.issue_eca_cert = {.parent_path_length = N20_STATELESS_MAX_PATH_LENGTH + 1,
-                                       .parent_path = {path}}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.issue_eca_cert_calls);
-    EXPECT_EQ(n20_error_parent_path_size_exceeds_max_e, parse_error_response(response));
-}
-
 TEST_F(ServiceMessageDispatchTest, IssueEcaCertForwardsServiceError) {
     state_.issue_eca_cert_rc = n20_error_missing_crypto_context_e;
     n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_eca_cert_e,
-        .payload = {.issue_eca_cert = {.parent_path_length = 1, .parent_path = {path}}},
+        .payload = {.issue_eca_cert = {.parent_path = valid_path()}},
     };
 
     auto const [rc, response] = dispatch(encode_request(req));
@@ -568,18 +506,17 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertForwardsServiceError) {
     EXPECT_EQ(n20_error_missing_crypto_context_e, parse_error_response(response));
 }
 
-// This test covers the case where the dispatcher runs out of buffer response buffer
+// This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, IssueEcaCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
-    // thest payload not not for the response header.
+    // test payload but not for the response header.
     size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_eca_cert_e,
-        .payload = {.issue_eca_cert = {.parent_path_length = 1, .parent_path = {path}}},
+        .payload = {.issue_eca_cert = {.parent_path = valid_path()}},
     };
 
     n20_error_t rc = n20_service_message_dispatch(
@@ -594,13 +531,11 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertInsufficientBufferSize) {
 // ---------------------------------------------------------------------------
 
 TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertSuccessWrapsCertificate) {
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_eca_ee_cert_e,
         .payload = {.issue_eca_ee_cert = {.issuer_key_type = n20_crypto_key_type_ed25519_e,
                                           .subject_key_type = n20_crypto_key_type_ed25519_e,
-                                          .parent_path_length = 1,
-                                          .parent_path = {path},
+                                          .parent_path = valid_path(),
                                           .certificate_format = n20_certificate_format_x509_e,
                                           .name = {4, "test"},
                                           .key_usage = key_usage(),
@@ -626,43 +561,11 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertSuccessWrapsCertificate) {
     EXPECT_EQ(0, memcmp(cert_payload_data_.data(), cert.buffer, kCertSize));
 }
 
-TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertRejectsPathTooLong) {
-    n20_slice_t const path = valid_path_element();
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_eca_ee_cert_e,
-        .payload = {.issue_eca_ee_cert = {.parent_path_length = N20_STATELESS_MAX_PATH_LENGTH + 1,
-                                          .parent_path = {path}}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.issue_eca_ee_cert_calls);
-    EXPECT_EQ(n20_error_parent_path_size_exceeds_max_e, parse_error_response(response));
-}
-
-TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertRejectsPathElementWithWrongSize) {
-    n20_slice_t bad_element = valid_path_element();
-    bad_element.size += 1;  // One byte too long.
-
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_eca_ee_cert_e,
-        .payload = {.issue_eca_ee_cert = {.parent_path_length = 1, .parent_path = {bad_element}}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.issue_eca_ee_cert_calls);
-    EXPECT_EQ(n20_error_incompatible_compressed_input_size_e, parse_error_response(response));
-}
-
 TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertForwardsServiceError) {
     state_.issue_eca_ee_cert_rc = n20_error_unsupported_certificate_format_e;
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_eca_ee_cert_e,
-        .payload = {.issue_eca_ee_cert = {.parent_path_length = 1, .parent_path = {path}}},
+        .payload = {.issue_eca_ee_cert = {.parent_path = valid_path()}},
     };
 
     auto const [rc, response] = dispatch(encode_request(req));
@@ -672,18 +575,17 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertForwardsServiceError) {
     EXPECT_EQ(n20_error_unsupported_certificate_format_e, parse_error_response(response));
 }
 
-// This test covers the case where the dispatcher runs out of buffer response buffer
+// This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
-    // thest payload not not for the response header.
+    // test payload but not for the response header.
     size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_eca_ee_cert_e,
-        .payload = {.issue_eca_ee_cert = {.parent_path_length = 1, .parent_path = {path}}},
+        .payload = {.issue_eca_ee_cert = {.parent_path = valid_path()}},
     };
 
     n20_error_t rc = n20_service_message_dispatch(
@@ -697,8 +599,7 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertInsufficientBufferSize) {
 // ECA EE sign tests
 // ---------------------------------------------------------------------------
 
-TEST_F(ServiceMessageDispatchTest, EcaIllinitializedContext) {
-
+TEST_F(ServiceMessageDispatchTest, EcaIllInitializedContext) {
     n20_msg_request_t req{};
 
     ctx_.ops->n20_srv_promote = nullptr;
@@ -754,13 +655,11 @@ TEST_F(ServiceMessageDispatchTest, DispatchWithNullResponseBufferSize) {
 }
 
 TEST_F(ServiceMessageDispatchTest, EcaEeSignSuccessWrapsSignature) {
-    n20_slice_t const path = valid_path_element();
     std::array<uint8_t, 4> const msg_bytes = {0x01, 0x02, 0x03, 0x04};
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_eca_ee_sign_e,
         .payload = {.eca_ee_sign = {.subject_key_type = n20_crypto_key_type_ed25519_e,
-                                    .parent_path_length = 1,
-                                    .parent_path = {path},
+                                    .parent_path = valid_path(),
                                     .name = {6, "signer"},
                                     .key_usage = key_usage(),
                                     .message = {msg_bytes.size(),
@@ -787,55 +686,12 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignSuccessWrapsSignature) {
     EXPECT_EQ(0, memcmp(sign_payload_data_.data(), sig.buffer, kSignSize));
 }
 
-TEST_F(ServiceMessageDispatchTest, EcaEeSignRejectsPathTooLong) {
-    n20_slice_t const path = valid_path_element();
-    std::array<uint8_t, 1> const msg_bytes = {0x42};
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_eca_ee_sign_e,
-        .payload = {.eca_ee_sign = {.parent_path_length = N20_STATELESS_MAX_PATH_LENGTH + 1,
-                                    .parent_path = {path},
-                                    .name = {3, "key"},
-                                    .key_usage = key_usage(),
-                                    .message = {msg_bytes.size(),
-                                                const_cast<uint8_t*>(msg_bytes.data())}}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.sign_calls);
-    EXPECT_EQ(n20_error_parent_path_size_exceeds_max_e, parse_error_response(response));
-}
-
-TEST_F(ServiceMessageDispatchTest, EcaEeSignRejectsPathElementWithWrongSize) {
-    n20_slice_t bad_element = valid_path_element();
-    bad_element.size -= 1;
-    std::array<uint8_t, 1> const msg_bytes = {0xFF};
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_eca_ee_sign_e,
-        .payload = {.eca_ee_sign = {.parent_path_length = 1,
-                                    .parent_path = {bad_element},
-                                    .name = {3, "key"},
-                                    .key_usage = key_usage(),
-                                    .message = {msg_bytes.size(),
-                                                const_cast<uint8_t*>(msg_bytes.data())}}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.sign_calls);
-    EXPECT_EQ(n20_error_incompatible_compressed_input_size_e, parse_error_response(response));
-}
-
 TEST_F(ServiceMessageDispatchTest, EcaEeSignForwardsServiceError) {
     state_.sign_rc = n20_error_missing_crypto_context_e;
-    n20_slice_t const path = valid_path_element();
     std::array<uint8_t, 2> const msg_bytes = {0xAA, 0xBB};
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_eca_ee_sign_e,
-        .payload = {.eca_ee_sign = {.parent_path_length = 1,
-                                    .parent_path = {path},
+        .payload = {.eca_ee_sign = {.parent_path = valid_path(),
                                     .name = {3, "key"},
                                     .key_usage = key_usage(),
                                     .message = {msg_bytes.size(),
@@ -849,18 +705,17 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignForwardsServiceError) {
     EXPECT_EQ(n20_error_missing_crypto_context_e, parse_error_response(response));
 }
 
-// This test covers the case where the dispatcher runs out of buffer response buffer
+// This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
 TEST_F(ServiceMessageDispatchTest, EcaEeSignEeCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
-    // thest payload not not for the response header.
+    // test payload but not for the response header.
     size_t const original_size = response_buffer_.size();
     size_t response_size = state_.sign_payload.size;
 
-    n20_slice_t const path = valid_path_element();
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_eca_ee_sign_e,
-        .payload = {.eca_ee_sign = {.parent_path_length = 1, .parent_path = {path}}},
+        .payload = {.eca_ee_sign = {.parent_path = valid_path()}},
     };
 
     n20_error_t rc = n20_service_message_dispatch(
@@ -871,7 +726,7 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignEeCertInsufficientBufferSize) {
 
 TEST_F(ServiceMessageDispatchTest, WritePositionOverflow) {
     // This test covers the case where the service writes so large of a response
-    // that it doesn't just overflow the prived buffer but the write position
+    // that it doesn't just overflow the provided buffer but the write position
     // counter.
 
     size_t const original_size = response_buffer_.size();
