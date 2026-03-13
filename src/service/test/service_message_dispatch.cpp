@@ -221,7 +221,10 @@ class ServiceMessageDispatchTest : public testing::Test {
     std::tuple<n20_error_t, n20_slice_t> dispatch(n20_slice_t message) {
         size_t sz = response_buffer_.size();
         n20_error_t rc = n20_service_message_dispatch(&ctx_, response_buffer_.data(), &sz, message);
-        n20_slice_t response = {sz, response_buffer_.data() + (response_buffer_.size() - sz)};
+        n20_slice_t response = {sz,
+                                sz <= response_buffer_.size()
+                                    ? response_buffer_.data() + (response_buffer_.size() - sz)
+                                    : nullptr};
         return {rc, response};
     }
 

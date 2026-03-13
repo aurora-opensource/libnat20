@@ -191,9 +191,16 @@ typedef struct n20_msg_promote_request_s n20_msg_promote_request_t;
  * in the memory management of the parent path. For encoding, the caller
  * can provide an array of slices that get encoded into a CBOR structure
  * in one pass, while for decoding the library need not allocate a slice
- * array buffer, but deferrs parsing the parent path until the caller
+ * array buffer, but instead defers parsing the parent path until the caller
  * iterates over it with @ref n20_msg_parent_path_iterate().
  *
+ * ## Encoded CDDL
+ * \code
+ * compressed_context_array = [* compressed_context_bytes]
+ * compressed_context_bytes = bstr
+ * \endcode
+ *
+ * ## Empty Parent Path
  * An empty parent path should be initialized as
  * `{ .length = 0, .is_encoded = false, .decoded = NULL }`.
  */
@@ -309,8 +316,9 @@ struct n20_msg_issue_cdi_cert_request_s {
     /**
      * @brief The compressed path to the parent CDI.
      *
-     * This slice points to a CBOR array containing the compressed contexts used to derive
-     * the parent CDI from the root UDS (Unique Device Secret).
+     * One of two representations of the parent path used in CDI derivation.
+     * The parent path is a sequence of compressed contexts that define the
+     * lineage of CDIs leading to the parent of the new CDI.
      */
     n20_parent_path_t parent_path;
 
