@@ -92,19 +92,6 @@ extern "C" {
  */
 
 /**
- * @brief Maximum number of elements allowed in a parent path.
- *
- * This limit prevents unbounded memory allocation and ensures predictable
- * performance. Paths longer than this limit will be rejected.
- *
- * This value can be adjusted using -DNAT20_STATELESS_MAX_PATH_LENGTH=<value>
- * during cmake configuration. The default is 8.
- */
-#ifndef N20_STATELESS_MAX_PATH_LENGTH
-#define N20_STATELESS_MAX_PATH_LENGTH 8
-#endif
-
-/**
  * @brief Request type enumeration for NAT20 service operations.
  *
  * Each value corresponds to a specific operation that can be performed
@@ -193,6 +180,101 @@ struct n20_msg_promote_request_s {
 typedef struct n20_msg_promote_request_s n20_msg_promote_request_t;
 
 /**
+ * @brief Parent path structure.
+ *
+ * Represents a path of parent contexts used in CDI derivation.
+ * The path can be either encoded as a single byte string or decoded
+ * as an array of individual slices.
+ *
+ * The `is_encoded` flag indicates whether the `encoded` field is valid
+ * or if the `decoded` array should be used. This allows for flexibility
+ * in the memory management of the parent path. For encoding, the caller
+ * can provide an array of slices that get encoded into a CBOR structure
+ * in one pass, while for decoding the library need not allocate a slice
+ * array buffer, but deferrs parsing the parent path until the caller
+ * iterates over it with @ref n20_msg_parent_path_iterate().
+ *
+ * An empty parent path should be initialized as
+ * `{ .length = 0, .is_encoded = false, .decoded = NULL }`.
+ */
+struct n20_parent_path_s {
+    /**
+     * @brief The number of elements in the parent path.
+     */
+    size_t length;
+    /**
+     * @brief Indicates whether the parent path is encoded.
+     *
+     * If true, the `encoded` field is valid. If false, the `decoded`
+     * array should be used.
+     */
+    bool is_encoded;
+    union {
+        /**
+         * @brief Encoded parent path.
+         *
+         * This field is valid if `is_encoded` is true.
+         */
+        n20_slice_t encoded;
+        /**
+         * @brief Decoded parent path.
+         *
+         * This field is valid if `is_encoded` is false.
+         * The `decoded` array contains the individual elements of the
+         * parent path as slices. The caller is responsible for ensuring
+         * that the `decoded` array has at least `length` elements.
+         */
+        n20_slice_t const *decoded;
+    };
+};
+
+/**
+ * @brief Empty parent path initializer.
+ *
+ * This macro provides a convenient way to initialize an empty parent path.
+ */
+#define N20_MSG_PARENT_PATH_EMPTY \
+    ((n20_parent_path_t){.length = 0, .is_encoded = false, .decoded = NULL})
+
+/**
+ * @brief Alias for @ref n20_parent_path_s.
+ */
+typedef struct n20_parent_path_s n20_parent_path_t;
+
+/**
+ * @brief Callback type for iterating over parent path elements.
+ *
+ * This callback is invoked for each element in the parent path during iteration.
+ *
+ * @param ctx User-defined context passed to the iterator.
+ * @param element The current element in the parent path.
+ * @return An error code indicating success or failure.
+ */
+typedef n20_error_t (*n20_msg_parent_path_element_cb_t)(void *ctx, n20_slice_t element);
+
+/**
+ * @brief Iterate over parent path elements.
+ *
+ * This function iterates over each element in the parent path and invokes
+ * the provided callback for each element.
+ *
+ * If the parent path is encoded, this function will decode the path
+ * on-the-fly and invoke the callback for each decoded element.
+ * The `element` slice points into the original encoded buffer.
+ *
+ * If the parent path is not encoded, this function will simply iterate
+ * over the `decoded` array and invoke the callback for each element.
+ *
+ * @param path The parent path to iterate over.
+ * @param cb The callback to invoke for each element.
+ * @param ctx User-defined context passed to the callback.
+ * @return An error code indicating success or failure.
+ */
+n20_error_t n20_msg_parent_path_iterate(n20_parent_path_t const *path,
+                                        n20_msg_parent_path_element_cb_t cb,
+                                        void *ctx);
+
+/**
  * @brief CDI certificate issuance request payload.
  *
  * Contains all information needed to issue a CDI certificate including
@@ -225,20 +307,12 @@ struct n20_msg_issue_cdi_cert_request_s {
     n20_open_dice_input_t next_context;
 
     /**
-     * @brief The length of the parent path.
-     *
-     * Number of valid elements in the parent_path array.
-     * Must be ≤ N20_STATELESS_MAX_PATH_LENGTH.
-     */
-    size_t parent_path_length;
-
-    /**
      * @brief The compressed path to the parent CDI.
      *
-     * Array of compressed contexts used to derive the parent CDI
-     * from the root UDS (Unique Device Secret).
+     * This slice points to a CBOR array containing the compressed contexts used to derive
+     * the parent CDI from the root UDS (Unique Device Secret).
      */
-    n20_slice_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
+    n20_parent_path_t parent_path;
 
     /**
      * @brief The format of the certificate to be issued.
@@ -277,20 +351,12 @@ struct n20_msg_issue_eca_cert_request_s {
     n20_crypto_key_type_t subject_key_type;
 
     /**
-     * @brief The length of the parent path.
-     *
-     * Number of valid elements in the parent_path array.
-     * Must be ≤ N20_STATELESS_MAX_PATH_LENGTH.
-     */
-    size_t parent_path_length;
-
-    /**
      * @brief The compressed path to the parent CDI.
      *
-     * Array of compressed contexts used to derive the parent secret
-     * for ECA key generation.
+     * This slice points to a CBOR array containing the compressed contexts used to derive
+     * the parent secret for ECA key generation.
      */
-    n20_slice_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
+    n20_parent_path_t parent_path;
 
     /**
      * @brief The format of the certificate to be issued.
@@ -337,20 +403,12 @@ struct n20_msg_issue_eca_ee_cert_request_s {
     n20_crypto_key_type_t subject_key_type;
 
     /**
-     * @brief The length of the parent path.
-     *
-     * Number of valid elements in the parent_path array.
-     * Must be ≤ N20_STATELESS_MAX_PATH_LENGTH.
-     */
-    size_t parent_path_length;
-
-    /**
      * @brief The compressed path to the parent CDI.
      *
-     * Array of compressed contexts used to derive the parent secret
-     * for ECA key generation.
+     * This slice points to a CBOR array containing the compressed contexts used to derive
+     * the parent secret for ECA key generation.
      */
-    n20_slice_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
+    n20_parent_path_t parent_path;
 
     /**
      * @brief The format of the certificate to be issued.
@@ -404,20 +462,12 @@ struct n20_msg_eca_ee_sign_request_s {
     n20_crypto_key_type_t subject_key_type;
 
     /**
-     * @brief The length of the parent path.
-     *
-     * Number of valid elements in the parent_path array.
-     * Must be ≤ N20_STATELESS_MAX_PATH_LENGTH.
-     */
-    size_t parent_path_length;
-
-    /**
      * @brief The compressed path to the parent CDI.
      *
-     * Array of compressed contexts used to derive the parent secret
-     * for ECA key generation.
+     * This slice points to a CBOR array containing the compressed contexts used to derive
+     * the parent secret for ECA key generation.
      */
-    n20_slice_t parent_path[N20_STATELESS_MAX_PATH_LENGTH];
+    n20_parent_path_t parent_path;
 
     /**
      * @brief Context descriptor of the key identity and/or purpose.
