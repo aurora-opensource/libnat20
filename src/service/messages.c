@@ -263,6 +263,11 @@ n20_error_t n20_msg_read_parent_path_header(n20_istream_t* istream, size_t* path
         return n20_error_unexpected_message_structure_e;
     }
 
+    if (cbor_value > SIZE_MAX) {
+        /* The parent path length is too large to handle. */
+        return n20_error_unexpected_message_structure_e;
+    }
+
     *path_length_out = cbor_value;
     return n20_error_ok_e;
 }
@@ -276,6 +281,12 @@ n20_error_t n20_msg_read_parent_path_element(n20_istream_t* istream, n20_slice_t
         /* Each item in the array must be a byte string. */
         return n20_error_unexpected_message_structure_e;
     }
+
+    if (cbor_value > SIZE_MAX) {
+        /* The parent path element is too large to handle. */
+        return n20_error_unexpected_message_structure_e;
+    }
+
     if (!n20_istream_get_slice(istream, element, cbor_value)) {
         return n20_error_unexpected_message_structure_e;
     }
