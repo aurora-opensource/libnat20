@@ -92,40 +92,60 @@ static n20_error_t n20_gnostic_promote(void* ctx, n20_msg_promote_request_t* req
     return n20_error_ok_e;
 }
 
+typedef struct n20_resolve_path_iterator_ctx_s {
+    n20_crypto_context_t* crypto_ctx;
+    n20_crypto_key_t current_secret;
+    size_t index;
+} n20_resolve_path_iterator_ctx_t;
+
+static n20_error_t n20_resolve_path_iterator_cb(void* ctx, n20_slice_t element) {
+    n20_resolve_path_iterator_ctx_t* ictx = (n20_resolve_path_iterator_ctx_t*)ctx;
+
+    n20_crypto_key_t next = NULL;
+    n20_error_t error =
+        n20_next_level_cdi_attest(ictx->crypto_ctx,
+                                  ictx->current_secret,
+                                  &next,
+                                  element); /* crypto_ctx is not needed for path resolution */
+    if (ictx->index > 0) {
+        /* Free the previous secret if this is not the first element. */
+        ictx->crypto_ctx->key_free(ictx->crypto_ctx, ictx->current_secret);
+    }
+    if (error != n20_error_ok_e) {
+        ictx->current_secret = NULL;
+        return error;
+    }
+
+    ictx->current_secret = next;
+    ictx->index++;
+    return n20_error_ok_e;
+}
+
 static n20_error_t n20_resolve_path(n20_crypto_context_t* crypto_ctx,
                                     n20_crypto_key_t parent_secret,
-                                    n20_slice_t* parent_path,
-                                    size_t parent_path_size,
+                                    n20_parent_path_t const* parent_path,
                                     n20_crypto_key_t* resolved_key) {
     n20_crypto_key_t current_secret = parent_secret;
 
-    if (parent_path_size == 0 || parent_path == NULL) {
+    if (parent_path == NULL || parent_path->length == 0) {
         *resolved_key = current_secret;
         return n20_error_ok_e;
     }
 
-    size_t i = 0;
+    n20_resolve_path_iterator_ctx_t ictx = {
+        .crypto_ctx = crypto_ctx,
+        .current_secret = current_secret,
+        .index = 0,
+    };
 
-    n20_crypto_key_t next = NULL;
     n20_error_t error =
-        n20_next_level_cdi_attest(crypto_ctx, current_secret, &next, parent_path[i]);
+        n20_msg_parent_path_iterate(parent_path, n20_resolve_path_iterator_cb, &ictx);
     if (error != n20_error_ok_e) {
         return error;
     }
-    current_secret = next;
-    ++i;
 
-    while (i < parent_path_size) {
-        error = n20_next_level_cdi_attest(crypto_ctx, current_secret, &next, parent_path[i]);
-        crypto_ctx->key_free(crypto_ctx, current_secret);
-        if (error != n20_error_ok_e) {
-            return error;
-        }
-        current_secret = next;
-        ++i;
-    }
+    *resolved_key = ictx.current_secret;
 
-    *resolved_key = current_secret;
     return n20_error_ok_e;
 }
 
@@ -147,11 +167,8 @@ static n20_error_t n20_gnostic_issue_cdi_certificate(void* ctx,
 
     n20_crypto_key_t issuer_secret = node_state->min_cdi;
 
-    error = n20_resolve_path(node_state->crypto_context,
-                             issuer_secret,
-                             request->parent_path,
-                             request->parent_path_length,
-                             &issuer_secret);
+    error = n20_resolve_path(
+        node_state->crypto_context, issuer_secret, &request->parent_path, &issuer_secret);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -170,7 +187,7 @@ static n20_error_t n20_gnostic_issue_cdi_certificate(void* ctx,
                                   certificate_size_in_out);
 
     /* Do not release the issuer secret if it is the node's min_cdi. */
-    if (request->parent_path_length > 0) {
+    if (request->parent_path.length > 0) {
         node_state->crypto_context->key_free(node_state->crypto_context, issuer_secret);
     }
     return error;
@@ -194,11 +211,8 @@ static n20_error_t n20_gnostic_issue_eca_certificate(void* ctx,
 
     n20_crypto_key_t parent_secret = node_state->min_cdi;
 
-    error = n20_resolve_path(node_state->crypto_context,
-                             parent_secret,
-                             request->parent_path,
-                             request->parent_path_length,
-                             &parent_secret);
+    error = n20_resolve_path(
+        node_state->crypto_context, parent_secret, &request->parent_path, &parent_secret);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -216,7 +230,7 @@ static n20_error_t n20_gnostic_issue_eca_certificate(void* ctx,
                                   certificate_out,
                                   certificate_size_in_out);
 
-    if (request->parent_path_length > 0) {
+    if (request->parent_path.length > 0) {
         node_state->crypto_context->key_free(node_state->crypto_context, parent_secret);
     }
     return error;
@@ -241,11 +255,8 @@ static n20_error_t n20_gnostic_issue_eca_ee_certificate(
 
     n20_crypto_key_t parent_secret = node_state->min_cdi;
 
-    error = n20_resolve_path(node_state->crypto_context,
-                             parent_secret,
-                             request->parent_path,
-                             request->parent_path_length,
-                             &parent_secret);
+    error = n20_resolve_path(
+        node_state->crypto_context, parent_secret, &request->parent_path, &parent_secret);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -284,7 +295,7 @@ static n20_error_t n20_gnostic_issue_eca_ee_certificate(
                                   certificate_size_in_out);
 
 err_out:
-    if (request->parent_path_length > 0) {
+    if (request->parent_path.length > 0) {
         node_state->crypto_context->key_free(node_state->crypto_context, parent_secret);
     }
     return error;
@@ -308,11 +319,8 @@ static n20_error_t n20_gnostic_eca_ee_sign(void* ctx,
 
     n20_crypto_key_t parent_secret = node_state->min_cdi;
 
-    error = n20_resolve_path(node_state->crypto_context,
-                             parent_secret,
-                             request->parent_path,
-                             request->parent_path_length,
-                             &parent_secret);
+    error = n20_resolve_path(
+        node_state->crypto_context, parent_secret, &request->parent_path, &parent_secret);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -333,7 +341,7 @@ static n20_error_t n20_gnostic_eca_ee_sign(void* ctx,
                                     signature_size);
 
 err_out:
-    if (request->parent_path_length > 0) {
+    if (request->parent_path.length > 0) {
         node_state->crypto_context->key_free(node_state->crypto_context, parent_secret);
     }
     return error;

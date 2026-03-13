@@ -127,6 +127,13 @@ class GnosticNodeTest : public testing::Test {
         ASSERT_EQ(n20_error_ok_e,
                   n20_crypto_boringssl_make_secret(crypto_context_, &secret, &state_.min_cdi));
         state_.crypto_context = &mock_crypto_context_;
+
+        // Initialize parent path elements to distinct values for easier debugging.
+        for (size_t i = 0; i < parent_path_elements_.size(); ++i) {
+            parent_path_elements_[i].fill(static_cast<uint8_t>(0x11 * i));
+            parent_path_elements_slices_[i] = {sizeof(n20_compressed_input_t),
+                                               parent_path_elements_[i].data()};
+        }
     }
 
     void TearDown() override {
@@ -151,6 +158,10 @@ class GnosticNodeTest : public testing::Test {
         return {sizeof(n20_compressed_input_t), const_cast<uint8_t*>(compressed_context_.data())};
     }
 
+    n20_parent_path_t valid_path() {
+        return {.length = 2, .is_encoded = false, .decoded = parent_path_elements_slices_.data()};
+    }
+
     n20_crypto_context_t* crypto_context_ = nullptr;
     MockCryptoContext mock_crypto_context_;
     n20_gnostic_node_state_t state_{};
@@ -159,6 +170,8 @@ class GnosticNodeTest : public testing::Test {
     std::array<uint8_t, sizeof(n20_compressed_input_t)> compressed_context_{};
     std::array<uint8_t, 4096> cert_buffer_{};
     std::array<uint8_t, 256> sign_buffer_{};
+    std::array<std::array<uint8_t, sizeof(n20_compressed_input_t)>, 4> parent_path_elements_{};
+    std::array<n20_slice_t, 4> parent_path_elements_slices_{};
 };
 
 // ---------------------------------------------------------------------------
@@ -318,15 +331,8 @@ TEST_F(GnosticNodeTest, ForwardPromoteCryptoErrors) {
 }
 
 TEST_F(GnosticNodeTest, ForwardCdiCertCryptoErrors) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
-
-    n20_msg_issue_cdi_cert_request_t req{};
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 2;
+    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
+    req.parent_path.length = 2;
 
     // Set the mock context to return an error on the next kdf call, which will be made during
     // ECA signing.
@@ -340,15 +346,8 @@ TEST_F(GnosticNodeTest, ForwardCdiCertCryptoErrors) {
 }
 
 TEST_F(GnosticNodeTest, ForwardEcaCertCryptoErrors) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
-
-    n20_msg_issue_eca_cert_request_t req{};
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 2;
+    n20_msg_issue_eca_cert_request_t req{.parent_path = valid_path()};
+    req.parent_path.length = 2;
 
     // Set the mock context to return an error on the next kdf call, which will be made during
     // ECA signing.
@@ -375,7 +374,6 @@ TEST_F(GnosticNodeTest, IssueEcaEECertEmptyKeyUsageProducesUnusableKey) {
         .subject_key_type = n20_crypto_key_type_ed25519_e,
         .certificate_format = n20_certificate_format_x509_e,
     };
-    req.parent_path_length = 0;
     req.key_usage = {0, nullptr};  // empty key usage is not allowed
 
     size_t sz = cert_buffer_.size();
@@ -391,7 +389,6 @@ TEST_F(GnosticNodeTest, IssueEcaEECertLongEmptyKeyUsageProducesUnusableKey) {
         .subject_key_type = n20_crypto_key_type_ed25519_e,
         .certificate_format = n20_certificate_format_x509_e,
     };
-    req.parent_path_length = 0;
     req.key_usage = {long_usage.size(), const_cast<uint8_t*>(long_usage.data())};
 
     size_t sz = cert_buffer_.size();
@@ -403,7 +400,6 @@ TEST_F(GnosticNodeTest, IssueEcaEECertLongEmptyKeyUsageProducesUnusableKey) {
 TEST_F(GnosticNodeTest, IssueEcaEECertLongNonEmptyKeyUsageReturnsError) {
     std::array<uint8_t, 3> const long_usage = {0, 0, 1};
     n20_msg_issue_eca_ee_cert_request_t req{};
-    req.parent_path_length = 0;
     req.key_usage = {long_usage.size(), const_cast<uint8_t*>(long_usage.data())};
 
     size_t sz = cert_buffer_.size();
@@ -415,7 +411,6 @@ TEST_F(GnosticNodeTest, IssueEcaEECertLongNonEmptyKeyUsageReturnsError) {
 TEST_F(GnosticNodeTest, IssueEcaEeCertUnsupportedKeyUsageBitReturnsError) {
     std::array<uint8_t, 1> const bad_usage = {0x02};  // bit 1 set – not allowed
     n20_msg_issue_eca_ee_cert_request_t req{};
-    req.parent_path_length = 0;
     req.key_usage = {bad_usage.size(), const_cast<uint8_t*>(bad_usage.data())};
 
     size_t sz = cert_buffer_.size();
@@ -427,7 +422,6 @@ TEST_F(GnosticNodeTest, IssueEcaEeCertUnsupportedKeyUsageBitReturnsError) {
 TEST_F(GnosticNodeTest, IssueEcaEeCertUnsupportedKeyUsageNonzeroSecondByteReturnsError) {
     std::array<uint8_t, 2> const bad_usage = {0x01, 0x01};  // second byte non-zero
     n20_msg_issue_eca_ee_cert_request_t req{};
-    req.parent_path_length = 0;
     req.key_usage = {bad_usage.size(), const_cast<uint8_t*>(bad_usage.data())};
 
     size_t sz = cert_buffer_.size();
@@ -437,15 +431,8 @@ TEST_F(GnosticNodeTest, IssueEcaEeCertUnsupportedKeyUsageNonzeroSecondByteReturn
 }
 
 TEST_F(GnosticNodeTest, ForwardEcaEECertCryptoErrors) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
-
-    n20_msg_issue_eca_ee_cert_request_t req{};
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 2;
+    n20_msg_issue_eca_ee_cert_request_t req{.parent_path = valid_path()};
+    req.parent_path.length = 2;
     req.key_usage = {0, nullptr};  // valid but empty key usage
 
     // Set the mock context to return an error on the next kdf call, which will be made during
@@ -467,7 +454,6 @@ TEST_F(GnosticNodeTest, EcaSignEmptyKeyUsageReturnsError) {
     std::array<uint8_t, 1> const bad_usage = {0x04};  // bit 2 set – not allowed
     std::array<uint8_t, 4> const msg = {0x01, 0x02, 0x03, 0x04};
     n20_msg_eca_ee_sign_request_t req{};
-    req.parent_path_length = 0;
     req.key_usage = {0, nullptr};  // empty key usage is not allowed
     req.message = {msg.size(), const_cast<uint8_t*>(msg.data())};
 
@@ -480,7 +466,6 @@ TEST_F(GnosticNodeTest, EcaSignUnsupportedKeyUsageBitReturnsError) {
     std::array<uint8_t, 1> const bad_usage = {0x04};  // bit 2 set – not allowed
     std::array<uint8_t, 4> const msg = {0x01, 0x02, 0x03, 0x04};
     n20_msg_eca_ee_sign_request_t req{};
-    req.parent_path_length = 0;
     req.key_usage = {bad_usage.size(), const_cast<uint8_t*>(bad_usage.data())};
     req.message = {msg.size(), const_cast<uint8_t*>(msg.data())};
 
@@ -493,7 +478,6 @@ TEST_F(GnosticNodeTest, EcaSignUnsupportedKeyUsageNonzeroSecondByteReturnsError)
     std::array<uint8_t, 3> const bad_usage = {0x00, 0x00, 0x01};  // third byte non-zero
     std::array<uint8_t, 4> const msg = {0xAA, 0xBB, 0xCC, 0xDD};
     n20_msg_eca_ee_sign_request_t req{};
-    req.parent_path_length = 0;
     req.key_usage = {bad_usage.size(), const_cast<uint8_t*>(bad_usage.data())};
     req.message = {msg.size(), const_cast<uint8_t*>(msg.data())};
 
@@ -503,16 +487,9 @@ TEST_F(GnosticNodeTest, EcaSignUnsupportedKeyUsageNonzeroSecondByteReturnsError)
 }
 
 TEST_F(GnosticNodeTest, ForwardEcaSignCryptoErrors) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
-
     std::array<uint8_t, 4> const msg = {0xDE, 0xAD, 0xBE, 0xEF};
-    n20_msg_eca_ee_sign_request_t req{};
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 2;
+    n20_msg_eca_ee_sign_request_t req{.parent_path = valid_path()};
+    req.parent_path.length = 2;
     req.key_usage = {0, nullptr};  // valid but empty key usage
     req.message = {msg.size(), const_cast<uint8_t*>(msg.data())};
 
@@ -547,17 +524,10 @@ TEST_F(GnosticNodeTest, PromoteSuccess) {
 }
 
 TEST_F(GnosticNodeTest, IssueCdiCertSuccess) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
-
-    n20_msg_issue_cdi_cert_request_t req{};
+    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 0;
+    req.parent_path.length = 0;
     req.certificate_format = n20_certificate_format_x509_e;
     // next_context left zero-initialised; open dice input is optional.
 
@@ -568,7 +538,7 @@ TEST_F(GnosticNodeTest, IssueCdiCertSuccess) {
     EXPECT_GT(sz, 0u);
 
     // exercise path processing (derivation and freeing of intermediates)
-    req.parent_path_length = 2;
+    req.parent_path.length = 2;
 
     sz = cert_buffer_.size();
     EXPECT_EQ(n20_error_ok_e,
@@ -578,17 +548,10 @@ TEST_F(GnosticNodeTest, IssueCdiCertSuccess) {
 }
 
 TEST_F(GnosticNodeTest, IssueEcaCertSuccess) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
-
-    n20_msg_issue_eca_cert_request_t req{};
+    n20_msg_issue_eca_cert_request_t req{.parent_path = valid_path()};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 0;
+    req.parent_path.length = 0;
     req.certificate_format = n20_certificate_format_x509_e;
     req.challenge = {0, nullptr};
 
@@ -599,7 +562,7 @@ TEST_F(GnosticNodeTest, IssueEcaCertSuccess) {
     EXPECT_GT(sz, 0u);
 
     // exercise path processing (derivation and freeing of intermediates)
-    req.parent_path_length = 2;
+    req.parent_path.length = 2;
 
     sz = cert_buffer_.size();
     EXPECT_EQ(n20_error_ok_e,
@@ -609,17 +572,11 @@ TEST_F(GnosticNodeTest, IssueEcaCertSuccess) {
 }
 
 TEST_F(GnosticNodeTest, IssueEcaEeCertSuccess) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
     std::array<uint8_t, 1> const key_usage_data = {0x01};  // digital signature
-    n20_msg_issue_eca_ee_cert_request_t req{};
+    n20_msg_issue_eca_ee_cert_request_t req{.parent_path = valid_path()};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 0;
+    req.parent_path.length = 0;
     req.certificate_format = n20_certificate_format_x509_e;
     req.name = {3, "key"};
     req.key_usage = {key_usage_data.size(), const_cast<uint8_t*>(key_usage_data.data())};
@@ -632,7 +589,7 @@ TEST_F(GnosticNodeTest, IssueEcaEeCertSuccess) {
     EXPECT_GT(sz, 0u);
 
     // exercise path processing (derivation and freeing of intermediates)
-    req.parent_path_length = 2;
+    req.parent_path.length = 2;
 
     sz = cert_buffer_.size();
     EXPECT_EQ(n20_error_ok_e,
@@ -642,17 +599,11 @@ TEST_F(GnosticNodeTest, IssueEcaEeCertSuccess) {
 }
 
 TEST_F(GnosticNodeTest, EcaSignSuccess) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
     std::array<uint8_t, 1> const key_usage_data = {0x01};  // digital signature
     std::array<uint8_t, 8> const message_data = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    n20_msg_eca_ee_sign_request_t req{};
+    n20_msg_eca_ee_sign_request_t req{.parent_path = valid_path()};
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 0;
+    req.parent_path.length = 0;
     req.name = {3, "key"};
     req.key_usage = {key_usage_data.size(), const_cast<uint8_t*>(key_usage_data.data())};
     req.message = {message_data.size(), const_cast<uint8_t*>(message_data.data())};
@@ -663,7 +614,7 @@ TEST_F(GnosticNodeTest, EcaSignSuccess) {
     EXPECT_GT(sz, 0u);
 
     // exercise path processing (derivation and freeing of intermediates)
-    req.parent_path_length = 2;
+    req.parent_path.length = 2;
 
     sz = sign_buffer_.size();
     EXPECT_EQ(n20_error_ok_e,
@@ -685,11 +636,10 @@ TEST_F(GnosticNodeTest, EcaSignSuccess) {
 // A depth-1 path exercises the straight-line derivation in n20_resolve_path
 // (the while-loop condition evaluates to false immediately).
 TEST_F(GnosticNodeTest, ResolvePathDepth1IssuesCertSuccessfully) {
-    n20_msg_issue_cdi_cert_request_t req{};
+    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req.parent_path[0] = valid_path_element();
-    req.parent_path_length = 1;
+    req.parent_path.length = 1;
     req.certificate_format = n20_certificate_format_x509_e;
 
     size_t sz = cert_buffer_.size();
@@ -702,17 +652,10 @@ TEST_F(GnosticNodeTest, ResolvePathDepth1IssuesCertSuccessfully) {
 // A depth-2 path exercises the while-loop body in n20_resolve_path, which
 // frees the intermediate derived key before proceeding.
 TEST_F(GnosticNodeTest, ResolvePathDepth2IssuesCertSuccessfully) {
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem0{};
-    std::array<uint8_t, sizeof(n20_compressed_input_t)> elem1{};
-    elem0.fill(0x11);
-    elem1.fill(0x22);
-
-    n20_msg_issue_cdi_cert_request_t req{};
+    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req.parent_path[0] = {elem0.size(), elem0.data()};
-    req.parent_path[1] = {elem1.size(), elem1.data()};
-    req.parent_path_length = 2;
+    req.parent_path.length = 2;
     req.certificate_format = n20_certificate_format_x509_e;
 
     size_t sz = cert_buffer_.size();
@@ -728,7 +671,6 @@ TEST_F(GnosticNodeTest, ResolvePathProducesDifferentCertThanNullPath) {
     n20_msg_issue_cdi_cert_request_t req_no_path{};
     req_no_path.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req_no_path.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req_no_path.parent_path_length = 0;
     req_no_path.certificate_format = n20_certificate_format_x509_e;
 
     std::array<uint8_t, 4096> cert_no_path{};
@@ -737,11 +679,10 @@ TEST_F(GnosticNodeTest, ResolvePathProducesDifferentCertThanNullPath) {
               n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
                   &state_, &req_no_path, cert_no_path.data(), &sz_no_path));
 
-    n20_msg_issue_cdi_cert_request_t req_with_path{};
+    n20_msg_issue_cdi_cert_request_t req_with_path{.parent_path = valid_path()};
     req_with_path.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req_with_path.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req_with_path.parent_path[0] = valid_path_element();
-    req_with_path.parent_path_length = 1;
+    req_with_path.parent_path.length = 1;
     req_with_path.certificate_format = n20_certificate_format_x509_e;
 
     size_t sz_with_path = cert_buffer_.size();
@@ -759,11 +700,10 @@ TEST_F(GnosticNodeTest, ResolvePathProducesDifferentCertThanNullPath) {
 // Key derivation is deterministic: two identical requests must produce
 // byte-for-byte identical certificates.
 TEST_F(GnosticNodeTest, ResolvePathIsDeterministic) {
-    n20_msg_issue_cdi_cert_request_t req{};
+    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
-    req.parent_path[0] = valid_path_element();
-    req.parent_path_length = 1;
+    req.parent_path.length = 1;
     req.certificate_format = n20_certificate_format_x509_e;
 
     std::array<uint8_t, 4096> first_cert{};
