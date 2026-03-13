@@ -235,48 +235,120 @@ n20_error_t n20_msg_open_dice_input_read(n20_istream_t* istream, void* context) 
 }
 
 static void n20_msg_compressed_context_array_write(
-    n20_stream_t* s,
-    n20_slice_t const* const compressed_context_array,
-    size_t const compressed_context_array_size) {
-    size_t i = compressed_context_array_size;
-    do {
-        --i;
-        n20_cbor_write_byte_string(s, compressed_context_array[i]);
-    } while (i != 0);
-    n20_cbor_write_array_header(s, compressed_context_array_size);
+    n20_stream_t* s, n20_parent_path_t const* const compressed_context_array) {
+
+    if (compressed_context_array->is_encoded) {
+        /* If the context is already encoded, just write it as is. */
+        n20_stream_prepend(
+            s, compressed_context_array->encoded.buffer, compressed_context_array->encoded.size);
+    } else {
+        /* Otherwise, write it as an array of byte strings. */
+        size_t i = compressed_context_array->length;
+        while (i-- > 0) {
+            n20_slice_t element = compressed_context_array->decoded[i];
+            n20_cbor_write_byte_string(s, element);
+        }
+        n20_cbor_write_array_header(s, compressed_context_array->length);
+    }
     n20_cbor_write_int(s, N20_MSG_LABEL_PARENT_PATH);
 }
 
-n20_error_t n20_msg_compressed_context_array_read(n20_istream_t* istream,
-                                                  n20_slice_t* compressed_context,
-                                                  size_t* path_length_in_out) {
+n20_error_t n20_msg_read_parent_path_header(n20_istream_t* istream, size_t* path_length_out) {
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
+
     if (!n20_cbor_read_header(istream, &cbor_type, &cbor_value) ||
         cbor_type != n20_cbor_type_array_e) {
-        /* The compressed context must be an array. */
+        /* The parent path must be an array. */
         return n20_error_unexpected_message_structure_e;
     }
 
-    if (cbor_value > *path_length_in_out) {
-        /* The path length exceeds the maximum allowed. */
-        return n20_error_parent_path_size_exceeds_max_e;
-    }
-
-    *path_length_in_out = cbor_value;
-
-    for (uint64_t i = 0; i < *path_length_in_out; ++i) {
-        if (!n20_cbor_read_header(istream, &cbor_type, &cbor_value) ||
-            cbor_type != n20_cbor_type_bytes_e) {
-            /* Each item in the array must be a byte string. */
-            return n20_error_unexpected_message_structure_e;
-        }
-        if (!n20_istream_get_slice(istream, &compressed_context[i], cbor_value)) {
-            return n20_error_unexpected_message_structure_e;
-        }
-    }
-
+    *path_length_out = cbor_value;
     return n20_error_ok_e;
+}
+
+n20_error_t n20_msg_read_parent_path_element(n20_istream_t* istream, n20_slice_t* element) {
+    n20_cbor_type_t cbor_type;
+    uint64_t cbor_value;
+
+    if (!n20_cbor_read_header(istream, &cbor_type, &cbor_value) ||
+        cbor_type != n20_cbor_type_bytes_e) {
+        /* Each item in the array must be a byte string. */
+        return n20_error_unexpected_message_structure_e;
+    }
+    if (!n20_istream_get_slice(istream, element, cbor_value)) {
+        return n20_error_unexpected_message_structure_e;
+    }
+    return n20_error_ok_e;
+}
+
+static n20_error_t n20_msg_compressed_context_array_read(n20_istream_t* istream,
+                                                         n20_parent_path_t* compressed_context) {
+
+    /* Copy the stream to preserve the original position. */
+    n20_istream_t istream_copy = *istream;
+
+    /* Read the number of elements in the path. */
+    n20_error_t err = n20_msg_read_parent_path_header(istream, &compressed_context->length);
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+
+    /* Read the elements. Just sanitize and advance the stream. */
+    for (size_t i = 0; i < compressed_context->length; ++i) {
+        err = n20_msg_read_parent_path_element(istream, NULL);
+        if (err != n20_error_ok_e) {
+            return err;
+        }
+    }
+
+    /* Get the slice for the entire array.
+     * Extract the entire array from the stream copy.
+     * This function cannot fail: If we successfully advanced istream
+     * istream_copy can be advanced by the same amount. */
+    n20_istream_get_slice(
+        &istream_copy,
+        &compressed_context->encoded,
+        n20_istream_read_position(istream) - n20_istream_read_position(&istream_copy));
+
+    compressed_context->is_encoded = true;
+    return n20_error_ok_e;
+}
+
+n20_error_t n20_msg_parent_path_iterate(n20_parent_path_t const* const path,
+                                        n20_msg_parent_path_element_cb_t cb,
+                                        void* ctx) {
+    if (path->is_encoded) {
+        n20_istream_t istream;
+        n20_istream_init(&istream, path->encoded.buffer, path->encoded.size);
+        size_t path_length;
+
+        n20_error_t err = n20_msg_read_parent_path_header(&istream, &path_length);
+        if (err != n20_error_ok_e) {
+            return err;
+        }
+
+        for (size_t i = 0; i < path_length; ++i) {
+            n20_slice_t element;
+            err = n20_msg_read_parent_path_element(&istream, &element);
+            if (err != n20_error_ok_e) {
+                return err;
+            }
+            err = cb(ctx, element);
+            if (err != n20_error_ok_e) {
+                return err;
+            }
+        }
+        return n20_error_ok_e;
+    } else {
+        for (size_t i = 0; i < path->length; ++i) {
+            n20_error_t err = cb(ctx, path->decoded[i]);
+            if (err != n20_error_ok_e) {
+                return err;
+            }
+        }
+        return n20_error_ok_e;
+    }
 }
 
 n20_error_t n20_msg_issue_cdi_cert_request_read_cb(n20_istream_t* istream,
@@ -311,9 +383,7 @@ n20_error_t n20_msg_issue_cdi_cert_request_read_cb(n20_istream_t* istream,
             }
             break;
         case N20_MSG_LABEL_PARENT_PATH:
-            request->parent_path_length = N20_STATELESS_MAX_PATH_LENGTH;
-            error = n20_msg_compressed_context_array_read(
-                istream, request->parent_path, &request->parent_path_length);
+            error = n20_msg_compressed_context_array_read(istream, &request->parent_path);
             if (error != n20_error_ok_e) {
                 return error;
             }
@@ -337,7 +407,9 @@ n20_error_t n20_msg_issue_cdi_cert_request_read_cb(n20_istream_t* istream,
 
 n20_error_t n20_msg_issue_cdi_cert_request_read(n20_istream_t* istream,
                                                 n20_msg_issue_cdi_cert_request_t* request) {
-    request->parent_path_length = 0;
+    request->parent_path.length = 0;
+    request->parent_path.is_encoded = false;
+    request->parent_path.decoded = NULL;
     request->issuer_key_type = n20_crypto_key_type_none_e;
     request->subject_key_type = n20_crypto_key_type_none_e;
     request->next_context = (n20_open_dice_input_t){0};
@@ -371,9 +443,7 @@ n20_error_t n20_msg_issue_eca_cert_request_read_cb(n20_istream_t* istream,
             request->subject_key_type = (n20_crypto_key_type_t)cbor_value;
             break;
         case N20_MSG_LABEL_PARENT_PATH:
-            request->parent_path_length = N20_STATELESS_MAX_PATH_LENGTH;
-            error = n20_msg_compressed_context_array_read(
-                istream, request->parent_path, &request->parent_path_length);
+            error = n20_msg_compressed_context_array_read(istream, &request->parent_path);
             if (error != n20_error_ok_e) {
                 return error;
             }
@@ -407,7 +477,9 @@ n20_error_t n20_msg_issue_eca_cert_request_read_cb(n20_istream_t* istream,
 
 n20_error_t n20_msg_issue_eca_cert_request_read(n20_istream_t* istream,
                                                 n20_msg_issue_eca_cert_request_t* request) {
-    request->parent_path_length = 0;
+    request->parent_path.length = 0;
+    request->parent_path.is_encoded = false;
+    request->parent_path.decoded = NULL;
     request->issuer_key_type = n20_crypto_key_type_none_e;
     request->subject_key_type = n20_crypto_key_type_none_e;
     request->certificate_format = n20_certificate_format_none_e;
@@ -442,9 +514,8 @@ n20_error_t n20_msg_issue_eca_ee_cert_request_read_cb(n20_istream_t* istream,
             request->subject_key_type = (n20_crypto_key_type_t)cbor_value;
             break;
         case N20_MSG_LABEL_PARENT_PATH:
-            request->parent_path_length = N20_STATELESS_MAX_PATH_LENGTH;
-            error = n20_msg_compressed_context_array_read(
-                istream, request->parent_path, &request->parent_path_length);
+            request->parent_path.is_encoded = true;
+            error = n20_msg_compressed_context_array_read(istream, &request->parent_path);
             if (error != n20_error_ok_e) {
                 return error;
             }
@@ -498,7 +569,9 @@ n20_error_t n20_msg_issue_eca_ee_cert_request_read_cb(n20_istream_t* istream,
 
 n20_error_t n20_msg_issue_eca_ee_cert_request_read(n20_istream_t* istream,
                                                    n20_msg_issue_eca_ee_cert_request_t* request) {
-    request->parent_path_length = 0;
+    request->parent_path.length = 0;
+    request->parent_path.is_encoded = false;
+    request->parent_path.decoded = NULL;
     request->issuer_key_type = n20_crypto_key_type_none_e;
     request->subject_key_type = n20_crypto_key_type_none_e;
     request->certificate_format = n20_certificate_format_none_e;
@@ -528,9 +601,7 @@ n20_error_t n20_msg_eca_ee_sign_request_read_cb(n20_istream_t* istream,
             request->subject_key_type = (n20_crypto_key_type_t)cbor_value;
             break;
         case N20_MSG_LABEL_PARENT_PATH:
-            request->parent_path_length = N20_STATELESS_MAX_PATH_LENGTH;
-            error = n20_msg_compressed_context_array_read(
-                istream, request->parent_path, &request->parent_path_length);
+            error = n20_msg_compressed_context_array_read(istream, &request->parent_path);
             if (error != n20_error_ok_e) {
                 return error;
             }
@@ -576,7 +647,9 @@ n20_error_t n20_msg_eca_ee_sign_request_read_cb(n20_istream_t* istream,
 
 n20_error_t n20_msg_eca_ee_sign_request_read(n20_istream_t* istream,
                                              n20_msg_eca_ee_sign_request_t* request) {
-    request->parent_path_length = 0;
+    request->parent_path.length = 0;
+    request->parent_path.is_encoded = false;
+    request->parent_path.decoded = NULL;
     request->subject_key_type = n20_crypto_key_type_none_e;
     request->name = N20_STR_NULL;
     request->key_usage = N20_SLICE_NULL;
@@ -704,9 +777,8 @@ void n20_msg_issue_cdi_cert_request_write(n20_stream_t* s,
     n20_cbor_write_int(s, (uint64_t)request->certificate_format);
     n20_cbor_write_int(s, N20_MSG_LABEL_CERTIFICATE_FORMAT);
 
-    if (request->parent_path_length > 0) {
-        n20_msg_compressed_context_array_write(
-            s, request->parent_path, request->parent_path_length);
+    if (request->parent_path.length > 0) {
+        n20_msg_compressed_context_array_write(s, &request->parent_path);
         ++pairs;
     }
 
@@ -736,9 +808,8 @@ void n20_msg_issue_eca_cert_request_write(n20_stream_t* s,
     n20_cbor_write_int(s, (uint64_t)request->certificate_format);
     n20_cbor_write_int(s, N20_MSG_LABEL_CERTIFICATE_FORMAT);
 
-    if (request->parent_path_length > 0) {
-        n20_msg_compressed_context_array_write(
-            s, request->parent_path, request->parent_path_length);
+    if (request->parent_path.length > 0) {
+        n20_msg_compressed_context_array_write(s, &request->parent_path);
         ++pairs;
     }
 
@@ -777,9 +848,8 @@ void n20_msg_issue_eca_ee_cert_request_write(n20_stream_t* s,
     n20_cbor_write_int(s, (uint64_t)request->certificate_format);
     n20_cbor_write_int(s, N20_MSG_LABEL_CERTIFICATE_FORMAT);
 
-    if (request->parent_path_length > 0) {
-        n20_msg_compressed_context_array_write(
-            s, request->parent_path, request->parent_path_length);
+    if (request->parent_path.length > 0) {
+        n20_msg_compressed_context_array_write(s, &request->parent_path);
         ++pairs;
     }
 
@@ -812,9 +882,8 @@ void n20_msg_eca_ee_sign_request_write(n20_stream_t* s,
         ++pairs;
     }
 
-    if (request->parent_path_length > 0) {
-        n20_msg_compressed_context_array_write(
-            s, request->parent_path, request->parent_path_length);
+    if (request->parent_path.length > 0) {
+        n20_msg_compressed_context_array_write(s, &request->parent_path);
         ++pairs;
     }
 
