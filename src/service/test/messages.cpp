@@ -169,7 +169,7 @@ static void compare_parent_path(n20_slice_t const* expected,
                                 size_t expected_length,
                                 n20_parent_path_t const* got) {
     size_t parent_path_index = 0;
-    EXPECT_EQ(expected_length, got->length);
+    ASSERT_EQ(expected_length, got->length);
 
     auto closure = [&](n20_slice_t element) -> n20_error_t {
         EXPECT_EQ(element.size, expected[parent_path_index].size);
