@@ -47,25 +47,6 @@
 #include <nat20/stream.h>
 #include <nat20/types.h>
 
-static n20_error_t sanitize_parent_path(size_t parent_path_length, n20_slice_t const* parent_path) {
-    if (parent_path_length > N20_STATELESS_MAX_PATH_LENGTH) {
-        /*
-         * This is not reachable by tests because the message parser will
-         * reject messages with too long parent paths, but we
-         * include this check for completeness and future-proofing.
-         */
-        return n20_error_parent_path_size_exceeds_max_e;
-    }
-
-    for (size_t i = 0; i < parent_path_length; ++i) {
-        if (parent_path[i].size != sizeof(n20_compressed_input_t)) {
-            // Handle error: invalid parent path size
-            return n20_error_incompatible_compressed_input_size_e;
-        }
-    }
-    return n20_error_ok_e;
-}
-
 static n20_error_t prefix_response_header(uint8_t* response_buffer,
                                           size_t* response_size_in_out,
                                           size_t total_buffer_size,
@@ -124,14 +105,9 @@ static n20_error_t dispatch_issue_cdi_cert_request(n20_service_message_dispatch_
         return n20_error_request_type_not_implemented_e;
     }
 
-    n20_error_t rc = sanitize_parent_path(request->parent_path_length, request->parent_path);
-    if (rc != n20_error_ok_e) {
-        return rc;
-    }
-
     size_t const total_buffer_size = *response_size_in_out;
 
-    rc = ctx->ops->n20_srv_issue_cdi_certificate(
+    n20_error_t rc = ctx->ops->n20_srv_issue_cdi_certificate(
         ctx->ctx, request, response_buffer, response_size_in_out);
 
     if (rc != n20_error_ok_e && rc != n20_error_insufficient_buffer_size_e) {
@@ -150,14 +126,9 @@ static n20_error_t dispatch_issue_eca_cert_request(n20_service_message_dispatch_
         return n20_error_request_type_not_implemented_e;
     }
 
-    n20_error_t rc = sanitize_parent_path(request->parent_path_length, request->parent_path);
-    if (rc != n20_error_ok_e) {
-        return rc;
-    }
-
     size_t const total_buffer_size = *response_size_in_out;
 
-    rc = ctx->ops->n20_srv_issue_eca_certificate(
+    n20_error_t rc = ctx->ops->n20_srv_issue_eca_certificate(
         ctx->ctx, request, response_buffer, response_size_in_out);
 
     if (rc != n20_error_ok_e && rc != n20_error_insufficient_buffer_size_e) {
@@ -177,14 +148,9 @@ static n20_error_t dispatch_issue_eca_ee_cert_request(
         return n20_error_request_type_not_implemented_e;
     }
 
-    n20_error_t rc = sanitize_parent_path(request->parent_path_length, request->parent_path);
-    if (rc != n20_error_ok_e) {
-        return rc;
-    }
-
     size_t const total_buffer_size = *response_size_in_out;
 
-    rc = ctx->ops->n20_srv_issue_eca_ee_certificate(
+    n20_error_t rc = ctx->ops->n20_srv_issue_eca_ee_certificate(
         ctx->ctx, request, response_buffer, response_size_in_out);
     if (rc != n20_error_ok_e && rc != n20_error_insufficient_buffer_size_e) {
         return rc;
@@ -202,14 +168,10 @@ static n20_error_t dispatch_eca_ee_sign_request(n20_service_message_dispatch_ctx
         return n20_error_request_type_not_implemented_e;
     }
 
-    n20_error_t rc = sanitize_parent_path(request->parent_path_length, request->parent_path);
-    if (rc != n20_error_ok_e) {
-        return rc;
-    }
-
     size_t const total_buffer_size = *response_size_in_out;
 
-    rc = ctx->ops->n20_srv_eca_ee_sign(ctx->ctx, request, response_buffer, response_size_in_out);
+    n20_error_t rc =
+        ctx->ops->n20_srv_eca_ee_sign(ctx->ctx, request, response_buffer, response_size_in_out);
     if (rc != n20_error_ok_e && rc != n20_error_insufficient_buffer_size_e) {
         return rc;
     }
