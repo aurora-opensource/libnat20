@@ -253,7 +253,7 @@ static void n20_msg_compressed_context_array_write(
     n20_cbor_write_int(s, N20_MSG_LABEL_PARENT_PATH);
 }
 
-n20_error_t n20_msg_read_parent_path_header(n20_istream_t* istream, size_t* path_length_out) {
+static n20_error_t n20_msg_read_parent_path_header(n20_istream_t* istream, size_t* path_length_out) {
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
@@ -272,7 +272,7 @@ n20_error_t n20_msg_read_parent_path_header(n20_istream_t* istream, size_t* path
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_read_parent_path_element(n20_istream_t* istream, n20_slice_t* element) {
+static n20_error_t n20_msg_read_parent_path_element(n20_istream_t* istream, n20_slice_t* element) {
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
