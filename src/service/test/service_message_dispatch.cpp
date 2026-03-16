@@ -49,6 +49,8 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <tuple>
+#include <vector>
 
 namespace {
 
@@ -446,7 +448,6 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertForwardsServiceError) {
 TEST_F(ServiceMessageDispatchTest, IssueCdiCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
     // test payload but not for the response header.
-    size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
     n20_msg_request_t req{
@@ -496,7 +497,7 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertSuccessWrapsCertificate) {
 
 TEST_F(ServiceMessageDispatchTest, IssueEcaCertForwardsServiceError) {
     state_.issue_eca_cert_rc = n20_error_missing_crypto_context_e;
-    n20_slice_t const path = valid_path_element();
+
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_eca_cert_e,
         .payload = {.issue_eca_cert = {.parent_path = valid_path()}},
@@ -514,7 +515,6 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertForwardsServiceError) {
 TEST_F(ServiceMessageDispatchTest, IssueEcaCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
     // test payload but not for the response header.
-    size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
     n20_msg_request_t req{
@@ -583,7 +583,6 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertForwardsServiceError) {
 TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
     // test payload but not for the response header.
-    size_t const original_size = response_buffer_.size();
     size_t response_size = state_.cert_payload.size;
 
     n20_msg_request_t req{
@@ -713,7 +712,6 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignForwardsServiceError) {
 TEST_F(ServiceMessageDispatchTest, EcaEeSignEeCertInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
     // test payload but not for the response header.
-    size_t const original_size = response_buffer_.size();
     size_t response_size = state_.sign_payload.size;
 
     n20_msg_request_t req{
@@ -731,9 +729,6 @@ TEST_F(ServiceMessageDispatchTest, WritePositionOverflow) {
     // This test covers the case where the service writes so large of a response
     // that it doesn't just overflow the provided buffer but the write position
     // counter.
-
-    size_t const original_size = response_buffer_.size();
-
     n20_msg_request_t req{
         .request_type = n20_msg_request_type_issue_cdi_cert_e,
     };

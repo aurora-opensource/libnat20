@@ -57,7 +57,7 @@ static n20_error_t prefix_response_header(uint8_t* response_buffer,
     s.buffer_overflow = response_buffer == NULL || total_buffer_size < *response_size_in_out;
 
     n20_cbor_write_header(&s, n20_cbor_type_bytes_e, *response_size_in_out);
-    n20_cbor_write_int(&s, label);
+    n20_cbor_write_uint(&s, label);
     n20_cbor_write_map_header(&s, 1);
 
     if (n20_stream_has_write_position_overflow(&s)) {

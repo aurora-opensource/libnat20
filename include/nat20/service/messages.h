@@ -272,6 +272,17 @@ typedef n20_error_t (*n20_msg_parent_path_element_cb_t)(void *ctx, n20_slice_t e
  * If the parent path is not encoded, this function will simply iterate
  * over the `decoded` array and invoke the callback for each element.
  *
+ * If the @p path pointer is NULL, this function treats it as an empty path,
+ * returns @ref n20_error_ok_e, and does not invoke the callback.
+ *
+ * If the @p cb pointer is NULL, this function assumes the caller does not
+ * want to process elements, returns @ref n20_error_ok_e, and does not invoke
+ * the callback.
+ *
+ * The caller is responsible for ensuring that the context pointer is valid
+ * if the callback is not NULL. This function does not impose any restrictions
+ * on the context pointer.
+ *
  * @param path The parent path to iterate over.
  * @param cb The callback to invoke for each element.
  * @param ctx User-defined context passed to the callback.
@@ -319,6 +330,8 @@ struct n20_msg_issue_cdi_cert_request_s {
      * One of two representations of the parent path used in CDI derivation.
      * The parent path is a sequence of compressed contexts that define the
      * lineage of CDIs leading to the parent of the new CDI.
+     *
+     * @sa n20_parent_path_s
      */
     n20_parent_path_t parent_path;
 
@@ -361,8 +374,11 @@ struct n20_msg_issue_eca_cert_request_s {
     /**
      * @brief The compressed path to the parent CDI.
      *
-     * This slice points to a CBOR array containing the compressed contexts used to derive
-     * the parent secret for ECA key generation.
+     * One of two representations of the parent path used in CDI derivation.
+     * The parent path is a sequence of compressed contexts that define the
+     * lineage of CDIs leading to the parent CDI of the ECA.
+     *
+     * @sa n20_parent_path_s
      */
     n20_parent_path_t parent_path;
 
@@ -413,8 +429,11 @@ struct n20_msg_issue_eca_ee_cert_request_s {
     /**
      * @brief The compressed path to the parent CDI.
      *
-     * This slice points to a CBOR array containing the compressed contexts used to derive
-     * the parent secret for ECA key generation.
+     * One of two representations of the parent path used in CDI derivation.
+     * The parent path is a sequence of compressed contexts that define the
+     * lineage of CDIs leading to the parent CDI of the ECA.
+     *
+     * @sa n20_parent_path_s
      */
     n20_parent_path_t parent_path;
 
@@ -472,8 +491,11 @@ struct n20_msg_eca_ee_sign_request_s {
     /**
      * @brief The compressed path to the parent CDI.
      *
-     * This slice points to a CBOR array containing the compressed contexts used to derive
-     * the parent secret for ECA key generation.
+     * One of two representations of the parent path used in CDI derivation.
+     * The parent path is a sequence of compressed contexts that define the
+     * lineage of CDIs leading to the parent CDI of the ECA.
+     *
+     * @sa n20_parent_path_s
      */
     n20_parent_path_t parent_path;
 

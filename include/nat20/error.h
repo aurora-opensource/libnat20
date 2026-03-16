@@ -185,6 +185,14 @@ enum n20_error_s {
     n20_error_unexpected_null_response_e = 21,
 
     /**
+     * @brief Unexpected NULL pointer in path argument.
+     *
+     * This error is returned by functions that expect a valid path
+     * structure but receive a NULL pointer instead.
+     */
+    n20_error_unexpected_null_path_e = 22,
+
+    /**
      * @brief Incompatible compressed input size.
      *
      * The compressed input is the salt generated from the
@@ -194,23 +202,23 @@ enum n20_error_s {
      * This error is returned if a compressed input is presented to
      * the service that is different from the hard coded supported size.
      */
-    n20_error_incompatible_compressed_input_size_e = 22,
+    n20_error_incompatible_compressed_input_size_e = 23,
 
     /**
      * @brief Unexpected NULL pointer in dispatch context.
      *
-     * This error is returned by by @ref n20_service_message_dispatch
+     * This error is returned by @ref n20_service_message_dispatch
      * if the dispatch context pointer is NULL.
      */
-    n20_error_unexpected_null_dispatch_context_e = 23,
+    n20_error_unexpected_null_dispatch_context_e = 24,
 
     /**
      * @brief Unexpected NULL pointer in service operations.
      *
-     * This error is returned by by @ref n20_service_message_dispatch
+     * This error is returned by @ref n20_service_message_dispatch
      * if the service operations pointer is NULL.
      */
-    n20_error_unexpected_null_service_ops_e = 24,
+    n20_error_unexpected_null_service_ops_e = 25,
 
     /**
      * @brief A service node function was called without the state pointer.

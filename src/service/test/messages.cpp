@@ -179,28 +179,36 @@ static void compare_parent_path(n20_slice_t const* expected,
         return n20_error_ok_e;
     };
 
-    n20_msg_parent_path_iterate(
-        got,
-        [](void* ctx, n20_slice_t element) -> n20_error_t {
-            auto cb = reinterpret_cast<decltype(closure)*>(ctx);
-            return (*cb)(element);
-        },
-        &closure);
+    EXPECT_EQ(n20_error_ok_e,
+              n20_msg_parent_path_iterate(
+                  got,
+                  [](void* ctx, n20_slice_t element) -> n20_error_t {
+                      auto cb = reinterpret_cast<decltype(closure)*>(ctx);
+                      return (*cb)(element);
+                  },
+                  &closure));
 }
 
-class RoundTripTest : public MessagesTest, public testing::WithParamInterface<n20_parent_path_t> {};
+class RoundTripTest : public MessagesTest,
+                      public testing::WithParamInterface<std::tuple<n20_parent_path_t, bool>> {};
 
 INSTANTIATE_TEST_SUITE_P(
     RoundTripTests,
     RoundTripTest,
     testing::Values(
-        //   n20_parent_path_t{.length = 0, .is_encoded = false, .decoded = NULL},
-        n20_parent_path_t{.length = 2, .is_encoded = false, .decoded = TEST_PATH_ELEMENTS},
-        n20_parent_path_t{.length = 2, .is_encoded = true, .encoded = TEST_PARENT_PATH_ENCODED}));
+        std::make_tuple(n20_parent_path_t{.length = 0, .is_encoded = false, .decoded = NULL},
+                        false),
+        std::make_tuple(
+            n20_parent_path_t{.length = 2, .is_encoded = false, .decoded = TEST_PATH_ELEMENTS},
+            true),
+        std::make_tuple(
+            n20_parent_path_t{.length = 2, .is_encoded = true, .encoded = TEST_PARENT_PATH_ENCODED},
+            true)));
 
 // Test CDI cert request read/write
 TEST_P(RoundTripTest, CdiCertRequestRoundTrip) {
-    n20_parent_path_t parent_path = GetParam();
+    auto [parent_path, expect_encoded] = GetParam();
+    size_t expected_path_length = parent_path.length;
     n20_msg_issue_cdi_cert_request_t original_request = {
         .issuer_key_type = n20_crypto_key_type_ed25519_e,
         .subject_key_type = n20_crypto_key_type_secp256r1_e,
@@ -233,13 +241,16 @@ TEST_P(RoundTripTest, CdiCertRequestRoundTrip) {
     EXPECT_EQ(n20_certificate_format_x509_e,
               read_request.payload.issue_cdi_cert.certificate_format);
     EXPECT_EQ(n20_open_dice_mode_normal_e, read_request.payload.issue_cdi_cert.next_context.mode);
-    EXPECT_TRUE(read_request.payload.issue_cdi_cert.parent_path.is_encoded);
-    compare_parent_path(TEST_PATH_ELEMENTS, 2, &read_request.payload.issue_cdi_cert.parent_path);
+    EXPECT_EQ(expected_path_length, read_request.payload.issue_cdi_cert.parent_path.length);
+    EXPECT_EQ(expect_encoded, read_request.payload.issue_cdi_cert.parent_path.is_encoded);
+    compare_parent_path(
+        TEST_PATH_ELEMENTS, expected_path_length, &read_request.payload.issue_cdi_cert.parent_path);
 }
 
 // Test ECA cert request read/write
 TEST_P(RoundTripTest, EcaCertRequestRoundTrip) {
-    n20_parent_path_t parent_path = GetParam();
+    auto [parent_path, expect_encoded] = GetParam();
+    size_t expected_path_length = parent_path.length;
     n20_msg_issue_eca_cert_request_t original_request = {
         .issuer_key_type = n20_crypto_key_type_secp256r1_e,
         .subject_key_type = n20_crypto_key_type_ed25519_e,
@@ -268,9 +279,10 @@ TEST_P(RoundTripTest, EcaCertRequestRoundTrip) {
     EXPECT_EQ(n20_crypto_key_type_ed25519_e, read_request.payload.issue_eca_cert.subject_key_type);
     EXPECT_EQ(n20_certificate_format_x509_e,
               read_request.payload.issue_eca_cert.certificate_format);
-    EXPECT_EQ(2, read_request.payload.issue_eca_cert.parent_path.length);
-    EXPECT_TRUE(read_request.payload.issue_eca_cert.parent_path.is_encoded);
-    compare_parent_path(TEST_PATH_ELEMENTS, 2, &read_request.payload.issue_eca_cert.parent_path);
+    EXPECT_EQ(expected_path_length, read_request.payload.issue_eca_cert.parent_path.length);
+    EXPECT_EQ(expect_encoded, read_request.payload.issue_eca_cert.parent_path.is_encoded);
+    compare_parent_path(
+        TEST_PATH_ELEMENTS, expected_path_length, &read_request.payload.issue_eca_cert.parent_path);
     EXPECT_EQ(8, read_request.payload.issue_eca_cert.challenge.size);
     EXPECT_EQ(0, memcmp("challeng", read_request.payload.issue_eca_cert.challenge.buffer, 8));
 }
@@ -278,7 +290,8 @@ TEST_P(RoundTripTest, EcaCertRequestRoundTrip) {
 // Test ECA End-Entity cert request read/write
 TEST_P(RoundTripTest, EcaEeCertRequestRoundTrip) {
     uint8_t key_usage_data[] = {0x01, 0x02};
-    n20_parent_path_t parent_path = GetParam();
+    auto [parent_path, expect_encoded] = GetParam();
+    size_t expected_path_length = parent_path.length;
 
     n20_msg_issue_eca_ee_cert_request_t original_request = {
         .issuer_key_type = n20_crypto_key_type_ed25519_e,
@@ -315,9 +328,11 @@ TEST_P(RoundTripTest, EcaEeCertRequestRoundTrip) {
     EXPECT_EQ(2, read_request.payload.issue_eca_ee_cert.key_usage.size);
     EXPECT_EQ(0x01, read_request.payload.issue_eca_ee_cert.key_usage.buffer[0]);
     EXPECT_EQ(0x02, read_request.payload.issue_eca_ee_cert.key_usage.buffer[1]);
-    EXPECT_EQ(2, read_request.payload.issue_eca_ee_cert.parent_path.length);
-    EXPECT_TRUE(read_request.payload.issue_eca_ee_cert.parent_path.is_encoded);
-    compare_parent_path(TEST_PATH_ELEMENTS, 2, &read_request.payload.issue_eca_ee_cert.parent_path);
+    EXPECT_EQ(expected_path_length, read_request.payload.issue_eca_ee_cert.parent_path.length);
+    EXPECT_EQ(expect_encoded, read_request.payload.issue_eca_ee_cert.parent_path.is_encoded);
+    compare_parent_path(TEST_PATH_ELEMENTS,
+                        expected_path_length,
+                        &read_request.payload.issue_eca_ee_cert.parent_path);
     EXPECT_EQ(0, memcmp("abcd", read_request.payload.issue_eca_ee_cert.challenge.buffer, 4));
 }
 
@@ -326,7 +341,8 @@ TEST_P(RoundTripTest, EcaEeSignRequestRoundTrip) {
     uint8_t message_data[] = "Hello, World!";
     uint8_t key_usage_data[] = {0x01};
 
-    n20_parent_path_t parent_path = GetParam();
+    auto [parent_path, expect_encoded] = GetParam();
+    size_t expected_path_length = parent_path.length;
     n20_msg_eca_ee_sign_request_t original_request = {
         .subject_key_type = n20_crypto_key_type_ed25519_e,
         .parent_path = parent_path,
@@ -358,9 +374,10 @@ TEST_P(RoundTripTest, EcaEeSignRequestRoundTrip) {
     EXPECT_EQ(0, memcmp("Hello, World!", read_request.payload.eca_ee_sign.message.buffer, 13));
     EXPECT_EQ(1, read_request.payload.eca_ee_sign.key_usage.size);
     EXPECT_EQ(0x01, read_request.payload.eca_ee_sign.key_usage.buffer[0]);
-    EXPECT_EQ(2, read_request.payload.eca_ee_sign.parent_path.length);
-    EXPECT_TRUE(read_request.payload.eca_ee_sign.parent_path.is_encoded);
-    compare_parent_path(TEST_PATH_ELEMENTS, 2, &read_request.payload.eca_ee_sign.parent_path);
+    EXPECT_EQ(expected_path_length, read_request.payload.eca_ee_sign.parent_path.length);
+    EXPECT_EQ(expect_encoded, read_request.payload.eca_ee_sign.parent_path.is_encoded);
+    compare_parent_path(
+        TEST_PATH_ELEMENTS, expected_path_length, &read_request.payload.eca_ee_sign.parent_path);
 }
 
 // Test error response read/write
@@ -1273,8 +1290,13 @@ TEST_F(MessagesTest, ParentPathIterateErrors) {
     };
 
     n20_parent_path_t path = {
-        .length = 2, .is_encoded = true, .encoded = {cbor_data.size(), cbor_data.data()}};
+        .length = 3, .is_encoded = true, .encoded = {cbor_data.size(), cbor_data.data()}};
 
+    EXPECT_EQ(n20_error_unexpected_message_structure_e,
+              n20_msg_parent_path_iterate(
+                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+
+    path.length = 2;  // Set length to actual number of items in CBOR array.
     EXPECT_EQ(n20_error_write_position_overflow_e,
               n20_msg_parent_path_iterate(
                   &path,
@@ -1299,6 +1321,11 @@ TEST_F(MessagesTest, ParentPathIterateErrors) {
                   &path,
                   [](void* ctx, n20_slice_t item) { return n20_error_write_position_overflow_e; },
                   nullptr));
+
+    path.decoded = nullptr;
+    EXPECT_EQ(n20_error_unexpected_null_path_e,
+              n20_msg_parent_path_iterate(
+                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
 }
 
 TEST_F(MessagesTest, ParentPathIterateSuccess) {
@@ -1306,4 +1333,24 @@ TEST_F(MessagesTest, ParentPathIterateSuccess) {
     n20_parent_path_t path = {.length = 2, .is_encoded = false, .decoded = parent_path_elements};
 
     compare_parent_path(parent_path_elements, 2, &path);
+}
+
+TEST_F(MessagesTest, ParentPathIterateNullPath) {
+    int callback_calls = 0;
+    EXPECT_EQ(n20_error_ok_e,
+              n20_msg_parent_path_iterate(
+                  nullptr,
+                  [](void* ctx, n20_slice_t item) {
+                      *reinterpret_cast<int*>(ctx) += 1;
+                      return n20_error_ok_e;
+                  },
+                  &callback_calls));
+    ASSERT_EQ(callback_calls, 0);
+}
+
+TEST_F(MessagesTest, ParentPathIterateNullCallback) {
+    n20_slice_t parent_path_elements[] = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2};
+    n20_parent_path_t path = {.length = 2, .is_encoded = false, .decoded = parent_path_elements};
+
+    EXPECT_EQ(n20_error_ok_e, n20_msg_parent_path_iterate(&path, nullptr, nullptr));
 }
