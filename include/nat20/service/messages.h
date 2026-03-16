@@ -272,6 +272,17 @@ typedef n20_error_t (*n20_msg_parent_path_element_cb_t)(void *ctx, n20_slice_t e
  * If the parent path is not encoded, this function will simply iterate
  * over the `decoded` array and invoke the callback for each element.
  *
+ * If the @p path pointer is NULL, this function treats it as an empty path,
+ * returns @ref n20_error_ok_e, and does not invoke the callback.
+ *
+ * If the @p cb pointer is NULL, this function assumes the caller does not
+ * want to process elements, returns @ref n20_error_ok_e, and does not invoke
+ * the callback.
+ *
+ * The caller is responsible for ensuring that the context pointer is valid
+ * if the callback is not NULL. This function does not impose any restrictions
+ * on the context pointer.
+ *
  * @param path The parent path to iterate over.
  * @param cb The callback to invoke for each element.
  * @param ctx User-defined context passed to the callback.

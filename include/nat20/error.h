@@ -185,6 +185,14 @@ enum n20_error_s {
     n20_error_unexpected_null_response_e = 21,
 
     /**
+     * @brief Unexpected NULL pointer in path argument.
+     *
+     * This error is returned by functions that expect a valid path
+     * structure but receive a NULL pointer instead.
+     */
+    n20_error_unexpected_null_path_e = 22,
+
+    /**
      * @brief The crypto context given to an interface was invalid.
      *
      * Implementations must return this error if the context given is
