@@ -207,7 +207,7 @@ enum n20_error_s {
     /**
      * @brief Unexpected NULL pointer in dispatch context.
      *
-     * This error is returned by by @ref n20_service_message_dispatch
+     * This error is returned by @ref n20_service_message_dispatch
      * if the dispatch context pointer is NULL.
      */
     n20_error_unexpected_null_dispatch_context_e = 24,
@@ -215,7 +215,7 @@ enum n20_error_s {
     /**
      * @brief Unexpected NULL pointer in service operations.
      *
-     * This error is returned by by @ref n20_service_message_dispatch
+     * This error is returned by @ref n20_service_message_dispatch
      * if the service operations pointer is NULL.
      */
     n20_error_unexpected_null_service_ops_e = 25,

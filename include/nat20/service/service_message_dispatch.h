@@ -53,7 +53,12 @@ extern "C" {
  *
  * Bundles the service operations vtable and the implementation-specific
  * state pointer that are needed by @ref n20_service_message_dispatch.
- * Both members must be non-NULL when the dispatch function is called.
+ *
+ * The @ref ops field must point to a fully populated @ref n20_service_ops_s that
+ * implements the service operations corresponding to the service implementation
+ * that should handle incoming requests.
+ * The @ref ctx field is passed verbatim to every function in @ref ops and can
+ * be used by the service implementation to carry any state it requires.
  */
 struct n20_service_message_dispatch_ctx_s {
     /**
@@ -70,7 +75,8 @@ struct n20_service_message_dispatch_ctx_s {
      *
      * Passed verbatim as the first argument to every function in @ref ops.
      * The dispatcher does not interpret this value; the service implementation
-     * is free to use it to carry any state it requires.
+     * is free to use it to carry any state it requires. It may be NULL if the
+     * service imiplementation does not require any state.
      */
     void* ctx;
 };
@@ -86,6 +92,20 @@ typedef struct n20_service_message_dispatch_ctx_s n20_service_message_dispatch_c
  * This function decodes the incoming @p message, calls the appropriate
  * operation from the service's vtable, and writes the response into
  * @p response_buffer.
+ *
+ * ## Errors
+ * * @ref n20_error_unexpected_null_dispatch_context_e if @p ctx is NULL.
+ * * @ref n20_error_unexpected_null_service_ops_e if @p ctx->ops is NULL.
+ * * @ref n20_error_unexpected_null_buffer_size_e if @p response_size_in_out is NULL.
+ * * @ref n20_error_request_type_unknown_e if the request type in the message is unknown.
+ * * @ref n20_error_request_type_not_implemented_e if the request type is recognized
+ *   but the corresponding function pointer in the service ops is NULL.
+ *
+ * Other errors may be returned by the service operations called by the dispatcher, e.g.,
+ * errors by the underlying crypto implementation. These are returned verbatim by the
+ * dispatcher. Those errors are marshalled as errors response messages by the dispatcher
+ * and can be parsed by the client using the error response structure defined in
+ * messages.h.
  *
  * @see messages.h for the expected structure of incoming messages and
  * the structure of response messages.
