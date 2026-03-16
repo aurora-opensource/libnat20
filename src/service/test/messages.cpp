@@ -181,13 +181,14 @@ static void compare_parent_path(n20_slice_t const* expected,
         return n20_error_ok_e;
     };
 
-    n20_msg_parent_path_iterate(
-        got,
-        [](void* ctx, n20_slice_t element) -> n20_error_t {
-            auto cb = reinterpret_cast<decltype(closure)*>(ctx);
-            return (*cb)(element);
-        },
-        &closure);
+    EXPECT_EQ(n20_error_ok_e,
+              n20_msg_parent_path_iterate(
+                  got,
+                  [](void* ctx, n20_slice_t element) -> n20_error_t {
+                      auto cb = reinterpret_cast<decltype(closure)*>(ctx);
+                      return (*cb)(element);
+                  },
+                  &closure));
 }
 
 class RoundTripTest : public MessagesTest,

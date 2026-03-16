@@ -330,6 +330,8 @@ struct n20_msg_issue_cdi_cert_request_s {
      * One of two representations of the parent path used in CDI derivation.
      * The parent path is a sequence of compressed contexts that define the
      * lineage of CDIs leading to the parent of the new CDI.
+     *
+     * @sa n20_parent_path_s
      */
     n20_parent_path_t parent_path;
 
@@ -372,8 +374,11 @@ struct n20_msg_issue_eca_cert_request_s {
     /**
      * @brief The compressed path to the parent CDI.
      *
-     * This slice points to a CBOR array containing the compressed contexts used to derive
-     * the parent secret for ECA key generation.
+     * One of two representations of the parent path used in CDI derivation.
+     * The parent path is a sequence of compressed contexts that define the
+     * lineage of CDIs leading to the parent CDI of the ECA.
+     *
+     * @sa n20_parent_path_s
      */
     n20_parent_path_t parent_path;
 
@@ -424,8 +429,11 @@ struct n20_msg_issue_eca_ee_cert_request_s {
     /**
      * @brief The compressed path to the parent CDI.
      *
-     * This slice points to a CBOR array containing the compressed contexts used to derive
-     * the parent secret for ECA key generation.
+     * One of two representations of the parent path used in CDI derivation.
+     * The parent path is a sequence of compressed contexts that define the
+     * lineage of CDIs leading to the parent CDI of the ECA.
+     *
+     * @sa n20_parent_path_s
      */
     n20_parent_path_t parent_path;
 
@@ -483,8 +491,11 @@ struct n20_msg_eca_ee_sign_request_s {
     /**
      * @brief The compressed path to the parent CDI.
      *
-     * This slice points to a CBOR array containing the compressed contexts used to derive
-     * the parent secret for ECA key generation.
+     * One of two representations of the parent path used in CDI derivation.
+     * The parent path is a sequence of compressed contexts that define the
+     * lineage of CDIs leading to the parent CDI of the ECA.
+     *
+     * @sa n20_parent_path_s
      */
     n20_parent_path_t parent_path;
 
