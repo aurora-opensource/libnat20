@@ -235,7 +235,7 @@ enum n20_error_s {
     /**
      * @brief Unsupported key usage.
      *
-     * This error is returned when an ECA end-enty key is requested
+     * This error is returned when an ECA end-entity key is requested
      * with an unsupported key usage. E.g. as of this writing
      * only "digital signature" key usage is allowed. All other
      * key usages will be rejected with this error.
@@ -245,7 +245,7 @@ enum n20_error_s {
     /**
      * @brief Key usage not permitted.
      *
-     * This error is returned when an ECA end-enty key is used
+     * This error is returned when an ECA end-entity key is used
      * for an operation that is not allowed by the key usage.
      * E.g. if a signing is attempted with a key that does not
      * have the "digital signature" key usage.

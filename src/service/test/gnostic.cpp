@@ -320,7 +320,6 @@ TEST_F(GnosticNodeTest, ForwardPromoteCryptoErrors) {
 
     EXPECT_EQ(n20_error_crypto_implementation_specific_e,
               n20_gnostic_service_ops.n20_srv_promote(&state_, &req));
-    mock_crypto_context_.err_on_zero_kdf = 0;
 
     mock_crypto_context_.err_on_zero_kdf = std::numeric_limits<uint32_t>::max();
     mock_crypto_context_.err_on_zero_key_free = 0;
@@ -335,7 +334,7 @@ TEST_F(GnosticNodeTest, ForwardCdiCertCryptoErrors) {
     req.parent_path.length = 2;
 
     // Set the mock context to return an error on the next kdf call, which will be made during
-    // ECA signing.
+    // CDI derivation.
     mock_crypto_context_.err_on_zero_kdf = 0;
     mock_crypto_context_.kdf_error = n20_error_crypto_implementation_specific_e;
 
@@ -350,7 +349,7 @@ TEST_F(GnosticNodeTest, ForwardEcaCertCryptoErrors) {
     req.parent_path.length = 2;
 
     // Set the mock context to return an error on the next kdf call, which will be made during
-    // ECA signing.
+    // CDI derivation.
     mock_crypto_context_.err_on_zero_kdf = 0;
     mock_crypto_context_.kdf_error = n20_error_crypto_implementation_specific_e;
 
@@ -718,7 +717,10 @@ TEST_F(GnosticNodeTest, ResolvePathIsDeterministic) {
                   &state_, &req, cert_buffer_.data(), &sz_second));
 
     ASSERT_EQ(sz_first, sz_second);
-    EXPECT_EQ(0, std::memcmp(first_cert.data(), cert_buffer_.data(), sz_first));
+    EXPECT_EQ(0,
+              std::memcmp(first_cert.data() + first_cert.size() - sz_first,
+                          cert_buffer_.data() + cert_buffer_.size() - sz_second,
+                          sz_first));
 }
 
 }  // namespace

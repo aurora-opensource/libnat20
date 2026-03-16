@@ -84,8 +84,6 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
     set(CMAKE_CXX_STANDARD 17)
 endif()
 
-add_definitions(-DN20_WITH_COSE=1)
-
 include(GNUInstallDirs)
 
 ###################################################################################################

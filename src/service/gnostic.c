@@ -78,11 +78,15 @@ static n20_error_t n20_gnostic_promote(void* ctx, n20_msg_promote_request_t* req
 
     error = n20_next_level_cdi_attest(
         node_state->crypto_context, *min_cdi, &next, request->compressed_context);
-    if (error != n20_error_ok_e) {
-        return error;
-    }
 
-    error = node_state->crypto_context->key_free(node_state->crypto_context, *min_cdi);
+    /* The previous CDI is no longer needed, free it. */
+    node_state->crypto_context->key_free(node_state->crypto_context, *min_cdi);
+    /* Set the pointer to NULL to avoid dangling references.
+     * Even if the derivation of the next CDI failed, it is better to
+     * disable the mechanism and prevent further key derivations
+     * than to continue with a potentially defined state. */
+    min_cdi = NULL;
+
     if (error != n20_error_ok_e) {
         return error;
     }
