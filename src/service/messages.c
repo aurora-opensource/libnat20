@@ -339,6 +339,12 @@ n20_error_t n20_msg_parent_path_iterate(n20_parent_path_t const* const path,
             return err;
         }
 
+        if (path_length != path->length) {
+            /* The length in the header does not match the expected length.
+             * This might mean that the encoded data was changed since it was last read. */
+            return n20_error_unexpected_message_structure_e;
+        }
+
         for (size_t i = 0; i < path_length; ++i) {
             n20_slice_t element;
             err = n20_msg_read_parent_path_element(&istream, &element);

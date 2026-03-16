@@ -1275,8 +1275,13 @@ TEST_F(MessagesTest, ParentPathIterateErrors) {
     };
 
     n20_parent_path_t path = {
-        .length = 2, .is_encoded = true, .encoded = {cbor_data.size(), cbor_data.data()}};
+        .length = 3, .is_encoded = true, .encoded = {cbor_data.size(), cbor_data.data()}};
 
+    EXPECT_EQ(n20_error_unexpected_message_structure_e,
+              n20_msg_parent_path_iterate(
+                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+
+    path.length = 2;  // Set length to actual number of items in CBOR array.
     EXPECT_EQ(n20_error_write_position_overflow_e,
               n20_msg_parent_path_iterate(
                   &path,
