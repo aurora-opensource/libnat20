@@ -253,7 +253,8 @@ static void n20_msg_compressed_context_array_write(
     n20_cbor_write_int(s, N20_MSG_LABEL_PARENT_PATH);
 }
 
-n20_error_t n20_msg_read_parent_path_header(n20_istream_t* istream, size_t* path_length_out) {
+static n20_error_t n20_msg_read_parent_path_header(n20_istream_t* istream,
+                                                   size_t* path_length_out) {
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
@@ -272,7 +273,7 @@ n20_error_t n20_msg_read_parent_path_header(n20_istream_t* istream, size_t* path
     return n20_error_ok_e;
 }
 
-n20_error_t n20_msg_read_parent_path_element(n20_istream_t* istream, n20_slice_t* element) {
+static n20_error_t n20_msg_read_parent_path_element(n20_istream_t* istream, n20_slice_t* element) {
     n20_cbor_type_t cbor_type;
     uint64_t cbor_value;
 
@@ -329,6 +330,14 @@ static n20_error_t n20_msg_compressed_context_array_read(n20_istream_t* istream,
 n20_error_t n20_msg_parent_path_iterate(n20_parent_path_t const* const path,
                                         n20_msg_parent_path_element_cb_t cb,
                                         void* ctx) {
+    /* If the path is NULL assume that the path is empty.
+     * If the callback is NULL assume the caller does not want to process elements.
+     * It is up to the caller to provide a valid context if needed.
+     * This function does not pose any restrcitions on the ctx pointer. */
+    if (path == NULL || cb == NULL) {
+        return n20_error_ok_e;
+    }
+
     if (path->is_encoded) {
         n20_istream_t istream;
         n20_istream_init(&istream, path->encoded.buffer, path->encoded.size);
@@ -337,6 +346,12 @@ n20_error_t n20_msg_parent_path_iterate(n20_parent_path_t const* const path,
         n20_error_t err = n20_msg_read_parent_path_header(&istream, &path_length);
         if (err != n20_error_ok_e) {
             return err;
+        }
+
+        if (path_length != path->length) {
+            /* The length in the header does not match the expected length.
+             * This might mean that the encoded data was changed since it was last read. */
+            return n20_error_unexpected_message_structure_e;
         }
 
         for (size_t i = 0; i < path_length; ++i) {
@@ -352,6 +367,11 @@ n20_error_t n20_msg_parent_path_iterate(n20_parent_path_t const* const path,
         }
         return n20_error_ok_e;
     } else {
+        if (path->decoded == NULL && path->length > 0) {
+            /* The decoded pointer is NULL but the length is greater than 0. */
+            return n20_error_unexpected_null_path_e;
+        }
+
         for (size_t i = 0; i < path->length; ++i) {
             n20_error_t err = cb(ctx, path->decoded[i]);
             if (err != n20_error_ok_e) {
@@ -525,7 +545,6 @@ n20_error_t n20_msg_issue_eca_ee_cert_request_read_cb(n20_istream_t* istream,
             request->subject_key_type = (n20_crypto_key_type_t)cbor_value;
             break;
         case N20_MSG_LABEL_PARENT_PATH:
-            request->parent_path.is_encoded = true;
             error = n20_msg_compressed_context_array_read(istream, &request->parent_path);
             if (error != n20_error_ok_e) {
                 return error;
