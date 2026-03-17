@@ -76,7 +76,7 @@ struct n20_service_message_dispatch_ctx_s {
      * Passed verbatim as the first argument to every function in @ref ops.
      * The dispatcher does not interpret this value; the service implementation
      * is free to use it to carry any state it requires. It may be NULL if the
-     * service imiplementation does not require any state.
+     * service implementation does not require any state.
      */
     void* ctx;
 };
@@ -90,22 +90,32 @@ typedef struct n20_service_message_dispatch_ctx_s n20_service_message_dispatch_c
  * @brief Dispatch a service message.
  *
  * This function decodes the incoming @p message, calls the appropriate
- * operation from the service's vtable, and writes the response into
- * @p response_buffer.
+ * operation from the service's vtable, and writes the response or error message
+ * into @p response_buffer.
  *
- * ## Errors
+ * ## Returns:
+ * * @ref n20_error_ok_e if the service was successfully dispatched and the response
+ *   or underlying service error message was written to the response buffer.
  * * @ref n20_error_unexpected_null_dispatch_context_e if @p ctx is NULL.
  * * @ref n20_error_unexpected_null_service_ops_e if @p ctx->ops is NULL.
  * * @ref n20_error_unexpected_null_buffer_size_e if @p response_size_in_out is NULL.
- * * @ref n20_error_request_type_unknown_e if the request type in the message is unknown.
+ * * @ref n20_error_insufficient_buffer_size_e if the provided response buffer is too
+ * * small to hold the response or error message. This error may also be returned by
+ *   the underlying service operations. As an exception, this error is intercepted
+ *   and returned directly by the dispatcher to allow the caller to resize the buffer.
+ *
+ * ## Service errors:
+ * If the dispatcher successfully calls the appropriate service operation but that
+ * operation returns an error, the dispatcher marshals that error into an error response
+ * message and writes it into the response buffer. In this case, the dispatcher returns
+ * @ref n20_error_ok_e, and the client can parse the error response message to determine
+ * the specific error that occurred. In addition to implementation specific errors,
+ * the message dispatcher diagnoses the following errors which will be returned as
+ * error response messages:
+ * * @ref n20_error_request_type_unknown_e if the request type in the message is unknown
+ *   by the dispatcher.
  * * @ref n20_error_request_type_not_implemented_e if the request type is recognized
  *   but the corresponding function pointer in the service ops is NULL.
- *
- * Other errors may be returned by the service operations called by the dispatcher, e.g.,
- * errors by the underlying crypto implementation. These are returned verbatim by the
- * dispatcher. Those errors are marshalled as errors response messages by the dispatcher
- * and can be parsed by the client using the error response structure defined in
- * messages.h.
  *
  * @see messages.h for the expected structure of incoming messages and
  * the structure of response messages.
