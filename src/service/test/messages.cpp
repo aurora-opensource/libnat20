@@ -47,8 +47,6 @@
 #include <cstring>
 #include <vector>
 
-#include "nat20/testing/test_utils.h"
-
 template <size_t N, typename T>
 constexpr auto make_array(T initializer) {
     std::array<T, N> arr{};

@@ -193,6 +193,34 @@ enum n20_error_s {
     n20_error_unexpected_null_path_e = 22,
 
     /**
+     * @brief Incompatible compressed input size.
+     *
+     * The compressed input is the salt generated from the
+     * open dice input data. Its size is hard coded to 64 bytes
+     * (size of SHA512) by default but can be changed to 32 bytes
+     * (size of SHA256) at compile time.
+     * This error is returned if a compressed input is presented to
+     * the service that is different from the hard coded supported size.
+     */
+    n20_error_incompatible_compressed_input_size_e = 23,
+
+    /**
+     * @brief Unexpected NULL pointer in dispatch context.
+     *
+     * This error is returned by @ref n20_service_message_dispatch
+     * if the dispatch context pointer is NULL.
+     */
+    n20_error_unexpected_null_dispatch_context_e = 24,
+
+    /**
+     * @brief Unexpected NULL pointer in service operations.
+     *
+     * This error is returned by @ref n20_service_message_dispatch
+     * if the service operations pointer is NULL.
+     */
+    n20_error_unexpected_null_service_ops_e = 25,
+
+    /**
      * @brief The crypto context given to an interface was invalid.
      *
      * Implementations must return this error if the context given is
