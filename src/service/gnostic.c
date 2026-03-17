@@ -45,7 +45,7 @@
 #include <nat20/service/service.h>
 #include <nat20/types.h>
 
-static n20_error_t check_node_state(n20_gnostic_node_state_t* node_state) {
+static n20_error_t n20_check_node_state(n20_gnostic_node_state_t* node_state) {
     if (node_state == NULL) {
         return n20_error_unexpected_null_service_state_e;
     }
@@ -64,7 +64,7 @@ static n20_error_t check_node_state(n20_gnostic_node_state_t* node_state) {
 static n20_error_t n20_gnostic_promote(void* ctx, n20_msg_promote_request_t* request) {
     n20_gnostic_node_state_t* node_state = (n20_gnostic_node_state_t*)ctx;
 
-    n20_error_t error = check_node_state(node_state);
+    n20_error_t error = n20_check_node_state(node_state);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -81,11 +81,11 @@ static n20_error_t n20_gnostic_promote(void* ctx, n20_msg_promote_request_t* req
 
     /* The previous CDI is no longer needed, free it. */
     node_state->crypto_context->key_free(node_state->crypto_context, *min_cdi);
-    /* Set the pointer to NULL to avoid dangling references.
+    /* Set the min CDI key handle to NULL to avoid dangling references or double free.
      * Even if the derivation of the next CDI failed, it is better to
      * disable the mechanism and prevent further key derivations
      * than to continue with a potentially defined state. */
-    min_cdi = NULL;
+    *min_cdi = NULL;
 
     if (error != n20_error_ok_e) {
         return error;
@@ -153,26 +153,32 @@ static n20_error_t n20_resolve_path(n20_crypto_context_t* crypto_ctx,
     return n20_error_ok_e;
 }
 
+static n20_error_t n20_check_node_state_and_resolve_path(n20_gnostic_node_state_t* node_state,
+                                                         n20_parent_path_t const* parent_path,
+                                                         n20_crypto_key_t* resolved_key) {
+    n20_error_t error = n20_check_node_state(node_state);
+    if (error != n20_error_ok_e) {
+        return error;
+    }
+
+    return n20_resolve_path(
+        node_state->crypto_context, node_state->min_cdi, parent_path, resolved_key);
+}
+
 static n20_error_t n20_gnostic_issue_cdi_certificate(void* ctx,
                                                      n20_msg_issue_cdi_cert_request_t* request,
                                                      uint8_t* certificate_out,
                                                      size_t* certificate_size_in_out) {
 
     n20_gnostic_node_state_t* node_state = (n20_gnostic_node_state_t*)ctx;
-
-    n20_error_t error = check_node_state(node_state);
-    if (error != n20_error_ok_e) {
-        return error;
-    }
+    n20_crypto_key_t issuer_secret = NULL;
 
     if (request == NULL) {
         return n20_error_unexpected_null_service_request_e;
     }
 
-    n20_crypto_key_t issuer_secret = node_state->min_cdi;
-
-    error = n20_resolve_path(
-        node_state->crypto_context, issuer_secret, &request->parent_path, &issuer_secret);
+    n20_error_t error =
+        n20_check_node_state_and_resolve_path(node_state, &request->parent_path, &issuer_secret);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -203,20 +209,14 @@ static n20_error_t n20_gnostic_issue_eca_certificate(void* ctx,
                                                      size_t* certificate_size_in_out) {
 
     n20_gnostic_node_state_t* node_state = (n20_gnostic_node_state_t*)ctx;
-
-    n20_error_t error = check_node_state(node_state);
-    if (error != n20_error_ok_e) {
-        return error;
-    }
+    n20_crypto_key_t parent_secret = NULL;
 
     if (request == NULL) {
         return n20_error_unexpected_null_service_request_e;
     }
 
-    n20_crypto_key_t parent_secret = node_state->min_cdi;
-
-    error = n20_resolve_path(
-        node_state->crypto_context, parent_secret, &request->parent_path, &parent_secret);
+    n20_error_t error =
+        n20_check_node_state_and_resolve_path(node_state, &request->parent_path, &parent_secret);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -247,20 +247,14 @@ static n20_error_t n20_gnostic_issue_eca_ee_certificate(
     size_t* certificate_size_in_out) {
 
     n20_gnostic_node_state_t* node_state = (n20_gnostic_node_state_t*)ctx;
-
-    n20_error_t error = check_node_state(node_state);
-    if (error != n20_error_ok_e) {
-        return error;
-    }
+    n20_crypto_key_t parent_secret = NULL;
 
     if (request == NULL) {
         return n20_error_unexpected_null_service_request_e;
     }
 
-    n20_crypto_key_t parent_secret = node_state->min_cdi;
-
-    error = n20_resolve_path(
-        node_state->crypto_context, parent_secret, &request->parent_path, &parent_secret);
+    n20_error_t error =
+        n20_check_node_state_and_resolve_path(node_state, &request->parent_path, &parent_secret);
     if (error != n20_error_ok_e) {
         return error;
     }
@@ -311,20 +305,14 @@ static n20_error_t n20_gnostic_eca_ee_sign(void* ctx,
                                            size_t* signature_size) {
 
     n20_gnostic_node_state_t* node_state = (n20_gnostic_node_state_t*)ctx;
-
-    n20_error_t error = check_node_state(node_state);
-    if (error != n20_error_ok_e) {
-        return error;
-    }
+    n20_crypto_key_t parent_secret = NULL;
 
     if (request == NULL) {
         return n20_error_unexpected_null_service_request_e;
     }
 
-    n20_crypto_key_t parent_secret = node_state->min_cdi;
-
-    error = n20_resolve_path(
-        node_state->crypto_context, parent_secret, &request->parent_path, &parent_secret);
+    n20_error_t error =
+        n20_check_node_state_and_resolve_path(node_state, &request->parent_path, &parent_secret);
     if (error != n20_error_ok_e) {
         return error;
     }

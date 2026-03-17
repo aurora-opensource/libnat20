@@ -48,11 +48,46 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Service node state for the Gnostic Stateless service implementation.
+ *
+ * This implementation is gnostic in the sense that it has direct access to
+ * cryptographic material and can perform cryptographic operations.
+ * It is stateless in that, with the exception of the minimal CDI, it does not
+ * maintain any state, and with the exception of the promote call, all
+ * operations are one shot, independent, and do not affect each other or the
+ * services node's state.
+ *
+ * The service node state includes a pointer to a crypto context and the minimal CDI
+ * that the service node can use to derive other CDIs. The service operations
+ * for this implementation are defined in @ref src/service/gnostic.c, and is based
+ * on the DICE functionality implemented in @ref src/core/functionality.c.
+ * The supported operations include CDI promotion, issuing CDI certificates,
+ * issuing ECA certificates, issuing ECA end-entity certificates, signing with ECA
+ * end-entity keys.
+ *
+ * The service allows for indefinite nested hierarchies by allowing service calls
+ * to specify a path from the minimal CDI to a parent CDI in terms of compressed
+ * DICE input. This is useful to reflect dynamic hierarchies in software architecture
+ * such as Secure Element -> Hypervisor -> VM(s) -> OS Kernel(s) -> Application(s).
+ */
 struct n20_gnostic_node_state_s {
-    /** The cryptographic context for the node. */
+    /**
+     * @brief The cryptographic context for the node.
+     *
+     * A nat20_crypto_context_t that the service node can use to perform cryptographic
+     * operations such as key derivation, digest, signing, and freeing keys.
+     * This context is provided by the service integrator and may be implemented
+     * using any crypto backend (hardware accellerated or otherwise) that conforms
+     * to the n20_crypto_context_t interface.
+     */
     n20_crypto_context_t *crypto_context;
     /**
      * @brief The minimal compound device identifier (CDI) usable by client.
+     *
+     * A handle to the base CDI from which all other CDIs can be derived.
+     * It is an opaque handle that must be understood by the crypto_context
+     * of the service node.
      */
     n20_crypto_key_t min_cdi;
 };

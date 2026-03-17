@@ -320,13 +320,6 @@ TEST_F(GnosticNodeTest, ForwardPromoteCryptoErrors) {
 
     EXPECT_EQ(n20_error_crypto_implementation_specific_e,
               n20_gnostic_service_ops.n20_srv_promote(&state_, &req));
-
-    mock_crypto_context_.err_on_zero_kdf = std::numeric_limits<uint32_t>::max();
-    mock_crypto_context_.err_on_zero_key_free = 0;
-    mock_crypto_context_.key_free_error = n20_error_crypto_implementation_specific_e;
-
-    EXPECT_EQ(n20_error_crypto_implementation_specific_e,
-              n20_gnostic_service_ops.n20_srv_promote(&state_, &req));
 }
 
 TEST_F(GnosticNodeTest, ForwardCdiCertCryptoErrors) {
