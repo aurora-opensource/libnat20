@@ -344,23 +344,6 @@ TEST_F(ServiceMessageDispatchTest, PromoteSuccess) {
     EXPECT_EQ(n20_error_ok_e, parse_error_response(response));
 }
 
-TEST_F(ServiceMessageDispatchTest, PromoteRejectsWrongContextSize) {
-    // Trim the context by one byte so it does not match sizeof(n20_compressed_input_t).
-    n20_slice_t bad_context = valid_context();
-    bad_context.size -= 1;
-
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_promote_e,
-        .payload = {.promote = {.compressed_context = bad_context}},
-    };
-
-    auto const [rc, response] = dispatch(encode_request(req));
-
-    ASSERT_EQ(n20_error_ok_e, rc);
-    EXPECT_EQ(0u, state_.promote_calls);
-    EXPECT_EQ(n20_error_incompatible_compressed_input_size_e, parse_error_response(response));
-}
-
 TEST_F(ServiceMessageDispatchTest, PromoteForwardsServiceError) {
     state_.promote_rc = n20_error_crypto_invalid_context_e;
 
@@ -709,7 +692,7 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignForwardsServiceError) {
 
 // This test covers the case where the dispatcher runs out of response buffer
 // while rendering the response prefix.
-TEST_F(ServiceMessageDispatchTest, EcaEeSignEeCertInsufficientBufferSize) {
+TEST_F(ServiceMessageDispatchTest, EcaEeSignInsufficientBufferSize) {
     // Set the response buffer size to the payload size so that there enough space for the
     // test payload but not for the response header.
     size_t response_size = state_.sign_payload.size;

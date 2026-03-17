@@ -36,11 +36,7 @@
  */
 
 #include <nat20/cbor.h>
-#include <nat20/crypto.h>
-#include <nat20/crypto_bssl/crypto.h>
 #include <nat20/error.h>
-#include <nat20/functionality.h>
-#include <nat20/open_dice.h>
 #include <nat20/service/messages.h>
 #include <nat20/service/service.h>
 #include <nat20/service/service_message_dispatch.h>
@@ -76,11 +72,6 @@ static n20_error_t dispatch_promote_request(n20_service_message_dispatch_ctx_t* 
                                             n20_msg_promote_request_t* request) {
     if (ctx->ops->n20_srv_promote == NULL) {
         return n20_error_request_type_not_implemented_e;
-    }
-
-    if (request->compressed_context.size != sizeof(n20_compressed_input_t)) {
-        // Handle error: invalid compressed context size
-        return n20_error_incompatible_compressed_input_size_e;
     }
 
     n20_error_t rc = ctx->ops->n20_srv_promote(ctx->ctx, request);
