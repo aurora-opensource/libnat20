@@ -92,8 +92,18 @@ struct n20_gnostic_node_state_s {
     n20_crypto_key_t min_cdi;
 };
 
+/**
+ * @brief Alias for @ref n20_gnostic_node_state_s.
+ */
 typedef struct n20_gnostic_node_state_s n20_gnostic_node_state_t;
 
+/**
+ * @brief The service operations for the Gnostic Stateless service implementation.
+ *
+ * This symbol is defined in @ref src/service/gnostic.c and represents
+ * a fully initialized n20_service_ops_t structure that can be used to
+ * implement a service node with the Gnostic Stateless implementation.
+ */
 extern n20_service_ops_t n20_gnostic_service_ops;
 
 #ifdef __cplusplus
