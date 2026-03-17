@@ -66,6 +66,26 @@ n20_slice_t const TEST_PATH_ELEMENT1 = {TEST_PATH_ELEMENT1_DATA.size(),
 n20_slice_t const TEST_PATH_ELEMENT2 = {TEST_PATH_ELEMENT2_DATA.size(),
                                         TEST_PATH_ELEMENT2_DATA.data()};
 
+n20_slice_t const TEST_PATH_ELEMENTS[] = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2};
+
+// clang-format off
+constexpr auto TEST_PARENT_PATH_ENCODED_DATA = std::array<uint8_t, 2 * 34 + 1>{
+    0x82,  // Array with 2 elements
+    0x58, 0x20, // Byte string with 32 bytes
+    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+    0x58, 0x20, // Byte string with 32 bytes
+    0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77,
+    0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77,
+    0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77,
+    0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77};
+// clang-format on
+
+n20_slice_t const TEST_PARENT_PATH_ENCODED = {TEST_PARENT_PATH_ENCODED_DATA.size(),
+                                              TEST_PARENT_PATH_ENCODED_DATA.data()};
+
 class MessagesTest : public testing::Test {
    protected:
     void SetUp() override {  // Initialize common test data
@@ -145,16 +165,59 @@ TEST_F(MessagesTest, PromoteRequestRoundTrip) {
                      test_compressed_context.size));
 }
 
+static void compare_parent_path(n20_slice_t const* expected,
+                                size_t expected_length,
+                                n20_parent_path_t const* got) {
+    size_t parent_path_index = 0;
+    ASSERT_EQ(expected_length, got->length);
+
+    auto closure = [&](n20_slice_t element) -> n20_error_t {
+        EXPECT_EQ(element.size, expected[parent_path_index].size);
+        EXPECT_EQ(0,
+                  memcmp(element.buffer,
+                         expected[parent_path_index].buffer,
+                         std::min(element.size, expected[parent_path_index].size)));
+        ++parent_path_index;
+        return n20_error_ok_e;
+    };
+
+    EXPECT_EQ(n20_error_ok_e,
+              n20_msg_parent_path_iterate(
+                  got,
+                  [](void* ctx, n20_slice_t element) -> n20_error_t {
+                      auto cb = reinterpret_cast<decltype(closure)*>(ctx);
+                      return (*cb)(element);
+                  },
+                  &closure));
+}
+
+class RoundTripTest : public MessagesTest,
+                      public testing::WithParamInterface<std::tuple<n20_parent_path_t, bool>> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    RoundTripTests,
+    RoundTripTest,
+    testing::Values(
+        std::make_tuple(n20_parent_path_t{.length = 0, .is_encoded = false, .decoded = NULL},
+                        false),
+        std::make_tuple(
+            n20_parent_path_t{.length = 2, .is_encoded = false, .decoded = TEST_PATH_ELEMENTS},
+            true),
+        std::make_tuple(
+            n20_parent_path_t{.length = 2, .is_encoded = true, .encoded = TEST_PARENT_PATH_ENCODED},
+            true)));
+
 // Test CDI cert request read/write
-TEST_F(MessagesTest, CdiCertRequestRoundTrip) {
+TEST_P(RoundTripTest, CdiCertRequestRoundTrip) {
+    auto [parent_path, expect_encoded] = GetParam();
+    size_t expected_path_length = parent_path.length;
     n20_msg_issue_cdi_cert_request_t original_request = {
         .issuer_key_type = n20_crypto_key_type_ed25519_e,
         .subject_key_type = n20_crypto_key_type_secp256r1_e,
         .next_context = {.code_hash = test_code_hash,
                          .mode = n20_open_dice_mode_normal_e,
                          .profile_name = {8, "testprof"}},
-        .parent_path_length = 2,
-        .parent_path = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2},
+        .parent_path = parent_path,
         .certificate_format = n20_certificate_format_x509_e};
 
     n20_msg_request_t request = {.request_type = n20_msg_request_type_issue_cdi_cert_e,
@@ -179,29 +242,21 @@ TEST_F(MessagesTest, CdiCertRequestRoundTrip) {
               read_request.payload.issue_cdi_cert.subject_key_type);
     EXPECT_EQ(n20_certificate_format_x509_e,
               read_request.payload.issue_cdi_cert.certificate_format);
-    EXPECT_EQ(2, read_request.payload.issue_cdi_cert.parent_path_length);
     EXPECT_EQ(n20_open_dice_mode_normal_e, read_request.payload.issue_cdi_cert.next_context.mode);
-    EXPECT_EQ(original_request.parent_path[0].size,
-              read_request.payload.issue_cdi_cert.parent_path[0].size);
-    EXPECT_EQ(0,
-              memcmp(original_request.parent_path[0].buffer,
-                     read_request.payload.issue_cdi_cert.parent_path[0].buffer,
-                     original_request.parent_path[0].size));
-    EXPECT_EQ(original_request.parent_path[1].size,
-              read_request.payload.issue_cdi_cert.parent_path[1].size);
-    EXPECT_EQ(0,
-              memcmp(original_request.parent_path[1].buffer,
-                     read_request.payload.issue_cdi_cert.parent_path[1].buffer,
-                     original_request.parent_path[1].size));
+    EXPECT_EQ(expected_path_length, read_request.payload.issue_cdi_cert.parent_path.length);
+    EXPECT_EQ(expect_encoded, read_request.payload.issue_cdi_cert.parent_path.is_encoded);
+    compare_parent_path(
+        TEST_PATH_ELEMENTS, expected_path_length, &read_request.payload.issue_cdi_cert.parent_path);
 }
 
 // Test ECA cert request read/write
-TEST_F(MessagesTest, EcaCertRequestRoundTrip) {
+TEST_P(RoundTripTest, EcaCertRequestRoundTrip) {
+    auto [parent_path, expect_encoded] = GetParam();
+    size_t expected_path_length = parent_path.length;
     n20_msg_issue_eca_cert_request_t original_request = {
         .issuer_key_type = n20_crypto_key_type_secp256r1_e,
         .subject_key_type = n20_crypto_key_type_ed25519_e,
-        .parent_path_length = 2,
-        .parent_path = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2},
+        .parent_path = parent_path,
         .certificate_format = n20_certificate_format_x509_e,
         .challenge = {8, (uint8_t*)"challeng"}};
 
@@ -226,31 +281,24 @@ TEST_F(MessagesTest, EcaCertRequestRoundTrip) {
     EXPECT_EQ(n20_crypto_key_type_ed25519_e, read_request.payload.issue_eca_cert.subject_key_type);
     EXPECT_EQ(n20_certificate_format_x509_e,
               read_request.payload.issue_eca_cert.certificate_format);
-    EXPECT_EQ(2, read_request.payload.issue_eca_cert.parent_path_length);
+    EXPECT_EQ(expected_path_length, read_request.payload.issue_eca_cert.parent_path.length);
+    EXPECT_EQ(expect_encoded, read_request.payload.issue_eca_cert.parent_path.is_encoded);
+    compare_parent_path(
+        TEST_PATH_ELEMENTS, expected_path_length, &read_request.payload.issue_eca_cert.parent_path);
     EXPECT_EQ(8, read_request.payload.issue_eca_cert.challenge.size);
-    EXPECT_EQ(original_request.parent_path[0].size,
-              read_request.payload.issue_eca_cert.parent_path[0].size);
-    EXPECT_EQ(0,
-              memcmp(original_request.parent_path[0].buffer,
-                     read_request.payload.issue_eca_cert.parent_path[0].buffer,
-                     original_request.parent_path[0].size));
-    EXPECT_EQ(original_request.parent_path[1].size,
-              read_request.payload.issue_eca_cert.parent_path[1].size);
-    EXPECT_EQ(0,
-              memcmp(original_request.parent_path[1].buffer,
-                     read_request.payload.issue_eca_cert.parent_path[1].buffer,
-                     original_request.parent_path[1].size));
+    EXPECT_EQ(0, memcmp("challeng", read_request.payload.issue_eca_cert.challenge.buffer, 8));
 }
 
 // Test ECA End-Entity cert request read/write
-TEST_F(MessagesTest, EcaEeCertRequestRoundTrip) {
+TEST_P(RoundTripTest, EcaEeCertRequestRoundTrip) {
     uint8_t key_usage_data[] = {0x01, 0x02};
+    auto [parent_path, expect_encoded] = GetParam();
+    size_t expected_path_length = parent_path.length;
 
     n20_msg_issue_eca_ee_cert_request_t original_request = {
         .issuer_key_type = n20_crypto_key_type_ed25519_e,
         .subject_key_type = n20_crypto_key_type_secp384r1_e,
-        .parent_path_length = 2,
-        .parent_path = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2},
+        .parent_path = parent_path,
         .certificate_format = n20_certificate_format_x509_e,
         .name = {7, "testkey"},
         .key_usage = {2, key_usage_data},
@@ -282,31 +330,24 @@ TEST_F(MessagesTest, EcaEeCertRequestRoundTrip) {
     EXPECT_EQ(2, read_request.payload.issue_eca_ee_cert.key_usage.size);
     EXPECT_EQ(0x01, read_request.payload.issue_eca_ee_cert.key_usage.buffer[0]);
     EXPECT_EQ(0x02, read_request.payload.issue_eca_ee_cert.key_usage.buffer[1]);
-    EXPECT_EQ(2, read_request.payload.issue_eca_ee_cert.parent_path_length);
-    EXPECT_EQ(original_request.parent_path[0].size,
-              read_request.payload.issue_eca_ee_cert.parent_path[0].size);
-    EXPECT_EQ(0,
-              memcmp(original_request.parent_path[0].buffer,
-                     read_request.payload.issue_eca_ee_cert.parent_path[0].buffer,
-                     original_request.parent_path[0].size));
-    EXPECT_EQ(original_request.parent_path[1].size,
-              read_request.payload.issue_eca_ee_cert.parent_path[1].size);
-    EXPECT_EQ(0,
-              memcmp(original_request.parent_path[1].buffer,
-                     read_request.payload.issue_eca_ee_cert.parent_path[1].buffer,
-                     original_request.parent_path[1].size));
+    EXPECT_EQ(expected_path_length, read_request.payload.issue_eca_ee_cert.parent_path.length);
+    EXPECT_EQ(expect_encoded, read_request.payload.issue_eca_ee_cert.parent_path.is_encoded);
+    compare_parent_path(TEST_PATH_ELEMENTS,
+                        expected_path_length,
+                        &read_request.payload.issue_eca_ee_cert.parent_path);
     EXPECT_EQ(0, memcmp("abcd", read_request.payload.issue_eca_ee_cert.challenge.buffer, 4));
 }
 
 // Test ECA End-Entity sign request read/write
-TEST_F(MessagesTest, EcaEeSignRequestRoundTrip) {
+TEST_P(RoundTripTest, EcaEeSignRequestRoundTrip) {
     uint8_t message_data[] = "Hello, World!";
     uint8_t key_usage_data[] = {0x01};
 
+    auto [parent_path, expect_encoded] = GetParam();
+    size_t expected_path_length = parent_path.length;
     n20_msg_eca_ee_sign_request_t original_request = {
         .subject_key_type = n20_crypto_key_type_ed25519_e,
-        .parent_path_length = 2,
-        .parent_path = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2},
+        .parent_path = parent_path,
         .name = {6, "signer"},
         .key_usage = {1, key_usage_data},
         .message = {13, message_data}};
@@ -335,19 +376,10 @@ TEST_F(MessagesTest, EcaEeSignRequestRoundTrip) {
     EXPECT_EQ(0, memcmp("Hello, World!", read_request.payload.eca_ee_sign.message.buffer, 13));
     EXPECT_EQ(1, read_request.payload.eca_ee_sign.key_usage.size);
     EXPECT_EQ(0x01, read_request.payload.eca_ee_sign.key_usage.buffer[0]);
-    EXPECT_EQ(2, read_request.payload.eca_ee_sign.parent_path_length);
-    EXPECT_EQ(original_request.parent_path[0].size,
-              read_request.payload.eca_ee_sign.parent_path[0].size);
-    EXPECT_EQ(0,
-              memcmp(original_request.parent_path[0].buffer,
-                     read_request.payload.eca_ee_sign.parent_path[0].buffer,
-                     original_request.parent_path[0].size));
-    EXPECT_EQ(original_request.parent_path[1].size,
-              read_request.payload.eca_ee_sign.parent_path[1].size);
-    EXPECT_EQ(0,
-              memcmp(original_request.parent_path[1].buffer,
-                     read_request.payload.eca_ee_sign.parent_path[1].buffer,
-                     original_request.parent_path[1].size));
+    EXPECT_EQ(expected_path_length, read_request.payload.eca_ee_sign.parent_path.length);
+    EXPECT_EQ(expect_encoded, read_request.payload.eca_ee_sign.parent_path.is_encoded);
+    compare_parent_path(
+        TEST_PATH_ELEMENTS, expected_path_length, &read_request.payload.eca_ee_sign.parent_path);
 }
 
 // Test error response read/write
@@ -568,38 +600,6 @@ TEST_F(MessagesTest, RequestReadNullPointerHandling) {
     EXPECT_EQ(n20_error_unexpected_null_request_e, n20_msg_request_read(nullptr, test_slice));
 }
 
-// Test maximum path length
-TEST_F(MessagesTest, MaxPathLength) {
-    n20_msg_issue_cdi_cert_request_t request = {
-        .issuer_key_type = n20_crypto_key_type_ed25519_e,
-        .subject_key_type = n20_crypto_key_type_ed25519_e,
-        .parent_path_length = N20_STATELESS_MAX_PATH_LENGTH,
-        .certificate_format = n20_certificate_format_x509_e};
-
-    // Fill parent path to maximum
-    for (size_t i = 0; i < N20_STATELESS_MAX_PATH_LENGTH; ++i) {
-        request.parent_path[i] = {4, (uint8_t*)"path"};
-    }
-
-    n20_msg_request_t msg = {.request_type = n20_msg_request_type_issue_cdi_cert_e,
-                             .payload = {.issue_cdi_cert = request}};
-
-    // Should succeed with maximum path length
-    size_t original_buffer_size = test_buffer.size();
-    size_t buffer_size = original_buffer_size;
-    ASSERT_EQ(n20_error_ok_e, n20_msg_request_write(&msg, test_buffer.data(), &buffer_size));
-
-    // Get the CBOR data from the end of the buffer
-    n20_slice_t msg_buffer = GetCborDataFromWrite(original_buffer_size, buffer_size);
-
-    // Read it back
-    n20_msg_request_t read_request = {};
-    ASSERT_EQ(n20_error_ok_e, n20_msg_request_read(&read_request, msg_buffer));
-
-    EXPECT_EQ(N20_STATELESS_MAX_PATH_LENGTH,
-              read_request.payload.issue_cdi_cert.parent_path_length);
-}
-
 // Test OpenDICE input with all fields
 TEST_F(MessagesTest, OpenDiceInputAllFields) {
     n20_open_dice_input_t dice_input = {
@@ -618,7 +618,7 @@ TEST_F(MessagesTest, OpenDiceInputAllFields) {
         .issuer_key_type = n20_crypto_key_type_ed25519_e,
         .subject_key_type = n20_crypto_key_type_ed25519_e,
         .next_context = dice_input,
-        .parent_path_length = 0,
+        .parent_path = {},
         .certificate_format = n20_certificate_format_x509_e};
 
     n20_msg_request_t msg = {.request_type = n20_msg_request_type_issue_cdi_cert_e,
@@ -1018,44 +1018,15 @@ class CompressedContextPathTestFixture
     : public MessagesTest,
       public testing::WithParamInterface<n20_msg_request_type_t> {};
 
-INSTANTIATE_TEST_SUITE_P(CompressedContextPathTooLongTestInstance,
+INSTANTIATE_TEST_SUITE_P(CompressedContextPathTestInstance,
                          CompressedContextPathTestFixture,
                          testing::Values(n20_msg_request_type_issue_cdi_cert_e,
                                          n20_msg_request_type_issue_eca_cert_e,
                                          n20_msg_request_type_issue_eca_ee_cert_e,
                                          n20_msg_request_type_eca_ee_sign_e));
 
-TEST_P(CompressedContextPathTestFixture, CompressedContextPathTooLong) {
-    auto request_type = GetParam();
-    // Create a promote request with a compressed context that is too long
-
-    // If this ASSERTION fails, the N20_STATELESS_MAX_PATH_LENGTH constant
-    // was set larger than the maximum simple integer value that can be
-    // encoded in a single byte (23). The test code below would need to be updated
-    // to handle multi-byte integer encoding.
-    ASSERT_LE(N20_STATELESS_MAX_PATH_LENGTH + 1, 23);
-
-    std::vector<uint8_t> cbor_data = {
-        0x82,                                        // Array of 2 items
-        static_cast<uint8_t>(request_type),          // Request type
-        0xA1,                                        // Map with one element
-        0x04,                                        // Field 4 parent path
-        0x80 | (N20_STATELESS_MAX_PATH_LENGTH + 1),  // Array of max path length + 1
-    };
-
-    WriteTestCborMessage(cbor_data);
-    n20_msg_request_t request = {};
-    EXPECT_EQ(n20_error_parent_path_size_exceeds_max_e, n20_msg_request_read(&request, test_slice));
-}
-
 TEST_P(CompressedContextPathTestFixture, CompressedContextMalformed) {
     auto request_type = GetParam();
-    // Create a promote request with a compressed context that is too long
-
-    // If this ASSERTION fails, the N20_STATELESS_MAX_PATH_LENGTH constant
-    // was set less then 2. The test code below would need to be updated to handle that case.
-    ASSERT_GE(N20_STATELESS_MAX_PATH_LENGTH, 2);
-
     std::vector<uint8_t> cbor_data = {
         0x82,                                // Array of 2 items
         static_cast<uint8_t>(request_type),  // Request type
@@ -1307,4 +1278,81 @@ TEST_F(MessagesTest, EcaEeSignResponseWriteBufferOverflow) {
     EXPECT_EQ(n20_error_insufficient_buffer_size_e,
               n20_msg_eca_ee_sign_response_write(&response, small_buffer, &buffer_size));
     EXPECT_EQ(buffer_size, 68);
+}
+
+TEST_F(MessagesTest, ParentPathIterateErrors) {
+
+    std::vector<uint8_t> cbor_data = {
+        0x82,  // Array of 2 items
+        0x44,  // Byte string of length 4
+        0x01,
+        0x02,
+        0x03,
+        0x04,  // Compressed context data
+    };
+
+    n20_parent_path_t path = {
+        .length = 3, .is_encoded = true, .encoded = {cbor_data.size(), cbor_data.data()}};
+
+    EXPECT_EQ(n20_error_unexpected_message_structure_e,
+              n20_msg_parent_path_iterate(
+                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+
+    path.length = 2;  // Set length to actual number of items in CBOR array.
+    EXPECT_EQ(n20_error_write_position_overflow_e,
+              n20_msg_parent_path_iterate(
+                  &path,
+                  [](void* ctx, n20_slice_t item) { return n20_error_write_position_overflow_e; },
+                  nullptr));
+
+    EXPECT_EQ(n20_error_unexpected_message_structure_e,
+              n20_msg_parent_path_iterate(
+                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+
+    cbor_data[0] = 0xa2;  // Change to map which is unexpected.
+    EXPECT_EQ(n20_error_unexpected_message_structure_e,
+              n20_msg_parent_path_iterate(
+                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+
+    n20_slice_t parent_path_elements[] = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2};
+    path.is_encoded = false;
+    path.decoded = parent_path_elements;
+
+    EXPECT_EQ(n20_error_write_position_overflow_e,
+              n20_msg_parent_path_iterate(
+                  &path,
+                  [](void* ctx, n20_slice_t item) { return n20_error_write_position_overflow_e; },
+                  nullptr));
+
+    path.decoded = nullptr;
+    EXPECT_EQ(n20_error_unexpected_null_path_e,
+              n20_msg_parent_path_iterate(
+                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+}
+
+TEST_F(MessagesTest, ParentPathIterateSuccess) {
+    n20_slice_t parent_path_elements[] = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2};
+    n20_parent_path_t path = {.length = 2, .is_encoded = false, .decoded = parent_path_elements};
+
+    compare_parent_path(parent_path_elements, 2, &path);
+}
+
+TEST_F(MessagesTest, ParentPathIterateNullPath) {
+    int callback_calls = 0;
+    EXPECT_EQ(n20_error_ok_e,
+              n20_msg_parent_path_iterate(
+                  nullptr,
+                  [](void* ctx, n20_slice_t item) {
+                      *reinterpret_cast<int*>(ctx) += 1;
+                      return n20_error_ok_e;
+                  },
+                  &callback_calls));
+    ASSERT_EQ(callback_calls, 0);
+}
+
+TEST_F(MessagesTest, ParentPathIterateNullCallback) {
+    n20_slice_t parent_path_elements[] = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2};
+    n20_parent_path_t path = {.length = 2, .is_encoded = false, .decoded = parent_path_elements};
+
+    EXPECT_EQ(n20_error_ok_e, n20_msg_parent_path_iterate(&path, nullptr, nullptr));
 }
