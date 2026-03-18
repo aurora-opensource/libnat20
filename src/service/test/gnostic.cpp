@@ -49,6 +49,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 
 namespace {
 
@@ -80,6 +81,8 @@ struct MockCryptoContext : public n20_crypto_context_t {
 // Fixture
 // ---------------------------------------------------------------------------
 
+#define container_of(ptr, type, member) ((type*)((char*)(ptr)-offsetof(type, member)))
+
 class GnosticNodeTest : public testing::Test {
    protected:
     void SetUp() override {
@@ -107,7 +110,8 @@ class GnosticNodeTest : public testing::Test {
                                                     size_t msg_count,
                                                     uint8_t* out,
                                                     size_t* out_len) -> n20_error_t {
-            MockCryptoContext* mock_ctx = reinterpret_cast<MockCryptoContext*>(ctx);
+            MockCryptoContext* mock_ctx = reinterpret_cast<MockCryptoContext*>(
+                container_of(ctx, n20_crypto_context_t, digest_ctx));
             if (!mock_ctx->err_on_zero_digest--) {
                 return mock_ctx->digest_error;
             }
@@ -366,7 +370,7 @@ TEST_F(GnosticNodeTest, IssueEcaEECertEmptyKeyUsageProducesUnusableKey) {
         .subject_key_type = n20_crypto_key_type_ed25519_e,
         .certificate_format = n20_certificate_format_x509_e,
     };
-    req.key_usage = {0, nullptr};  // empty key usage is not allowed
+    req.key_usage = {0, nullptr};
 
     size_t sz = cert_buffer_.size();
     EXPECT_EQ(n20_error_ok_e,

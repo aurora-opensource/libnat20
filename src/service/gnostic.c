@@ -145,6 +145,11 @@ static n20_error_t n20_resolve_path(n20_crypto_context_t* crypto_ctx,
     n20_error_t error =
         n20_msg_parent_path_iterate(parent_path, n20_resolve_path_iterator_cb, &ictx);
     if (error != n20_error_ok_e) {
+        if (ictx.index > 0 && ictx.current_secret != NULL) {
+            /* Free the current secret if at least one level of the path was successfully resolved.
+             * This catches the case where parent_path_iterate fails. */
+            crypto_ctx->key_free(crypto_ctx, ictx.current_secret);
+        }
         return error;
     }
 

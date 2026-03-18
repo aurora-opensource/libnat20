@@ -78,7 +78,7 @@ struct n20_gnostic_node_state_s {
      * A nat20_crypto_context_t that the service node can use to perform cryptographic
      * operations such as key derivation, digest, signing, and freeing keys.
      * This context is provided by the service integrator and may be implemented
-     * using any crypto backend (hardware accellerated or otherwise) that conforms
+     * using any crypto backend (hardware accelerated or otherwise) that conforms
      * to the n20_crypto_context_t interface.
      */
     n20_crypto_context_t *crypto_context;
