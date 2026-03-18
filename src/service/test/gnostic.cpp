@@ -49,6 +49,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 
 namespace {
 
@@ -60,8 +61,6 @@ struct MockCryptoContext : public n20_crypto_context_t {
     n20_error_t kdf_error = n20_error_ok_e;
     uint32_t err_on_zero_digest = std::numeric_limits<uint32_t>::max();
     n20_error_t digest_error = n20_error_ok_e;
-    uint32_t err_on_zero_key_free = std::numeric_limits<uint32_t>::max();
-    n20_error_t key_free_error = n20_error_ok_e;
     n20_error_t (*kdf_fn)(struct n20_crypto_context_s* ctx,
                           n20_crypto_key_t key_in,
                           n20_crypto_key_type_t key_type_in,
@@ -74,11 +73,15 @@ struct MockCryptoContext : public n20_crypto_context_t {
                              uint8_t* out,
                              size_t* out_len);
     n20_error_t (*key_free_fn)(n20_crypto_context_t* ctx, n20_crypto_key_t key);
+
+    uint32_t free_key_calls = 0;
 };
 
 // ---------------------------------------------------------------------------
 // Fixture
 // ---------------------------------------------------------------------------
+
+#define container_of(ptr, type, member) ((type*)((char*)(ptr)-offsetof(type, member)))
 
 class GnosticNodeTest : public testing::Test {
    protected:
@@ -107,7 +110,8 @@ class GnosticNodeTest : public testing::Test {
                                                     size_t msg_count,
                                                     uint8_t* out,
                                                     size_t* out_len) -> n20_error_t {
-            MockCryptoContext* mock_ctx = reinterpret_cast<MockCryptoContext*>(ctx);
+            MockCryptoContext* mock_ctx = reinterpret_cast<MockCryptoContext*>(
+                container_of(ctx, n20_crypto_context_t, digest_ctx));
             if (!mock_ctx->err_on_zero_digest--) {
                 return mock_ctx->digest_error;
             }
@@ -117,9 +121,7 @@ class GnosticNodeTest : public testing::Test {
         mock_crypto_context_.key_free = [](n20_crypto_context_t* ctx,
                                            n20_crypto_key_t key) -> n20_error_t {
             MockCryptoContext* mock_ctx = reinterpret_cast<MockCryptoContext*>(ctx);
-            if (!mock_ctx->err_on_zero_key_free--) {
-                return mock_ctx->key_free_error;
-            }
+            mock_ctx->free_key_calls++;
             return mock_ctx->key_free_fn(ctx, key);
         };
 
@@ -366,7 +368,7 @@ TEST_F(GnosticNodeTest, IssueEcaEECertEmptyKeyUsageProducesUnusableKey) {
         .subject_key_type = n20_crypto_key_type_ed25519_e,
         .certificate_format = n20_certificate_format_x509_e,
     };
-    req.key_usage = {0, nullptr};  // empty key usage is not allowed
+    req.key_usage = {0, nullptr};
 
     size_t sz = cert_buffer_.size();
     EXPECT_EQ(n20_error_ok_e,
@@ -714,6 +716,31 @@ TEST_F(GnosticNodeTest, ResolvePathIsDeterministic) {
               std::memcmp(first_cert.data() + first_cert.size() - sz_first,
                           cert_buffer_.data() + cert_buffer_.size() - sz_second,
                           sz_first));
+}
+
+TEST_F(GnosticNodeTest, ResolvePathFreesIntermediateDerivedKeyIfPathParsingErrorsOut) {
+    // A depth-2 path requires one intermediate key to be derived and freed
+    // even if the path fails to parse (in this case due to length mismatch in the encoded path).
+    uint8_t invalid_encoded_path[] = {
+        0x82, 0x41, 0xaa,  // length=2, but only 1 element provided.
+    };
+    n20_msg_issue_cdi_cert_request_t req{
+        .parent_path = {.length = 2,
+                        .is_encoded = true,
+                        .encoded = {sizeof(invalid_encoded_path), invalid_encoded_path}}};
+    req.issuer_key_type = n20_crypto_key_type_ed25519_e;
+    req.subject_key_type = n20_crypto_key_type_ed25519_e;
+    req.certificate_format = n20_certificate_format_x509_e;
+
+    size_t sz = cert_buffer_.size();
+    EXPECT_EQ(n20_error_unexpected_message_structure_e,
+              n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
+                  &state_, &req, cert_buffer_.data(), &sz));
+    EXPECT_GT(sz, 0u);
+
+    // The intermediate key must have been freed (1 call for the intermediate, 1 for the final
+    // cert key).
+    EXPECT_EQ(1u, mock_crypto_context_.free_key_calls);
 }
 
 }  // namespace

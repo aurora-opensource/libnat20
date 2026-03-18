@@ -64,13 +64,13 @@ static n20_error_t n20_check_node_state(n20_gnostic_node_state_t* node_state) {
 static n20_error_t n20_gnostic_promote(void* ctx, n20_msg_promote_request_t* request) {
     n20_gnostic_node_state_t* node_state = (n20_gnostic_node_state_t*)ctx;
 
+    if (request == NULL) {
+        return n20_error_unexpected_null_service_request_e;
+    }
+
     n20_error_t error = n20_check_node_state(node_state);
     if (error != n20_error_ok_e) {
         return error;
-    }
-
-    if (request == NULL) {
-        return n20_error_unexpected_null_service_request_e;
     }
 
     n20_crypto_key_t* min_cdi = &node_state->min_cdi;
@@ -145,6 +145,11 @@ static n20_error_t n20_resolve_path(n20_crypto_context_t* crypto_ctx,
     n20_error_t error =
         n20_msg_parent_path_iterate(parent_path, n20_resolve_path_iterator_cb, &ictx);
     if (error != n20_error_ok_e) {
+        if (ictx.index > 0 && ictx.current_secret != NULL) {
+            /* Free the current secret if at least one level of the path was successfully resolved.
+             * This catches the case where parent_path_iterate fails. */
+            crypto_ctx->key_free(crypto_ctx, ictx.current_secret);
+        }
         return error;
     }
 
