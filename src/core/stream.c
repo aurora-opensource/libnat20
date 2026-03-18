@@ -59,23 +59,12 @@ bool n20_stream_has_write_position_overflow(n20_stream_t const *const s) {
     return (s == NULL) || s->write_position_overflow;
 }
 
-// This function always returns the correct amount of data
-// that was written to the stream even if the stream is bad.
-// If the stream was bad it means that the stream ran out
-// of buffer. In this case the return value of this function
-// can be used to allocate a new buffer and initialize a new
-// stream that will fit the data.
 size_t n20_stream_byte_count(n20_stream_t const *const s) {
     return s != NULL ? s->write_position : 0;
 }
 
-// Returns a pointer to the beginning of the written region of the buffer.
-// IMPORTANT it is only safe to dereference the returned pointer if
-// n20_stream_has_buffer_overflow returns false. Also the access must be
-// within the range [p, p + n20_stream_bytes_count) where p is the
-// return value of this function.
 uint8_t *n20_stream_data(n20_stream_t const *const s) {
-    return (s != NULL) ? (s->begin + (s->size - s->write_position)) : NULL;
+    return (s != NULL && !s->buffer_overflow) ? (s->begin + (s->size - s->write_position)) : NULL;
 }
 
 void n20_stream_skip(n20_stream_t *const s, size_t const size) {

@@ -188,17 +188,23 @@ extern size_t n20_stream_byte_count(n20_stream_t const *s);
  * @brief Points to the current stream position in the underlying buffer.
  *
  * The stream is always written from the end of the buffer.
- * This means that the returned pointer points always to the
+ * This means that the returned pointer always points to the
  * beginning of the written section. If no data has been written
  * this points past the end of the buffer.
  *
- * IMPORTANT it is only safe to dereference the returned pointer if
- * @ref n20_stream_has_buffer_overflow returns `false`. Also the
- * access must be within the range [p, p + @ref n20_stream_byte_count)
- * where p is the return value of this function.
+ * If the stream has a buffer overflow, the returned pointer is NULL and
+ * the buffer contents are undefined.
  *
  * @param s the pointer to the stream that is to be queried.
- * @return pointer to the beginning of the written buffer.
+ * @return pointer to the beginning of the written buffer or
+ *         NULL if the stream has a buffer overflow.
+ * @sa n20_stream_has_buffer_overflow
+ * @sa n20_stream_has_write_position_overflow
+ * @sa n20_stream_byte_count
+ * @sa n20_stream_skip
+ * @sa n20_stream_prepend
+ * @sa n20_stream_put
+ * @sa n20_istream_t
  */
 extern uint8_t *n20_stream_data(n20_stream_t const *s);
 
