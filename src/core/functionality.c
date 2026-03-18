@@ -1011,6 +1011,20 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
     uint8_t* public_key = &public_key_buffer[1];
     size_t public_key_size = sizeof(public_key_buffer) - 1;
 
+    if (certificate_format_in == n20_certificate_format_cose_e) {
+        switch (cert_info_in->cert_type) {
+            case n20_cert_type_cdi_e:
+                break;
+            case n20_cert_type_eca_e:
+            case n20_cert_type_eca_ee_e:
+            case n20_cert_type_self_signed_e:
+                /* COSE format is only supported for CDI certificates. */
+                return n20_error_unsupported_certificate_format_e;
+            default:
+                break;
+        }
+    }
+
     switch (cert_info_in->cert_type) {
         case n20_cert_type_cdi_e:
         case n20_cert_type_self_signed_e:
@@ -1092,11 +1106,6 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
                                       certificate_size_in_out);
             break;
         case n20_certificate_format_cose_e:
-            if (cert_info_in->cert_type != n20_cert_type_cdi_e) {
-                /* COSE format is only supported for CDI certificates. */
-                err = n20_error_unsupported_certificate_format_e;
-                break;
-            }
             err = n20_cose_sign1_payload(crypto_ctx,
                                          signing_key,
                                          issuer_key_type_in,

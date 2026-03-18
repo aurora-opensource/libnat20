@@ -213,17 +213,16 @@ extern uint8_t *n20_stream_data(n20_stream_t const *s);
  *
  * The stream is always written in reverse. This means that
  * prepending is the only way to write to the stream buffer.
- * The buffer's write position is moved by `-src_len`
+ * The buffer's write position is moved by `-size`
  * unconditionally. This function does not modify the underlying
  * buffer. It only moves the write position and updates the
  * overflow flags accordingly.
  *
  * If @p size is exceedingly large such that the the write position
- * would wrap and point within the writable buffer region, the
- * stream will remain bad but in addition the overflow flag will be
- * raised on the stream indicating that even @ref n20_stream_byte_count
- * is no longer reliable. This condition can be queried using
- * @ref n20_stream_has_write_position_overflow.
+ * would wrap, the stream will remain bad but in addition the overflow
+ * flag will be raised on the stream indicating that even
+ * @ref n20_stream_byte_count is no longer reliable. This condition can
+ * be queried using @ref n20_stream_has_write_position_overflow.
  *
  * @param s The stream that is to be updated.
  * @param size The number of bytes to skip in the stream.
@@ -247,11 +246,10 @@ extern void n20_stream_skip(n20_stream_t *s, size_t size);
  * the number of bytes written without storing any data.
  *
  * If @p src_len is exceedingly large such that the the write position
- * would wrap and point within the writable buffer region, the
- * stream will remain bad but in addition the overflow flag will be
- * raised on the stream indicating that even @ref n20_stream_byte_count
- * is no longer reliable. This condition can be queried using
- * @ref n20_stream_has_write_position_overflow.
+ * would wrap, the stream will remain bad but in addition the overflow
+ * flag will be raised on the stream indicating that even
+ * @ref n20_stream_byte_count is no longer reliable. This condition
+ * can be queried using @ref n20_stream_has_write_position_overflow.
  *
  * @param s The stream that is to be updated.
  * @param src The source buffer that is to be written to the stream.

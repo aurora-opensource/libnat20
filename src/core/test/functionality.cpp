@@ -1698,10 +1698,10 @@ static void check_cwt_cose_sign1(std::vector<uint8_t> const& cert,
             alg_value = 6;  // ES256 -7 = -value - 1
             break;
         case n20_crypto_key_type_secp384r1_e:
-            signature_size = 92;
+            signature_size = 96;
             protected_header_size = 4;
             alg_value = 34;  // ES384 -35 = -value - 1
-            return;
+            break;
         default:
             GTEST_FAIL() << "Unsupported issuer key type: " << issuer_key_type;
             return;
@@ -1726,7 +1726,7 @@ static void check_cwt_cose_sign1(std::vector<uint8_t> const& cert,
     // Third Element.
     // Payload as byte string. (updates value)
     ASSERT_CBOR_HEADER_TYPE(&cbor, n20_cbor_type_bytes_e);
-    // Store the payload for comparisson later.
+    // Store the payload for comparison later.
     size_t payload_size = value;
     size_t payload_begin = n20_istream_read_position(&cbor);
 
@@ -1789,12 +1789,13 @@ class FunctionalityCwtCoseTest
                                                       n20_cert_type_t,
                                                       std::vector<uint8_t>>> {};
 
-INSTANTIATE_TEST_SUITE_P(FunctionalityCoseTestInstance,
-                         FunctionalityCwtCoseTest,
-                         ::testing::ValuesIn(cwt_cose_test_vectors),
-                         [](testing::TestParamInfo<FunctionalityX509Test::ParamType> const& info) {
-                             return std::get<0>(info.param);
-                         });
+INSTANTIATE_TEST_SUITE_P(
+    FunctionalityCwtCoseTestInstance,
+    FunctionalityCwtCoseTest,
+    ::testing::ValuesIn(cwt_cose_test_vectors),
+    [](testing::TestParamInfo<FunctionalityCwtCoseTest::ParamType> const& info) {
+        return std::get<0>(info.param);
+    });
 
 TEST_P(FunctionalityCwtCoseTest, IssueCwtCoseCertificateTest) {
     auto [test_name, issuer_key_type, subject_key_type, cert_type, want_cert] = GetParam();
@@ -1860,7 +1861,7 @@ TEST_P(FunctionalityCwtCoseTest, IssueCwtCoseCertificateTest) {
     check_cwt_cose_sign1(got_cert, issuer_key_type);
 }
 
-TEST_F(FunctionalityCwtCoseTest, IssueCwtCoseCertificateUnsupportedCertificateType) {
+TEST_F(FunctionalityCwtCoseTest, IssueCwtCoseCertificateUnsupportedCertificateFormatType) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_eca_e;
     uint8_t certificate[2048] = {};
@@ -1869,13 +1870,19 @@ TEST_F(FunctionalityCwtCoseTest, IssueCwtCoseCertificateUnsupportedCertificateTy
     n20_crypto_key_t issuer_secret = this->GetCdi();
     KEY_HANDLE_GUARD(issuer_secret);
 
-    n20_signer_t signer = {
-        .crypto_ctx = nullptr,
-        .signing_key = nullptr,
-        .cb = nullptr,
-    };
-
     ASSERT_EQ(n20_error_unsupported_certificate_format_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    n20_crypto_key_type_ed25519_e,
+                                    n20_crypto_key_type_ed25519_e,
+                                    &cert_info,
+                                    n20_certificate_format_cose_e,
+                                    certificate,
+                                    &certificate_size));
+
+    cert_info.cert_type = (n20_cert_type_t)0xff;
+
+    ASSERT_EQ(n20_error_unsupported_certificate_type_e,
               n20_issue_certificate(crypto_ctx,
                                     issuer_secret,
                                     n20_crypto_key_type_ed25519_e,
