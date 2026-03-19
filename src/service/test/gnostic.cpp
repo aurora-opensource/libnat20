@@ -445,7 +445,6 @@ TEST_F(GnosticNodeTest, ForwardEcaEECertCryptoErrors) {
 // ---------------------------------------------------------------------------
 
 TEST_F(GnosticNodeTest, EcaSignEmptyKeyUsageReturnsError) {
-    std::array<uint8_t, 1> const bad_usage = {0x04};  // bit 2 set – not allowed
     std::array<uint8_t, 4> const msg = {0x01, 0x02, 0x03, 0x04};
     n20_msg_eca_ee_sign_request_t req{};
     req.key_usage = {0, nullptr};  // empty key usage is not allowed
