@@ -393,6 +393,20 @@ extern void n20_cose_render_sign1_with_payload(n20_stream_t *s,
                                                void *payload_ctx,
                                                n20_slice_t out_tbs_gather_list[4]);
 
+/**
+ * @brief Get the expected signature size for a given signing key algorithm.
+ *
+ * This function returns the expected signature size in bytes for a given
+ * signing key algorithm identifier. This is useful for determining the size
+ * of the signature field in the COSE Sign1 structure when rendering it with
+ * @ref n20_cose_render_sign1_with_payload.
+ *
+ * If the algorithm identifier is not recognized or supported, the function
+ * returns 0.
+ *
+ * @param signing_key_algorithm_id The algorithm identifier for the signing key.
+ * @return The expected signature size in bytes, or 0 if the algorithm is not supported.
+ */
 extern size_t n20_cose_get_signature_size(n20_cose_algorithm_id_t signing_key_algorithm_id);
 
 #ifdef __cplusplus
