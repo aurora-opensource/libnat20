@@ -495,7 +495,7 @@ TEST_F(GnosticNodeTest, ForwardEcaSignCryptoErrors) {
     EXPECT_EQ(n20_error_crypto_implementation_specific_e,
               n20_gnostic_service_ops.n20_srv_eca_ee_sign(&state_, &req, sign_buffer_.data(), &sz));
 
-    // Set the mock context to return an error on the next key free call, which will be made during
+    // Set the mock context to return an error on the second to next call, which will be made during
     // ECA signing.
     mock_crypto_context_.err_on_zero_kdf = 1;
     mock_crypto_context_.kdf_error = n20_error_crypto_implementation_specific_e;
@@ -615,19 +615,7 @@ TEST_F(GnosticNodeTest, EcaSignSuccess) {
     EXPECT_GT(sz, 0u);
 }
 
-// ---------------------------------------------------------------------------
-// n20_resolve_path: exercised through the cert ops via parent_path_length > 0.
-//
-// Code paths covered:
-//   depth=1  the straight-line derivation branch (while-loop not entered)
-//   depth=2  the while-loop body runs once, freeing the intermediate key
-//   different output  a derived issuer key produces a cert distinct from the
-//                     root-issuer cert (confirms path is actually applied)
-//   determinism       the same path yields byte-identical certificates
-// ---------------------------------------------------------------------------
-
-// A depth-1 path exercises the straight-line derivation in n20_resolve_path
-// (the while-loop condition evaluates to false immediately).
+// A depth-1 path exercises
 TEST_F(GnosticNodeTest, ResolvePathDepth1IssuesCertSuccessfully) {
     n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
@@ -737,8 +725,7 @@ TEST_F(GnosticNodeTest, ResolvePathFreesIntermediateDerivedKeyIfPathParsingError
                   &state_, &req, cert_buffer_.data(), &sz));
     EXPECT_GT(sz, 0u);
 
-    // The intermediate key must have been freed (1 call for the intermediate, 1 for the final
-    // cert key).
+    // The intermediate key must have been freed.
     EXPECT_EQ(1u, mock_crypto_context_.free_key_calls);
 }
 

@@ -107,10 +107,7 @@ static n20_error_t n20_resolve_path_iterator_cb(void* ctx, n20_slice_t element) 
 
     n20_crypto_key_t next = NULL;
     n20_error_t error =
-        n20_next_level_cdi_attest(ictx->crypto_ctx,
-                                  ictx->current_secret,
-                                  &next,
-                                  element); /* crypto_ctx is not needed for path resolution */
+        n20_next_level_cdi_attest(ictx->crypto_ctx, ictx->current_secret, &next, element);
     if (ictx->index > 0) {
         /* Free the previous secret if this is not the first element. */
         ictx->crypto_ctx->key_free(ictx->crypto_ctx, ictx->current_secret);
@@ -272,6 +269,11 @@ static n20_error_t n20_gnostic_issue_eca_ee_certificate(
     uint8_t key_usage_mask[2] = {0, 0};
     N20_OPEN_DICE_KEY_USAGE_SET_DIGITAL_SIGNATURE(key_usage_mask);
 
+    /* Ignore key usage size if the buffer is NULL. */
+    if (request->key_usage.buffer == NULL) {
+        request->key_usage.size = 0;
+    }
+
     if (request->key_usage.size > 1) {
         for (size_t i = 1; i < request->key_usage.size; ++i) {
             if (request->key_usage.buffer[i] != 0) {
@@ -320,6 +322,11 @@ static n20_error_t n20_gnostic_eca_ee_sign(void* ctx,
         n20_check_node_state_and_resolve_path(node_state, &request->parent_path, &parent_secret);
     if (error != n20_error_ok_e) {
         return error;
+    }
+
+    /* Ignore key usage size if the buffer is NULL. */
+    if (request->key_usage.buffer == NULL) {
+        request->key_usage.size = 0;
     }
 
     if (request->key_usage.size < 1 ||
