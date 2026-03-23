@@ -193,18 +193,6 @@ enum n20_error_s {
     n20_error_unexpected_null_path_e = 22,
 
     /**
-     * @brief Incompatible compressed input size.
-     *
-     * The compressed input is the salt generated from the
-     * open dice input data. Its size is hard coded to 64 bytes
-     * (size of SHA512) by default but can be changed to 32 bytes
-     * (size of SHA256) at compile time.
-     * This error is returned if a compressed input is presented to
-     * the service that is different from the hard coded supported size.
-     */
-    n20_error_incompatible_compressed_input_size_e = 23,
-
-    /**
      * @brief Unexpected NULL pointer in dispatch context.
      *
      * This error is returned by @ref n20_service_message_dispatch
@@ -219,6 +207,55 @@ enum n20_error_s {
      * if the service operations pointer is NULL.
      */
     n20_error_unexpected_null_service_ops_e = 25,
+
+    /**
+     * @brief A service node function was called without the state pointer.
+     */
+    n20_error_unexpected_null_service_state_e = 30,
+
+    /**
+     * @brief Unexpected NULL pointer for open_dice input.
+     *
+     * This error is returned when the open_dice input argument is NULL.
+     */
+    n20_error_unexpected_null_open_dice_input_e = 31,
+
+    /**
+     * @brief Unsupported key usage.
+     *
+     * This error is returned when an ECA end-entity key is requested
+     * with an unsupported key usage. E.g. as of this writing
+     * only "digital signature" key usage is allowed. All other
+     * key usages will be rejected with this error.
+     */
+    n20_error_unsupported_key_usage_e = 32,
+
+    /**
+     * @brief Key usage not permitted.
+     *
+     * This error is returned when an ECA end-entity key is used
+     * for an operation that is not allowed by the key usage.
+     * E.g. if a signing is attempted with a key that does not
+     * have the "digital signature" key usage.
+     */
+    n20_error_key_usage_not_permitted_e = 33,
+
+    /**
+     * @brief Unexpected NULL pointer in service request argument.
+     *
+     * This error is returned by the DICE service when the request
+     * parameter is NULL.
+     */
+    n20_error_unexpected_null_service_request_e = 34,
+
+    /**
+     * @brief The service is disabled.
+     *
+     * This error is returned when a service node function is called
+     * while the service is disabled, e.g., due to a configuration setting
+     * or by deleting the CDI secret.
+     */
+    n20_error_service_disabled_e = 35,
 
     /**
      * @brief The crypto context given to an interface was invalid.
