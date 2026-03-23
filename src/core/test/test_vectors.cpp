@@ -85,3 +85,7 @@ using AttestationCertificateVectorReader =
 std::vector<AttestationCertificateVectorReader::tuple_type> x509_test_vectors =
     AttestationCertificateVectorReader::read_all_vectors_from_file(
         "test_data/core/functionality_x509_test_vectors.txt");
+
+std::vector<AttestationCertificateVectorReader::tuple_type> cwt_cose_test_vectors =
+    AttestationCertificateVectorReader::read_all_vectors_from_file(
+        "test_data/core/functionality_cwt_cose_test_vectors.txt");

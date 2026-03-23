@@ -119,7 +119,11 @@ enum n20_error_s {
     /**
      * @brief Unsupported certificate format.
      *
-     * Returned if an unexpected value of @ref n20_certificate_format_t was encountered.
+     * Returned if an unexpected value of @ref n20_certificate_format_t was encountered,
+     * or if the certificate format requested is not supported for the certificate
+     * type requested. E.g. as of this writing COSE format is only supported for CDI
+     * certificates.
+     *
      */
     n20_error_unsupported_certificate_format_e = 10,
 

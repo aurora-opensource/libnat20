@@ -35,7 +35,10 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+#include <nat20/cbor.h>
+#include <nat20/cose.h>
 #include <nat20/crypto.h>
+#include <nat20/cwt.h>
 #include <nat20/error.h>
 #include <nat20/functionality.h>
 #include <nat20/oid.h>
@@ -564,6 +567,95 @@ n20_error_t n20_open_dice_cdi_id(n20_crypto_digest_context_t* digest_ctx,
     return rc;
 }
 
+static void payload_callback_open_dice_cwt(n20_stream_t* s, void* payload_ctx) {
+    n20_open_dice_cwt_write(s, (n20_open_dice_cert_info_t const*)payload_ctx);
+}
+
+n20_error_t n20_cose_sign1_payload(n20_crypto_context_t* crypto_ctx,
+                                   n20_crypto_key_t const signing_key,
+                                   n20_crypto_key_type_t signing_key_type,
+                                   void (*payload_callback)(n20_stream_t* s, void* ctx),
+                                   void* payload_ctx,
+                                   uint8_t* cose_sign1,
+                                   size_t* cose_sign1_size) {
+    n20_stream_t s;
+
+    if (crypto_ctx == NULL) {
+        return n20_error_missing_crypto_context_e;  // Null crypto context
+    }
+    if (cose_sign1_size == NULL) {
+        return n20_error_crypto_unexpected_null_size_e;  // Null size pointer
+    }
+    if (cose_sign1 == NULL && *cose_sign1_size != 0) {
+        /* Buffer cannot be NULL if size is not zero. */
+        return n20_error_crypto_insufficient_buffer_size_e;
+    }
+
+    int signing_key_algorithm_id;
+
+    switch (signing_key_type) {
+        case n20_crypto_key_type_secp256r1_e:
+            signing_key_algorithm_id = n20_cose_algorithm_id_es256_e;
+            break;
+        case n20_crypto_key_type_ed25519_e:
+            signing_key_algorithm_id = n20_cose_algorithm_id_eddsa_e;
+            break;
+        case n20_crypto_key_type_secp384r1_e:
+            signing_key_algorithm_id = n20_cose_algorithm_id_es384_e;
+            break;
+        default:
+            return n20_error_crypto_unknown_algorithm_e;  // Unsupported algorithm
+    }
+
+    size_t signature_size = n20_cose_get_signature_size(signing_key_algorithm_id);
+
+    n20_stream_init(&s, cose_sign1, *cose_sign1_size);
+
+    n20_stream_skip(&s, signature_size);
+
+    /* This may yield NULL if the buffer already overflowed.
+     * It will be checked later but before dereferencing.*/
+    uint8_t* signature = n20_stream_data(&s);
+
+    n20_slice_t tbs_gather_list[4] = {0};
+
+    n20_cose_render_sign1_with_payload(
+        &s, signing_key_algorithm_id, payload_callback, payload_ctx, tbs_gather_list);
+
+    if (n20_stream_has_buffer_overflow(&s)) {
+        if (n20_stream_has_write_position_overflow(&s)) {
+            return n20_error_write_position_overflow_e;
+        }
+        *cose_sign1_size = n20_stream_byte_count(&s);
+        return n20_error_insufficient_buffer_size_e;
+    }
+
+    n20_crypto_gather_list_t sig_structure_gather_list = {
+        .count = 4,
+        .list = tbs_gather_list,
+    };
+
+    /* If the stream is valid, both signature cannot be NULL and
+     * the gather list items were populated with the correct data.
+     * So we can proceed with signing.*/
+    size_t sig_size_in_out = signature_size;
+    n20_error_t err = crypto_ctx->sign(
+        crypto_ctx, signing_key, &sig_structure_gather_list, signature, &sig_size_in_out);
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+    if (sig_size_in_out != signature_size) {
+        /* This can only happen if the assumption about
+         * the signature size between the crypto backend and the libnat20 library
+         * diverged. */
+        return n20_error_crypto_insufficient_buffer_size_e;
+    }
+
+    *cose_sign1_size = n20_stream_byte_count(&s);
+
+    return n20_error_ok_e;
+}
+
 n20_error_t n20_eca_ee_sign_message(n20_crypto_context_t* crypto_ctx,
                                     n20_crypto_key_t parent_secret,
                                     n20_crypto_key_type_t key_type,
@@ -919,6 +1011,20 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
     uint8_t* public_key = &public_key_buffer[1];
     size_t public_key_size = sizeof(public_key_buffer) - 1;
 
+    if (certificate_format_in == n20_certificate_format_cose_e) {
+        switch (cert_info_in->cert_type) {
+            case n20_cert_type_cdi_e:
+                break;
+            case n20_cert_type_eca_e:
+            case n20_cert_type_eca_ee_e:
+            case n20_cert_type_self_signed_e:
+                /* COSE format is only supported for CDI certificates. */
+                return n20_error_unsupported_certificate_format_e;
+            default:
+                break;
+        }
+    }
+
     switch (cert_info_in->cert_type) {
         case n20_cert_type_cdi_e:
         case n20_cert_type_self_signed_e:
@@ -998,6 +1104,15 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
                                       issuer_key_type_in,
                                       certificate_out,
                                       certificate_size_in_out);
+            break;
+        case n20_certificate_format_cose_e:
+            err = n20_cose_sign1_payload(crypto_ctx,
+                                         signing_key,
+                                         issuer_key_type_in,
+                                         payload_callback_open_dice_cwt,
+                                         cert_info_in,
+                                         certificate_out,
+                                         certificate_size_in_out);
             break;
         default:
             err = n20_error_unsupported_certificate_format_e;
