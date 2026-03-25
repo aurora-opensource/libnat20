@@ -58,6 +58,13 @@ option(NAT20_WITH_CRYPTO_BSSL "Compile the crypto reference implementation." OFF
 # This option is only valid when building the test suite.
 option(NAT20_WITH_COVERAGE "Enable code coverage reporting." OFF)
 
+# Build core library and functionality with X509 support.
+option(NAT20_WITH_X509 "Build core library and functionality with X509 support." ON)
+
+# Build core library and functionality with X509 support.
+option(NAT20_WITH_COSE "Build core library and functionality with CWT COSE support." ON)
+
+
 # The C standard shall be C11.
 set(CMAKE_C_STANDARD 11)
 
@@ -70,6 +77,14 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
     # we need to enable C++ support for the test code.
     enable_language(CXX)
     set(CMAKE_CXX_STANDARD 17)
+endif()
+
+if(NAT20_WITH_X509)
+    add_definitions(-DN20_WITH_X509=1)
+endif()
+
+if(NAT20_WITH_COSE)
+    add_definitions(-DN20_WITH_COSE=1)
 endif()
 
 include(GNUInstallDirs)

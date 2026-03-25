@@ -224,6 +224,17 @@ class BsslTestFixtureBase : public ::testing::Test {
     }
 };
 
+template <typename T, typename F>
+std::unique_ptr<T, F> make_unique_ptr(T* ptr, F deleter) {
+    return std::unique_ptr<std::remove_reference_t<T>, F>(ptr, deleter);
+}
+
+#define KEY_HANDLE_GUARD(key) \
+    auto key##_guard =        \
+        make_unique_ptr(key, [this](void* k) { crypto_ctx->key_free(crypto_ctx, k); });
+
+#ifdef N20_WITH_X509
+
 // Functionality tests for X.509 certificate issuance.
 class FunctionalityX509Test
     : public BsslTestFixtureBase,
@@ -239,15 +250,6 @@ INSTANTIATE_TEST_SUITE_P(FunctionalityX509TestInstance,
                          [](testing::TestParamInfo<FunctionalityX509Test::ParamType> const& info) {
                              return std::get<0>(info.param);
                          });
-
-template <typename T, typename F>
-std::unique_ptr<T, F> make_unique_ptr(T* ptr, F deleter) {
-    return std::unique_ptr<std::remove_reference_t<T>, F>(ptr, deleter);
-}
-
-#define KEY_HANDLE_GUARD(key) \
-    auto key##_guard =        \
-        make_unique_ptr(key, [this](void* k) { crypto_ctx->key_free(crypto_ctx, k); });
 
 TEST_P(FunctionalityX509Test, IssueX509CertificateTest) {
     auto [test_name, issuer_key_type, subject_key_type, cert_type, want_cert] = GetParam();
@@ -636,6 +638,8 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteEcaEeCertRendering) {
         << hex_as_c_array(got_cert);
 }
 
+#endif  // N20_WITH_X509
+
 class CompressedInputTestFixture : public BsslTestFixtureBase {};
 
 TEST_F(CompressedInputTestFixture, CompressInputNullCryptoContext) {
@@ -805,6 +809,8 @@ TEST_F(DeriveKeyTestFixture, DeriveKeyNullParentKey) {
     ASSERT_EQ(err, n20_error_crypto_unexpected_null_key_in_e);
 }
 
+#ifdef N20_WITH_X509
+
 class InitKeyInfoTestFixture : public BsslTestFixtureBase {};
 
 TEST_F(InitKeyInfoTestFixture, InitKeyInfoUnsupportedKeyType) {
@@ -873,6 +879,8 @@ TEST_P(InitAlgorithmIdentifierFixture, InitAlgorithmIdentifierTest) {
         ASSERT_EQ(algorithm_identifier.oid, want_oid);
     }
 }
+
+#endif  // N20_WITH_X509
 
 class EeSignMessageTestFixture
     : public BsslTestFixtureBase,
@@ -1585,6 +1593,8 @@ TEST_F(ComputeCertificateContextTest, NoRequestSerialNumberComputation) {
 
 class IssueCertificateTestFixture : public BsslTestFixtureBase {};
 
+#ifdef N20_WITH_X509
+
 TEST_F(IssueCertificateTestFixture, NullCryptoContext) {
     auto err = n20_issue_certificate(nullptr,
                                      nullptr,
@@ -1639,6 +1649,8 @@ TEST_F(IssueCertificateTestFixture, ForwardComputeCertificateContextError) {
     ASSERT_EQ(err, n20_error_crypto_unexpected_null_key_in_e);
 }
 
+#endif  // N20_WITH_X509
+
 TEST_F(IssueCertificateTestFixture, UnsupportedCertificateFormat) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_eca_ee_e;
@@ -1657,6 +1669,8 @@ TEST_F(IssueCertificateTestFixture, UnsupportedCertificateFormat) {
                                      &certificate_size);
     ASSERT_EQ(err, n20_error_unsupported_certificate_format_e);
 }
+
+#ifdef N20_WITH_COSE
 
 #define ASSERT_CBOR_HEADER_TYPE(stream, want_type)            \
     ASSERT_TRUE(n20_cbor_read_header(stream, &type, &value)); \
@@ -1986,3 +2000,4 @@ TEST_F(FunctionalityCwtCoseTest, CoseSign1PayloadForwardCryptoError) {
                                      output.data(),
                                      &cose_sign1_size));
 }
+#endif  // N20_WITH_COSE

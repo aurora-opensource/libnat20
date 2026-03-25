@@ -44,11 +44,14 @@ on:
 
 jobs:
   cmake-build-and-test:
+    name: Build and test (${{ matrix.options.name }})
     strategy:
       matrix:
         options: [
-          { extra_cmake_args: ' -DNAT20_WITH_TESTS=OFF -DNAT20_WITH_CRYPTO_BSSL=ON', extra_targets: '' },
-          { extra_cmake_args: ' -DNAT20_WITH_TESTS=ON -DNAT20_WITH_CRYPTO_BSSL=ON', extra_targets: 'test' }
+          { name: 'no-tests', extra_cmake_args: ' -DNAT20_WITH_TESTS=OFF -DNAT20_WITH_CRYPTO_BSSL=ON', extra_targets: '' },
+          { name: 'both-encodings', extra_cmake_args: ' -DNAT20_WITH_TESTS=ON -DNAT20_WITH_CRYPTO_BSSL=ON', extra_targets: 'test' },
+          { name: 'x509-only', extra_cmake_args: ' -DNAT20_WITH_TESTS=ON -DNAT20_WITH_CRYPTO_BSSL=ON -DNAT20_WITH_X509=ON -DNAT20_WITH_COSE=OFF', extra_targets: 'test' },
+          { name: 'cose-only', extra_cmake_args: ' -DNAT20_WITH_TESTS=ON -DNAT20_WITH_CRYPTO_BSSL=ON -DNAT20_WITH_X509=OFF -DNAT20_WITH_COSE=ON', extra_targets: 'test' }
         ]
     runs-on: ubuntu-22.04
 
