@@ -58,18 +58,6 @@ option(NAT20_WITH_CRYPTO_BSSL "Compile the crypto reference implementation." OFF
 # This option is only valid when building the test suite.
 option(NAT20_WITH_COVERAGE "Enable code coverage reporting." OFF)
 
-# This option controls the maximum path length for stateless service implementations.
-# In stateless service implementations, all of the context required to derive the effective
-# CDI must be provided in the request. This means a request is potentially unbounded in size.
-# The reference implementation limits the path length to 8. Integrators may change this
-# value as needed or implement an alternative service with a dynamic memory allocation strategy.
-# Note that increasing this value will increase the stack usage of the service implementation.
-# The maximum path length is the number of elements in the path, not the number of bytes.
-# Each path element is a SHA512 hash (64 bytes).
-if(NOT NAT20_STATELESS_MAX_PATH_LENGTH)
-    set(NAT20_STATELESS_MAX_PATH_LENGTH 8)
-endif()
-
 # The C standard shall be C11.
 set(CMAKE_C_STANDARD 11)
 
