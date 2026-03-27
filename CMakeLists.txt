@@ -58,11 +58,11 @@ option(NAT20_WITH_CRYPTO_BSSL "Compile the crypto reference implementation." OFF
 # This option is only valid when building the test suite.
 option(NAT20_WITH_COVERAGE "Enable code coverage reporting." OFF)
 
-# Build core library and functionality with X509 support.
-option(NAT20_WITH_X509 "Build core library and functionality with X509 support." ON)
+# Build core library and functionality without X509 support.
+option(NAT20_WITHOUT_X509 "Build core library and functionality without X509 support." OFF)
 
-# Build core library and functionality with COSE/CWT support.
-option(NAT20_WITH_COSE "Build core library and functionality with CWT COSE support." ON)
+# Build core library and functionality without COSE/CWT support.
+option(NAT20_WITHOUT_COSE "Build core library and functionality without CWT COSE support." OFF)
 
 # The C standard shall be C11.
 set(CMAKE_C_STANDARD 11)
@@ -227,11 +227,11 @@ target_sources(nat20
     PRIVATE ${LIBNAT20_PUB_HEADERS}
 )
 set_target_properties(nat20 PROPERTIES PUBLIC_HEADER "${LIBNAT20_PUB_HEADERS}")
-if(NAT20_WITH_X509)
-    target_compile_definitions(nat20 PUBLIC N20_WITH_X509=1)
+if(NAT20_WITHOUT_X509)
+    target_compile_definitions(nat20 PUBLIC N20_WITH_X509=0)
 endif()
-if(NAT20_WITH_COSE)
-    target_compile_definitions(nat20 PUBLIC N20_WITH_COSE=1)
+if(NAT20_WITHOUT_COSE)
+    target_compile_definitions(nat20 PUBLIC N20_WITH_COSE=0)
 endif()
 
 target_compile_options(nat20
@@ -260,11 +260,11 @@ if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
         PRIVATE ${LIBNAT20_PUB_HEADERS}
     )
 
-    if(NAT20_WITH_X509)
-        target_compile_definitions(nat20_coverage PUBLIC N20_WITH_X509=1)
+    if(NAT20_WITHOUT_X509)
+        target_compile_definitions(nat20_coverage PUBLIC N20_WITH_X509=0)
     endif()
-    if(NAT20_WITH_COSE)
-        target_compile_definitions(nat20_coverage PUBLIC N20_WITH_COSE=1)
+    if(NAT20_WITHOUT_COSE)
+        target_compile_definitions(nat20_coverage PUBLIC N20_WITH_COSE=0)
     endif()
 
     target_compile_options(nat20_coverage

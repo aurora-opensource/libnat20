@@ -48,6 +48,13 @@
 #include <nat20/x509.h>
 #include <nat20/x509_ext_open_dice_input.h>
 
+#ifndef N20_WITH_X509
+#define N20_WITH_X509 1
+#endif
+#ifndef N20_WITH_COSE
+#define N20_WITH_COSE 1
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -277,7 +284,7 @@ extern n20_error_t n20_derive_eca_ee_key(n20_crypto_context_t *crypto_ctx,
                                          n20_crypto_key_t *derived,
                                          n20_crypto_key_type_t key_type);
 
-#ifdef N20_WITH_X509
+#if N20_WITH_X509 == 1
 
 /**
  * @brief Initializes the algorithm identifier structure.
@@ -387,7 +394,7 @@ extern n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const *cert_inf
                                        uint8_t *attestation_certificate,
                                        size_t *attestation_certificate_size);
 
-#endif /* N20_WITH_X509 */
+#endif /* N20_WITH_X509 == 1 */
 
 /**
  * @brief Sign a message with an ECA key.

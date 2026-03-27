@@ -362,7 +362,7 @@ TEST_F(GnosticNodeTest, ForwardEcaCertCryptoErrors) {
 // Uses parent_path_length=0 so n20_resolve_path is a trivial pass-through.
 // ---------------------------------------------------------------------------
 
-#ifdef N20_WITH_X509
+#if N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, IssueEcaEECertEmptyKeyUsageProducesUnusableKey) {
     n20_msg_issue_eca_ee_cert_request_t req{
@@ -393,7 +393,7 @@ TEST_F(GnosticNodeTest, IssueEcaEECertLongEmptyKeyUsageProducesUnusableKey) {
                   &state_, &req, cert_buffer_.data(), &sz));
 }
 
-#endif  // N20_WITH_X509
+#endif  // N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, IssueEcaEECertLongNonEmptyKeyUsageReturnsError) {
     std::array<uint8_t, 3> const long_usage = {0, 0, 1};
@@ -520,7 +520,7 @@ TEST_F(GnosticNodeTest, PromoteSuccess) {
     EXPECT_NE(nullptr, state_.min_cdi);
 }
 
-#ifdef N20_WITH_X509
+#if N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, IssueCdiCertSuccess) {
     n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
@@ -597,7 +597,7 @@ TEST_F(GnosticNodeTest, IssueEcaEeCertSuccess) {
     EXPECT_GT(sz, 0u);
 }
 
-#endif  // N20_WITH_X509
+#endif  // N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, EcaSignSuccess) {
     std::array<uint8_t, 1> const key_usage_data = {0x01};  // digital signature
@@ -623,7 +623,7 @@ TEST_F(GnosticNodeTest, EcaSignSuccess) {
     EXPECT_GT(sz, 0u);
 }
 
-#ifdef N20_WITH_X509
+#if N20_WITH_X509 == 1
 
 // A depth-1 path exercises
 TEST_F(GnosticNodeTest, ResolvePathDepth1IssuesCertSuccessfully) {
@@ -715,7 +715,7 @@ TEST_F(GnosticNodeTest, ResolvePathIsDeterministic) {
                           sz_first));
 }
 
-#endif  // N20_WITH_X509
+#endif  // N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, ResolvePathFreesIntermediateDerivedKeyIfPathParsingErrorsOut) {
     // A depth-2 path requires one intermediate key to be derived and freed
