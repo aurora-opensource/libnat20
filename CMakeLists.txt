@@ -61,9 +61,8 @@ option(NAT20_WITH_COVERAGE "Enable code coverage reporting." OFF)
 # Build core library and functionality with X509 support.
 option(NAT20_WITH_X509 "Build core library and functionality with X509 support." ON)
 
-# Build core library and functionality with X509 support.
+# Build core library and functionality with COSE/CWT support.
 option(NAT20_WITH_COSE "Build core library and functionality with CWT COSE support." ON)
-
 
 # The C standard shall be C11.
 set(CMAKE_C_STANDARD 11)
@@ -77,14 +76,6 @@ if(NAT20_WITH_TESTS OR NAT20_WITH_CRYPTO_BSSL)
     # we need to enable C++ support for the test code.
     enable_language(CXX)
     set(CMAKE_CXX_STANDARD 17)
-endif()
-
-if(NAT20_WITH_X509)
-    add_definitions(-DN20_WITH_X509=1)
-endif()
-
-if(NAT20_WITH_COSE)
-    add_definitions(-DN20_WITH_COSE=1)
 endif()
 
 include(GNUInstallDirs)
@@ -236,6 +227,12 @@ target_sources(nat20
     PRIVATE ${LIBNAT20_PUB_HEADERS}
 )
 set_target_properties(nat20 PROPERTIES PUBLIC_HEADER "${LIBNAT20_PUB_HEADERS}")
+if(NAT20_WITH_X509)
+    target_compile_definitions(nat20 PUBLIC N20_WITH_X509=1)
+endif()
+if(NAT20_WITH_COSE)
+    target_compile_definitions(nat20 PUBLIC N20_WITH_COSE=1)
+endif()
 
 target_compile_options(nat20
     PRIVATE -pedantic
@@ -262,6 +259,13 @@ if(NAT20_WITH_COVERAGE AND NAT20_WITH_TESTS)
         PRIVATE ${LIBNAT20_SOURCES}
         PRIVATE ${LIBNAT20_PUB_HEADERS}
     )
+
+    if(NAT20_WITH_X509)
+        target_compile_definitions(nat20_coverage PUBLIC N20_WITH_X509=1)
+    endif()
+    if(NAT20_WITH_COSE)
+        target_compile_definitions(nat20_coverage PUBLIC N20_WITH_COSE=1)
+    endif()
 
     target_compile_options(nat20_coverage
         PRIVATE -pedantic

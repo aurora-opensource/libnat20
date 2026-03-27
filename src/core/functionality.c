@@ -547,7 +547,7 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
     return n20_error_ok_e;
 }
 
-#endif  // N20_WITH_X509
+#endif /* N20_WITH_X509 */
 
 n20_error_t n20_open_dice_cdi_id(n20_crypto_digest_context_t* digest_ctx,
                                  n20_slice_t const public_key,
@@ -660,7 +660,7 @@ n20_error_t n20_cose_sign1_payload(n20_crypto_context_t* crypto_ctx,
 
     return n20_error_ok_e;
 }
-#endif
+#endif /* N20_WITH_COSE */
 
 n20_error_t n20_eca_ee_sign_message(n20_crypto_context_t* crypto_ctx,
                                     n20_crypto_key_t parent_secret,
@@ -1017,8 +1017,8 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
     uint8_t* public_key = &public_key_buffer[1];
     size_t public_key_size = sizeof(public_key_buffer) - 1;
 
-#ifdef N20_WITH_COSE
     if (certificate_format_in == n20_certificate_format_cose_e) {
+#ifdef N20_WITH_COSE
         switch (cert_info_in->cert_type) {
             case n20_cert_type_cdi_e:
                 break;
@@ -1030,8 +1030,11 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
             default:
                 break;
         }
+#else
+        /* COSE format is not supported. */
+        return n20_error_unsupported_certificate_format_e;
+#endif /* N20_WITH_COSE */
     }
-#endif
 
     switch (cert_info_in->cert_type) {
         case n20_cert_type_cdi_e:
@@ -1114,7 +1117,7 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
                                       certificate_out,
                                       certificate_size_in_out);
             break;
-#endif  // N20_WITH_X509
+#endif /* N20_WITH_X509 */
 #ifdef N20_WITH_COSE
         case n20_certificate_format_cose_e:
             err = n20_cose_sign1_payload(crypto_ctx,
@@ -1125,7 +1128,7 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
                                          certificate_out,
                                          certificate_size_in_out);
             break;
-#endif  // N20_WITH_COSE
+#endif /* N20_WITH_COSE */
         default:
             err = n20_error_unsupported_certificate_format_e;
     }
