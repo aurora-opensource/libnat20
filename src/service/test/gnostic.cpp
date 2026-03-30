@@ -362,6 +362,8 @@ TEST_F(GnosticNodeTest, ForwardEcaCertCryptoErrors) {
 // Uses parent_path_length=0 so n20_resolve_path is a trivial pass-through.
 // ---------------------------------------------------------------------------
 
+#if N20_WITH_X509 == 1
+
 TEST_F(GnosticNodeTest, IssueEcaEECertEmptyKeyUsageProducesUnusableKey) {
     n20_msg_issue_eca_ee_cert_request_t req{
         .issuer_key_type = n20_crypto_key_type_ed25519_e,
@@ -390,6 +392,8 @@ TEST_F(GnosticNodeTest, IssueEcaEECertLongEmptyKeyUsageProducesUnusableKey) {
               n20_gnostic_service_ops.n20_srv_issue_eca_ee_certificate(
                   &state_, &req, cert_buffer_.data(), &sz));
 }
+
+#endif  // N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, IssueEcaEECertLongNonEmptyKeyUsageReturnsError) {
     std::array<uint8_t, 3> const long_usage = {0, 0, 1};
@@ -516,6 +520,8 @@ TEST_F(GnosticNodeTest, PromoteSuccess) {
     EXPECT_NE(nullptr, state_.min_cdi);
 }
 
+#if N20_WITH_X509 == 1
+
 TEST_F(GnosticNodeTest, IssueCdiCertSuccess) {
     n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
@@ -591,6 +597,8 @@ TEST_F(GnosticNodeTest, IssueEcaEeCertSuccess) {
     EXPECT_GT(sz, 0u);
 }
 
+#endif  // N20_WITH_X509 == 1
+
 TEST_F(GnosticNodeTest, EcaSignSuccess) {
     std::array<uint8_t, 1> const key_usage_data = {0x01};  // digital signature
     std::array<uint8_t, 8> const message_data = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
@@ -614,6 +622,8 @@ TEST_F(GnosticNodeTest, EcaSignSuccess) {
               n20_gnostic_service_ops.n20_srv_eca_ee_sign(&state_, &req, sign_buffer_.data(), &sz));
     EXPECT_GT(sz, 0u);
 }
+
+#if N20_WITH_X509 == 1
 
 // A depth-1 path exercises
 TEST_F(GnosticNodeTest, ResolvePathDepth1IssuesCertSuccessfully) {
@@ -704,6 +714,8 @@ TEST_F(GnosticNodeTest, ResolvePathIsDeterministic) {
                           cert_buffer_.data() + cert_buffer_.size() - sz_second,
                           sz_first));
 }
+
+#endif  // N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, ResolvePathFreesIntermediateDerivedKeyIfPathParsingErrorsOut) {
     // A depth-2 path requires one intermediate key to be derived and freed
