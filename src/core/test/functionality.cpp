@@ -481,15 +481,17 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateInvalidWriteSignerError) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* /*signature*/, size_t* /*signature_size*/) {
-        EXPECT_EQ((uintptr_t)&IssueX509CertificateInvalidWriteSignerError_signer, (uintptr_t)ctx);
-        EXPECT_GT(tbs.size, 0);
-        EXPECT_GE(tbs.buffer, &IssueX509CertificateInvalidWriteSignerError_certificate[0]);
-        EXPECT_LT(tbs.buffer,
-                  &IssueX509CertificateInvalidWriteSignerError_certificate[sizeof(
-                      IssueX509CertificateInvalidWriteSignerError_certificate)]);
-        return n20_error_crypto_implementation_specific_e;
-    };
+    auto signer_cb =
+        [](void* ctx, n20_slice_t tbs, uint8_t* /*signature*/, size_t* /*signature_size*/) {
+            EXPECT_EQ((uintptr_t)&IssueX509CertificateInvalidWriteSignerError_signer,
+                      (uintptr_t)ctx);
+            EXPECT_GT(tbs.size, 0);
+            EXPECT_GE(tbs.buffer, &IssueX509CertificateInvalidWriteSignerError_certificate[0]);
+            EXPECT_LT(tbs.buffer,
+                      &IssueX509CertificateInvalidWriteSignerError_certificate[sizeof(
+                          IssueX509CertificateInvalidWriteSignerError_certificate)]);
+            return n20_error_crypto_implementation_specific_e;
+        };
 
     IssueX509CertificateInvalidWriteSignerError_signer.cb = signer_cb;
 
@@ -517,11 +519,12 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteBufferOverflowAfterSignin
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* /*ctx*/, n20_slice_t tbs, uint8_t* /*signature*/, size_t* signature_size) {
-        EXPECT_TRUE(!!signature_size);
-        EXPECT_EQ(tbs.size, 154);
-        return n20_error_ok_e;
-    };
+    auto signer_cb =
+        [](void* /*ctx*/, n20_slice_t tbs, uint8_t* /*signature*/, size_t* signature_size) {
+            EXPECT_TRUE(!!signature_size);
+            EXPECT_EQ(tbs.size, 154);
+            return n20_error_ok_e;
+        };
 
     signer.cb = signer_cb;
 
@@ -565,10 +568,11 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteEcaCertRendering) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* /*ctx*/, n20_slice_t /*tbs*/, uint8_t* signature, size_t* signature_size) {
-        memset(signature, 0x55, *signature_size);
-        return n20_error_ok_e;
-    };
+    auto signer_cb =
+        [](void* /*ctx*/, n20_slice_t /*tbs*/, uint8_t* signature, size_t* signature_size) {
+            memset(signature, 0x55, *signature_size);
+            return n20_error_ok_e;
+        };
 
     signer.cb = signer_cb;
 
@@ -617,10 +621,11 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteEcaEeCertRendering) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* /*ctx*/, n20_slice_t /*tbs*/, uint8_t* signature, size_t* signature_size) {
-        memset(signature, 0x55, *signature_size);
-        return n20_error_ok_e;
-    };
+    auto signer_cb =
+        [](void* /*ctx*/, n20_slice_t /*tbs*/, uint8_t* signature, size_t* signature_size) {
+            memset(signature, 0x55, *signature_size);
+            return n20_error_ok_e;
+        };
 
     signer.cb = signer_cb;
 

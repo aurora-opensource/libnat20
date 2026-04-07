@@ -1284,40 +1284,46 @@ TEST_F(MessagesTest, ParentPathIterateErrors) {
     n20_parent_path_t path = {
         .length = 3, .is_encoded = true, .encoded = {cbor_data.size(), cbor_data.data()}};
 
-    EXPECT_EQ(n20_error_unexpected_message_structure_e,
-              n20_msg_parent_path_iterate(
-                  &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
+    EXPECT_EQ(
+        n20_error_unexpected_message_structure_e,
+        n20_msg_parent_path_iterate(
+            &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
 
     path.length = 2;  // Set length to actual number of items in CBOR array.
-    EXPECT_EQ(n20_error_write_position_overflow_e,
-              n20_msg_parent_path_iterate(
-                  &path,
-                  [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_write_position_overflow_e; },
-                  nullptr));
+    EXPECT_EQ(
+        n20_error_write_position_overflow_e,
+        n20_msg_parent_path_iterate(
+            &path,
+            [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_write_position_overflow_e; },
+            nullptr));
 
-    EXPECT_EQ(n20_error_unexpected_message_structure_e,
-              n20_msg_parent_path_iterate(
-                  &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
+    EXPECT_EQ(
+        n20_error_unexpected_message_structure_e,
+        n20_msg_parent_path_iterate(
+            &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
 
     cbor_data[0] = 0xa2;  // Change to map which is unexpected.
-    EXPECT_EQ(n20_error_unexpected_message_structure_e,
-              n20_msg_parent_path_iterate(
-                  &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
+    EXPECT_EQ(
+        n20_error_unexpected_message_structure_e,
+        n20_msg_parent_path_iterate(
+            &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
 
     n20_slice_t parent_path_elements[] = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2};
     path.is_encoded = false;
     path.decoded = parent_path_elements;
 
-    EXPECT_EQ(n20_error_write_position_overflow_e,
-              n20_msg_parent_path_iterate(
-                  &path,
-                  [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_write_position_overflow_e; },
-                  nullptr));
+    EXPECT_EQ(
+        n20_error_write_position_overflow_e,
+        n20_msg_parent_path_iterate(
+            &path,
+            [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_write_position_overflow_e; },
+            nullptr));
 
     path.decoded = nullptr;
-    EXPECT_EQ(n20_error_unexpected_null_path_e,
-              n20_msg_parent_path_iterate(
-                  &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
+    EXPECT_EQ(
+        n20_error_unexpected_null_path_e,
+        n20_msg_parent_path_iterate(
+            &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
 }
 
 TEST_F(MessagesTest, ParentPathIterateSuccess) {

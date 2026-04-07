@@ -142,11 +142,19 @@ void basic_constraints_content_cb(n20_stream_t* s, void* /*cb_context*/) {
 n20_x509_extensions_t EXTENSIONS_EMPTY = {};
 std::vector<n20_x509_extension_t> const EXTENSIONS_ONE_EMPTY_EXTN_VALUE = {
     {.oid = &OID_KEY_USAGE, .critical = false, .content_cb = nullptr, .context = nullptr}};
-std::vector<n20_x509_extension_t> const EXTENSIONS_ONE = {
-    {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb, .context = nullptr}};
+std::vector<n20_x509_extension_t> const EXTENSIONS_ONE = {{.oid = &OID_KEY_USAGE,
+                                                           .critical = true,
+                                                           .content_cb = &key_usage_content_cb,
+                                                           .context = nullptr}};
 std::vector<n20_x509_extension_t> const EXTENSIONS_TWO = {
-    {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb, .context = nullptr},
-    {.oid = &OID_BASIC_CONSTRAINTS, .critical = true, .content_cb = &basic_constraints_content_cb, .context = nullptr}};
+    {.oid = &OID_KEY_USAGE,
+     .critical = true,
+     .content_cb = &key_usage_content_cb,
+     .context = nullptr},
+    {.oid = &OID_BASIC_CONSTRAINTS,
+     .critical = true,
+     .content_cb = &basic_constraints_content_cb,
+     .context = nullptr}};
 
 std::vector<uint8_t> const ENCODED_EXTENSIONS_EMPTY = {};
 std::vector<uint8_t> const ENCODED_EXTENSIONS_ONE_EMPTY_EXTN_VALUE = {
