@@ -680,8 +680,7 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignForwardsServiceError) {
     req.payload.eca_ee_sign.parent_path = valid_path();
     req.payload.eca_ee_sign.name = {3, "key"};
     req.payload.eca_ee_sign.key_usage = key_usage();
-    req.payload.eca_ee_sign.message = {msg_bytes.size(),
-                                       const_cast<uint8_t*>(msg_bytes.data())};
+    req.payload.eca_ee_sign.message = {msg_bytes.size(), const_cast<uint8_t*>(msg_bytes.data())};
 
     auto const [rc, response] = dispatch(encode_request(req));
 
