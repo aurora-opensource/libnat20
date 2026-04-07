@@ -548,6 +548,7 @@ if (NAT20_WITH_TESTS)
     set_target_properties(nat20_test_utils PROPERTIES PUBLIC_HEADER "${LIBNAT20_TEST_UTILS_HEADERS}")
     target_compile_options(nat20_test_utils
         PRIVATE -Wall
+        PRIVATE -Wextra
         PRIVATE -Werror
     )
     target_link_libraries(nat20_test_utils gtest_main nat20 crypto)
@@ -562,6 +563,7 @@ if (NAT20_WITH_TESTS)
     )
     target_compile_options(nat20_test_bin
         PRIVATE -Wall
+        PRIVATE -Wextra
         PRIVATE -Werror
     )
     if(NAT20_WITH_COVERAGE)
@@ -581,6 +583,7 @@ if (NAT20_WITH_TESTS)
     )
     target_compile_options(nat20_service_test_bin
         PRIVATE -Wall
+        PRIVATE -Wextra
         PRIVATE -Werror
     )
     if(NAT20_WITH_COVERAGE)
@@ -601,6 +604,7 @@ if (NAT20_WITH_TESTS)
     )
     target_compile_options(nat20_crypto_test_bin
         PRIVATE -Wall
+        PRIVATE -Wextra
         PRIVATE -Werror
     )
     if(NAT20_WITH_COVERAGE)

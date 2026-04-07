@@ -414,10 +414,10 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertSuccessWrapsCertificate) {
 
 TEST_F(ServiceMessageDispatchTest, IssueCdiCertForwardsServiceError) {
     state_.issue_cdi_cert_rc = n20_error_crypto_invalid_context_e;
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_cdi_cert_e,
-        .payload = {.issue_cdi_cert = {.parent_path = valid_path()}},
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_issue_cdi_cert_e;
+    req.payload.issue_cdi_cert = {};
+    req.payload.issue_cdi_cert.parent_path = valid_path();
 
     auto const [rc, response] = dispatch(encode_request(req));
 
@@ -433,10 +433,10 @@ TEST_F(ServiceMessageDispatchTest, IssueCdiCertInsufficientBufferSize) {
     // test payload but not for the response header.
     size_t response_size = state_.cert_payload.size;
 
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_cdi_cert_e,
-        .payload = {.issue_cdi_cert = {.parent_path = valid_path()}},
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_issue_cdi_cert_e;
+    req.payload.issue_cdi_cert = {};
+    req.payload.issue_cdi_cert.parent_path = valid_path();
 
     n20_error_t rc = n20_service_message_dispatch(
         &ctx_, response_buffer_.data(), &response_size, encode_request(req));
@@ -481,10 +481,10 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertSuccessWrapsCertificate) {
 TEST_F(ServiceMessageDispatchTest, IssueEcaCertForwardsServiceError) {
     state_.issue_eca_cert_rc = n20_error_missing_crypto_context_e;
 
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_eca_cert_e,
-        .payload = {.issue_eca_cert = {.parent_path = valid_path()}},
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_issue_eca_cert_e;
+    req.payload.issue_eca_cert = {};
+    req.payload.issue_eca_cert.parent_path = valid_path();
 
     auto const [rc, response] = dispatch(encode_request(req));
 
@@ -500,10 +500,10 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaCertInsufficientBufferSize) {
     // test payload but not for the response header.
     size_t response_size = state_.cert_payload.size;
 
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_eca_cert_e,
-        .payload = {.issue_eca_cert = {.parent_path = valid_path()}},
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_issue_eca_cert_e;
+    req.payload.issue_eca_cert = {};
+    req.payload.issue_eca_cert.parent_path = valid_path();
 
     n20_error_t rc = n20_service_message_dispatch(
         &ctx_, response_buffer_.data(), &response_size, encode_request(req));
@@ -549,10 +549,10 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertSuccessWrapsCertificate) {
 
 TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertForwardsServiceError) {
     state_.issue_eca_ee_cert_rc = n20_error_unsupported_certificate_format_e;
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_eca_ee_cert_e,
-        .payload = {.issue_eca_ee_cert = {.parent_path = valid_path()}},
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_issue_eca_ee_cert_e;
+    req.payload.issue_eca_ee_cert = {};
+    req.payload.issue_eca_ee_cert.parent_path = valid_path();
 
     auto const [rc, response] = dispatch(encode_request(req));
 
@@ -568,10 +568,10 @@ TEST_F(ServiceMessageDispatchTest, IssueEcaEeCertInsufficientBufferSize) {
     // test payload but not for the response header.
     size_t response_size = state_.cert_payload.size;
 
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_eca_ee_cert_e,
-        .payload = {.issue_eca_ee_cert = {.parent_path = valid_path()}},
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_issue_eca_ee_cert_e;
+    req.payload.issue_eca_ee_cert = {};
+    req.payload.issue_eca_ee_cert.parent_path = valid_path();
 
     n20_error_t rc = n20_service_message_dispatch(
         &ctx_, response_buffer_.data(), &response_size, encode_request(req));
@@ -674,14 +674,14 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignSuccessWrapsSignature) {
 TEST_F(ServiceMessageDispatchTest, EcaEeSignForwardsServiceError) {
     state_.sign_rc = n20_error_missing_crypto_context_e;
     std::array<uint8_t, 2> const msg_bytes = {0xAA, 0xBB};
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_eca_ee_sign_e,
-        .payload = {.eca_ee_sign = {.parent_path = valid_path(),
-                                    .name = {3, "key"},
-                                    .key_usage = key_usage(),
-                                    .message = {msg_bytes.size(),
-                                                const_cast<uint8_t*>(msg_bytes.data())}}},
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_eca_ee_sign_e;
+    req.payload.eca_ee_sign = {};
+    req.payload.eca_ee_sign.parent_path = valid_path();
+    req.payload.eca_ee_sign.name = {3, "key"};
+    req.payload.eca_ee_sign.key_usage = key_usage();
+    req.payload.eca_ee_sign.message = {msg_bytes.size(),
+                                       const_cast<uint8_t*>(msg_bytes.data())};
 
     auto const [rc, response] = dispatch(encode_request(req));
 
@@ -697,10 +697,10 @@ TEST_F(ServiceMessageDispatchTest, EcaEeSignInsufficientBufferSize) {
     // test payload but not for the response header.
     size_t response_size = state_.sign_payload.size;
 
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_eca_ee_sign_e,
-        .payload = {.eca_ee_sign = {.parent_path = valid_path()}},
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_eca_ee_sign_e;
+    req.payload.eca_ee_sign = {};
+    req.payload.eca_ee_sign.parent_path = valid_path();
 
     n20_error_t rc = n20_service_message_dispatch(
         &ctx_, response_buffer_.data(), &response_size, encode_request(req));
@@ -712,9 +712,8 @@ TEST_F(ServiceMessageDispatchTest, WritePositionOverflow) {
     // This test covers the case where the service writes so large of a response
     // that it doesn't just overflow the provided buffer but the write position
     // counter.
-    n20_msg_request_t req{
-        .request_type = n20_msg_request_type_issue_cdi_cert_e,
-    };
+    n20_msg_request_t req{};
+    req.request_type = n20_msg_request_type_issue_cdi_cert_e;
 
     state_.oversized_payloads = true;
 

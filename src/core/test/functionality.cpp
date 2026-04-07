@@ -481,7 +481,7 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateInvalidWriteSignerError) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* signature, size_t* signature_size) {
+    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* /*signature*/, size_t* /*signature_size*/) {
         EXPECT_EQ((uintptr_t)&IssueX509CertificateInvalidWriteSignerError_signer, (uintptr_t)ctx);
         EXPECT_GT(tbs.size, 0);
         EXPECT_GE(tbs.buffer, &IssueX509CertificateInvalidWriteSignerError_certificate[0]);
@@ -517,7 +517,7 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteBufferOverflowAfterSignin
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* signature, size_t* signature_size) {
+    auto signer_cb = [](void* /*ctx*/, n20_slice_t tbs, uint8_t* /*signature*/, size_t* signature_size) {
         EXPECT_TRUE(!!signature_size);
         EXPECT_EQ(tbs.size, 154);
         return n20_error_ok_e;
@@ -565,7 +565,7 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteEcaCertRendering) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* signature, size_t* signature_size) {
+    auto signer_cb = [](void* /*ctx*/, n20_slice_t /*tbs*/, uint8_t* signature, size_t* signature_size) {
         memset(signature, 0x55, *signature_size);
         return n20_error_ok_e;
     };
@@ -617,7 +617,7 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteEcaEeCertRendering) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* signature, size_t* signature_size) {
+    auto signer_cb = [](void* /*ctx*/, n20_slice_t /*tbs*/, uint8_t* signature, size_t* signature_size) {
         memset(signature, 0x55, *signature_size);
         return n20_error_ok_e;
     };
@@ -1084,12 +1084,12 @@ TEST_F(EcaEeSignMessageFixture, EeSignMessageUnexpectedInsufficientBufferSizeTes
 }
 
 TEST_F(EcaEeSignMessageFixture, EeSignMessageDigestErrorForwardingTest) {
-    crypto_ctx->digest_ctx.digest = [](n20_crypto_digest_context_t* ctx,
-                                       n20_crypto_digest_algorithm_t algorithm,
-                                       n20_crypto_gather_list_t const* gather_list,
-                                       size_t msg_count,
-                                       uint8_t* digest,
-                                       size_t* digest_size) -> n20_error_t {
+    crypto_ctx->digest_ctx.digest = [](n20_crypto_digest_context_t* /*ctx*/,
+                                       n20_crypto_digest_algorithm_t /*algorithm*/,
+                                       n20_crypto_gather_list_t const* /*gather_list*/,
+                                       size_t /*msg_count*/,
+                                       uint8_t* /*digest*/,
+                                       size_t* /*digest_size*/) -> n20_error_t {
         return n20_error_crypto_implementation_specific_e;
     };
 
@@ -1236,12 +1236,12 @@ TEST_F(ComputeCertificateContextTest, ForwardDigestError) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_eca_ee_e;
 
-    crypto_ctx->digest_ctx.digest = [](n20_crypto_digest_context_t* ctx,
-                                       n20_crypto_digest_algorithm_t algorithm,
-                                       n20_crypto_gather_list_t const* gather_list,
-                                       size_t msg_count,
-                                       uint8_t* digest,
-                                       size_t* digest_size) -> n20_error_t {
+    crypto_ctx->digest_ctx.digest = [](n20_crypto_digest_context_t* /*ctx*/,
+                                       n20_crypto_digest_algorithm_t /*algorithm*/,
+                                       n20_crypto_gather_list_t const* /*gather_list*/,
+                                       size_t /*msg_count*/,
+                                       uint8_t* /*digest*/,
+                                       size_t* /*digest_size*/) -> n20_error_t {
         return n20_error_crypto_implementation_specific_e;
     };
 

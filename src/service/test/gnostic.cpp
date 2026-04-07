@@ -325,7 +325,8 @@ TEST_F(GnosticNodeTest, ForwardPromoteCryptoErrors) {
 }
 
 TEST_F(GnosticNodeTest, ForwardCdiCertCryptoErrors) {
-    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = valid_path();
     req.parent_path.length = 2;
 
     // Set the mock context to return an error on the next kdf call, which will be made during
@@ -340,7 +341,8 @@ TEST_F(GnosticNodeTest, ForwardCdiCertCryptoErrors) {
 }
 
 TEST_F(GnosticNodeTest, ForwardEcaCertCryptoErrors) {
-    n20_msg_issue_eca_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_eca_cert_request_t req{};
+    req.parent_path = valid_path();
     req.parent_path.length = 2;
 
     // Set the mock context to return an error on the next kdf call, which will be made during
@@ -365,11 +367,10 @@ TEST_F(GnosticNodeTest, ForwardEcaCertCryptoErrors) {
 #if N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, IssueEcaEECertEmptyKeyUsageProducesUnusableKey) {
-    n20_msg_issue_eca_ee_cert_request_t req{
-        .issuer_key_type = n20_crypto_key_type_ed25519_e,
-        .subject_key_type = n20_crypto_key_type_ed25519_e,
-        .certificate_format = n20_certificate_format_x509_e,
-    };
+    n20_msg_issue_eca_ee_cert_request_t req{};
+    req.issuer_key_type = n20_crypto_key_type_ed25519_e;
+    req.subject_key_type = n20_crypto_key_type_ed25519_e;
+    req.certificate_format = n20_certificate_format_x509_e;
     req.key_usage = {0, nullptr};
 
     size_t sz = cert_buffer_.size();
@@ -380,11 +381,10 @@ TEST_F(GnosticNodeTest, IssueEcaEECertEmptyKeyUsageProducesUnusableKey) {
 
 TEST_F(GnosticNodeTest, IssueEcaEECertLongEmptyKeyUsageProducesUnusableKey) {
     std::array<uint8_t, 3> const long_usage = {0, 0, 0};
-    n20_msg_issue_eca_ee_cert_request_t req{
-        .issuer_key_type = n20_crypto_key_type_ed25519_e,
-        .subject_key_type = n20_crypto_key_type_ed25519_e,
-        .certificate_format = n20_certificate_format_x509_e,
-    };
+    n20_msg_issue_eca_ee_cert_request_t req{};
+    req.issuer_key_type = n20_crypto_key_type_ed25519_e;
+    req.subject_key_type = n20_crypto_key_type_ed25519_e;
+    req.certificate_format = n20_certificate_format_x509_e;
     req.key_usage = {long_usage.size(), const_cast<uint8_t*>(long_usage.data())};
 
     size_t sz = cert_buffer_.size();
@@ -429,7 +429,8 @@ TEST_F(GnosticNodeTest, IssueEcaEeCertUnsupportedKeyUsageNonzeroSecondByteReturn
 }
 
 TEST_F(GnosticNodeTest, ForwardEcaEECertCryptoErrors) {
-    n20_msg_issue_eca_ee_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_eca_ee_cert_request_t req{};
+    req.parent_path = valid_path();
     req.parent_path.length = 2;
     req.key_usage = {0, nullptr};  // valid but empty key usage
 
@@ -485,7 +486,8 @@ TEST_F(GnosticNodeTest, EcaSignUnsupportedKeyUsageNonzeroSecondByteReturnsError)
 
 TEST_F(GnosticNodeTest, ForwardEcaSignCryptoErrors) {
     std::array<uint8_t, 4> const msg = {0xDE, 0xAD, 0xBE, 0xEF};
-    n20_msg_eca_ee_sign_request_t req{.parent_path = valid_path()};
+    n20_msg_eca_ee_sign_request_t req{};
+    req.parent_path = valid_path();
     req.parent_path.length = 2;
     req.key_usage = {0, nullptr};  // valid but empty key usage
     req.message = {msg.size(), const_cast<uint8_t*>(msg.data())};
@@ -523,7 +525,8 @@ TEST_F(GnosticNodeTest, PromoteSuccess) {
 #if N20_WITH_X509 == 1
 
 TEST_F(GnosticNodeTest, IssueCdiCertSuccess) {
-    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = valid_path();
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
     req.parent_path.length = 0;
@@ -547,7 +550,8 @@ TEST_F(GnosticNodeTest, IssueCdiCertSuccess) {
 }
 
 TEST_F(GnosticNodeTest, IssueEcaCertSuccess) {
-    n20_msg_issue_eca_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_eca_cert_request_t req{};
+    req.parent_path = valid_path();
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
     req.parent_path.length = 0;
@@ -572,7 +576,8 @@ TEST_F(GnosticNodeTest, IssueEcaCertSuccess) {
 
 TEST_F(GnosticNodeTest, IssueEcaEeCertSuccess) {
     std::array<uint8_t, 1> const key_usage_data = {0x01};  // digital signature
-    n20_msg_issue_eca_ee_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_eca_ee_cert_request_t req{};
+    req.parent_path = valid_path();
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
     req.parent_path.length = 0;
@@ -602,7 +607,8 @@ TEST_F(GnosticNodeTest, IssueEcaEeCertSuccess) {
 TEST_F(GnosticNodeTest, EcaSignSuccess) {
     std::array<uint8_t, 1> const key_usage_data = {0x01};  // digital signature
     std::array<uint8_t, 8> const message_data = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    n20_msg_eca_ee_sign_request_t req{.parent_path = valid_path()};
+    n20_msg_eca_ee_sign_request_t req{};
+    req.parent_path = valid_path();
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
     req.parent_path.length = 0;
     req.name = {3, "key"};
@@ -627,7 +633,8 @@ TEST_F(GnosticNodeTest, EcaSignSuccess) {
 
 // A depth-1 path exercises
 TEST_F(GnosticNodeTest, ResolvePathDepth1IssuesCertSuccessfully) {
-    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = valid_path();
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
     req.parent_path.length = 1;
@@ -643,7 +650,8 @@ TEST_F(GnosticNodeTest, ResolvePathDepth1IssuesCertSuccessfully) {
 // A depth-2 path exercises the while-loop body in n20_resolve_path, which
 // frees the intermediate derived key before proceeding.
 TEST_F(GnosticNodeTest, ResolvePathDepth2IssuesCertSuccessfully) {
-    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = valid_path();
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
     req.parent_path.length = 2;
@@ -670,7 +678,8 @@ TEST_F(GnosticNodeTest, ResolvePathProducesDifferentCertThanNullPath) {
               n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
                   &state_, &req_no_path, cert_no_path.data(), &sz_no_path));
 
-    n20_msg_issue_cdi_cert_request_t req_with_path{.parent_path = valid_path()};
+    n20_msg_issue_cdi_cert_request_t req_with_path{};
+    req_with_path.parent_path = valid_path();
     req_with_path.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req_with_path.subject_key_type = n20_crypto_key_type_ed25519_e;
     req_with_path.parent_path.length = 1;
@@ -691,7 +700,8 @@ TEST_F(GnosticNodeTest, ResolvePathProducesDifferentCertThanNullPath) {
 // Key derivation is deterministic: two identical requests must produce
 // byte-for-byte identical certificates.
 TEST_F(GnosticNodeTest, ResolvePathIsDeterministic) {
-    n20_msg_issue_cdi_cert_request_t req{.parent_path = valid_path()};
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = valid_path();
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
     req.parent_path.length = 1;
@@ -723,10 +733,10 @@ TEST_F(GnosticNodeTest, ResolvePathFreesIntermediateDerivedKeyIfPathParsingError
     uint8_t invalid_encoded_path[] = {
         0x82, 0x41, 0xaa,  // length=2, but only 1 element provided.
     };
-    n20_msg_issue_cdi_cert_request_t req{
-        .parent_path = {.length = 2,
-                        .is_encoded = true,
-                        .encoded = {sizeof(invalid_encoded_path), invalid_encoded_path}}};
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = {.length = 2,
+                       .is_encoded = true,
+                       .encoded = {sizeof(invalid_encoded_path), invalid_encoded_path}};
     req.issuer_key_type = n20_crypto_key_type_ed25519_e;
     req.subject_key_type = n20_crypto_key_type_ed25519_e;
     req.certificate_format = n20_certificate_format_x509_e;

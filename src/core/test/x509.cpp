@@ -129,24 +129,24 @@ class ExtensionTest
           std::tuple<std::variant<n20_x509_extensions_t*, std::vector<n20_x509_extension_t>>,
                      std::vector<uint8_t>>> {};
 
-void key_usage_content_cb(n20_stream_t* s, void* cb_context) {
+void key_usage_content_cb(n20_stream_t* s, void* /*cb_context*/) {
     uint8_t n = 0x05;
 
     n20_asn1_bitstring(s, &n, 3, n20_asn1_tag_info_no_override());
 }
 
-void basic_constraints_content_cb(n20_stream_t* s, void* cb_context) {
+void basic_constraints_content_cb(n20_stream_t* s, void* /*cb_context*/) {
     n20_asn1_sequence(s, nullptr, nullptr, n20_asn1_tag_info_no_override());
 }
 
 n20_x509_extensions_t EXTENSIONS_EMPTY = {};
 std::vector<n20_x509_extension_t> const EXTENSIONS_ONE_EMPTY_EXTN_VALUE = {
-    {.oid = &OID_KEY_USAGE, .critical = false, .content_cb = nullptr}};
+    {.oid = &OID_KEY_USAGE, .critical = false, .content_cb = nullptr, .context = nullptr}};
 std::vector<n20_x509_extension_t> const EXTENSIONS_ONE = {
-    {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb}};
+    {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb, .context = nullptr}};
 std::vector<n20_x509_extension_t> const EXTENSIONS_TWO = {
-    {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb},
-    {.oid = &OID_BASIC_CONSTRAINTS, .critical = true, .content_cb = &basic_constraints_content_cb}};
+    {.oid = &OID_KEY_USAGE, .critical = true, .content_cb = &key_usage_content_cb, .context = nullptr},
+    {.oid = &OID_BASIC_CONSTRAINTS, .critical = true, .content_cb = &basic_constraints_content_cb, .context = nullptr}};
 
 std::vector<uint8_t> const ENCODED_EXTENSIONS_EMPTY = {};
 std::vector<uint8_t> const ENCODED_EXTENSIONS_ONE_EMPTY_EXTN_VALUE = {
@@ -378,7 +378,7 @@ std::vector<uint8_t> const ENCODED_CERT_TBS_ZERO = {
 
 // Test the encoding of a zero tbs structure.
 TEST(CertTBSTest, CertTBSZeroEncoding) {
-    n20_x509_tbs_t tbs = {0};
+    n20_x509_tbs_t tbs = {};
 
     n20_stream_t s;
     uint8_t buffer[128];
