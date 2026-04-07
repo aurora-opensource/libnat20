@@ -590,10 +590,6 @@ TEST_F(MessagesTest, RequestWriteWritePositionOverflow) {
 
 // Test null pointer handling
 TEST_F(MessagesTest, RequestReadNullPointerHandling) {
-    n20_msg_request_t request = {};
-    n20_msg_error_response_t error_response = {};
-    size_t buffer_size = test_buffer.size();
-
     // Test null request pointer
     EXPECT_EQ(n20_error_unexpected_null_request_e, n20_msg_request_read(nullptr, test_slice));
 }
@@ -1049,9 +1045,6 @@ TEST_P(CompressedContextPathTestFixture, CompressedContextMalformed) {
 }
 
 TEST_F(MessagesTest, IssueCertResponseReadNullPointerHandling) {
-    n20_msg_issue_cert_response_t response = {};
-    size_t buffer_size = test_buffer.size();
-
     // Test null response pointer
     EXPECT_EQ(n20_error_unexpected_null_response_e,
               n20_msg_issue_cert_response_read(nullptr, test_slice));
@@ -1134,9 +1127,6 @@ TEST_F(MessagesTest, WriteIssueCertResponseBufferOverflow) {
 }
 
 TEST_F(MessagesTest, ErrorResponseReadNullPointerHandling) {
-    n20_msg_issue_cert_response_t response = {};
-    size_t buffer_size = test_buffer.size();
-
     // Test null response pointer
     EXPECT_EQ(n20_error_unexpected_null_response_e,
               n20_msg_error_response_read(nullptr, test_slice));
@@ -1193,9 +1183,6 @@ TEST_F(MessagesTest, ErrorResponseWriteBufferOverflow) {
 }
 
 TEST_F(MessagesTest, EcaEeSignResponseReadNullPointerHandling) {
-    n20_msg_issue_cert_response_t response = {};
-    size_t buffer_size = test_buffer.size();
-
     // Test null response pointer
     EXPECT_EQ(n20_error_unexpected_null_response_e,
               n20_msg_eca_ee_sign_response_read(nullptr, test_slice));

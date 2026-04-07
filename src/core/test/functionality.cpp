@@ -254,8 +254,6 @@ INSTANTIATE_TEST_SUITE_P(FunctionalityX509TestInstance,
 TEST_P(FunctionalityX509Test, IssueX509CertificateTest) {
     auto [test_name, issuer_key_type, subject_key_type, cert_type, want_cert] = GetParam();
 
-    auto key_deleter = [this](void* key) { crypto_ctx->key_free(crypto_ctx, key); };
-
     // Get the root CDI from the crypto backend.
     n20_crypto_key_t issuer_secret = this->GetCdi();
     KEY_HANDLE_GUARD(issuer_secret);
@@ -713,7 +711,7 @@ TEST_F(CompressedInputTestFixture, CompressInputSelfSigned) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_self_signed_e;
 
-    auto err = n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
+    n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
     std::vector<uint8_t> got(output, output + sizeof(output));
     std::vector<uint8_t> want(
         TEST_COMPRESSED_INPUT_SELF_SIGNED,
@@ -727,7 +725,7 @@ TEST_F(CompressedInputTestFixture, CompressInputEca) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_eca_e;
 
-    auto err = n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
+    n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
     std::vector<uint8_t> got(output, output + sizeof(output));
     // Produces the same output as selfsigned.
     std::vector<uint8_t> want(
@@ -750,7 +748,7 @@ TEST_F(CompressedInputTestFixture, CompressInputEcaEe) {
     cert_info.eca_ee.nonce = vec2slice(TEST_NONCE);
     cert_info.eca_ee.name = N20_STR_C("Test EE");
 
-    auto err = n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
+    n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
     std::vector<uint8_t> got(output, output + sizeof(output));
     // Produces the same output as selfsigned.
     std::vector<uint8_t> want(TEST_COMPRESSED_INPUT_ECA_EE,
@@ -1813,8 +1811,6 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(FunctionalityCwtCoseTest, IssueCwtCoseCertificateTest) {
     auto [test_name, issuer_key_type, subject_key_type, cert_type, want_cert] = GetParam();
-
-    auto key_deleter = [this](void* key) { crypto_ctx->key_free(crypto_ctx, key); };
 
     // Get the root CDI from the crypto backend.
     n20_crypto_key_t issuer_secret = this->GetCdi();

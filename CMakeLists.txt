@@ -546,7 +546,10 @@ if (NAT20_WITH_TESTS)
         PRIVATE ${LIBNAT20_TEST_UTILS_HEADERS}
     )
     set_target_properties(nat20_test_utils PROPERTIES PUBLIC_HEADER "${LIBNAT20_TEST_UTILS_HEADERS}")
-
+    target_compile_options(nat20_test_utils
+        PRIVATE -Wall
+        PRIVATE -Werror
+    )
     target_link_libraries(nat20_test_utils gtest_main nat20 crypto)
     target_include_directories(nat20_test_utils PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
@@ -556,6 +559,10 @@ if (NAT20_WITH_TESTS)
     add_executable(nat20_test_bin)
     target_sources(nat20_test_bin
         PRIVATE ${LIBNAT20_TEST_SOURCES}
+    )
+    target_compile_options(nat20_test_bin
+        PRIVATE -Wall
+        PRIVATE -Werror
     )
     if(NAT20_WITH_COVERAGE)
         target_link_options(nat20_test_bin
@@ -572,6 +579,10 @@ if (NAT20_WITH_TESTS)
     target_sources(nat20_service_test_bin
         PRIVATE ${LIBNAT20_SERVICE_TEST_SOURCES}
     )
+    target_compile_options(nat20_service_test_bin
+        PRIVATE -Wall
+        PRIVATE -Werror
+    )
     if(NAT20_WITH_COVERAGE)
         target_link_options(nat20_service_test_bin
             PRIVATE --coverage
@@ -587,6 +598,10 @@ if (NAT20_WITH_TESTS)
     add_executable(nat20_crypto_test_bin)
     target_sources(nat20_crypto_test_bin
         PRIVATE ${LIBNAT20_CRYPTO_TEST_SOURCES}
+    )
+    target_compile_options(nat20_crypto_test_bin
+        PRIVATE -Wall
+        PRIVATE -Werror
     )
     if(NAT20_WITH_COVERAGE)
         target_link_options(nat20_crypto_test_bin
