@@ -101,9 +101,9 @@ class HeaderWithContentTest
                                                std::vector<uint8_t>,
                                                n20_asn1_tag_info_t>> {};
 
-void noop(n20_stream_t *, void *) {}
+void noop(n20_stream_t */*s*/, void */*cb_context*/) {};
 
-void prepend_five_zeros(n20_stream_t *s, void *) {
+void prepend_five_zeros(n20_stream_t *s, void */*cb_context*/) {
     std::vector<uint8_t> zeros(5, 0);
 
     n20_stream_prepend(s, zeros.data(), zeros.size());
