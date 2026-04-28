@@ -45,13 +45,12 @@
 
 ; Main request message structure
 request = [
-  request_type: uint,
+  request_type: request_type,
   payload: request_payload
 ]
 
 ; Requests
 request_types = (
-  none: 0,
   promote: 1,
   issue_cdi_cert: 2,
   issue_eca_cert: 3,
@@ -93,7 +92,7 @@ error_code_label = 20
 certificate_label = 21
 signature_label = 22
 
-; Promote request (key 0)
+; Promote request (key 1)
 promote_request = {
   compressed_context_label: compressed_context_bytes,  ; compressed_context
   * int => any                                         ; extensible for unknown keys
@@ -101,7 +100,7 @@ promote_request = {
 
 compressed_context_bytes = bstr
 
-; Issue CDI certificate request (key 1)
+; Issue CDI certificate request (key 2)
 issue_cdi_cert_request = {
   issuer_key_type_label: key_type,                ; issuer_key_type
   subject_key_type_label: key_type,               ; subject_key_type
@@ -111,7 +110,7 @@ issue_cdi_cert_request = {
   * int => any                                    ; extensible for unknown keys
 }
 
-; Issue ECA certificate request (key 2)
+; Issue ECA certificate request (key 3)
 issue_eca_cert_request = {
   issuer_key_type_label: key_type,                ; issuer_key_type
   subject_key_type_label: key_type,               ; subject_key_type
@@ -121,7 +120,7 @@ issue_eca_cert_request = {
   * int => any                                    ; extensible for unknown keys
 }
 
-; Issue ECA End-Entity certificate request (key 3)
+; Issue ECA End-Entity certificate request (key 4)
 issue_eca_ee_cert_request = {
   issuer_key_type_label: key_type,                ; issuer_key_type
   subject_key_type_label: key_type,               ; subject_key_type
@@ -133,7 +132,7 @@ issue_eca_ee_cert_request = {
   * int => any                                    ; extensible for unknown keys
 }
 
-; ECA End-Entity sign request (key 4)
+; ECA End-Entity sign request (key 5)
 eca_ee_sign_request = {
   subject_key_type_label: key_type,              ; subject_key_type (no issuer_key_type for signing)
   ? parent_path_label: compressed_context_array, ; parent_path (optional)
@@ -162,14 +161,16 @@ compressed_context_array = [* compressed_context_bytes]
 
 ; Mode
 modes = (
-  mode_not_cnfigured: 0,
+  mode_not_configured: 0,
   mode_normal: 1,
   mode_debug: 2,
   mode_recovery: 3,
 )
 mode = &modes
 
-; Crypto key types (keep in sync with enum n20_crypto_key_type_s)
+; Crypto key types
+; keep values in sync with enum n20_crypto_key_type_s
+; Note: Not all values (e.g. cdi) are part of the wire format.
 key_types = (
   key_type_none: 0,
   key_type_secp256r1: 1,
