@@ -33,7 +33,20 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
+NAT20SW_VERSION = origin/main
+NAT20SW_SITE = https://github.com/aurora-opensource/libnat20.git
+NAT20SW_SITE_METHOD = git
+NAT20SW_LICENSE = Apache-2.0 OR GPL-2.0
+NAT20SW_LICENSE_FILES = LICENSE-Apache-2.0.txt LICENSE-GPL-2.0.txt
+
+NAT20SW_DEPENDENCIES += nat20lib
+NAT20SW_DEPENDENCIES += nat20device
+NAT20SW_DEPENDENCIES += nat20crypto
+NAT20SW_MODULE_MAKE_OPTS += NAT20SW_NAT20LIB_DIR=$(NAT20LIB_DIR)/examples/linux/nat20lib
+NAT20SW_MODULE_MAKE_OPTS += NAT20SW_NAT20DEVICE_DIR=$(NAT20DEVICE_DIR)/examples/linux/nat20device
+NAT20SW_MODULE_MAKE_OPTS += NAT20SW_NAT20CRYPTO_DIR=$(NAT20CRYPTO_DIR)/examples/linux/nat20crypto
+	
+NAT20SW_MODULE_SUBDIRS = examples/linux/nat20sw
+
+$(eval $(kernel-module))
+$(eval $(generic-package))

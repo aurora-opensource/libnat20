@@ -121,3 +121,20 @@ jobs:
           find ${{ runner.temp }}/buildroot.build -name 'nat20crypto.ko' | grep -q nat20crypto.ko
           echo "nat20crypto.ko built successfully:"
           find ${{ runner.temp }}/buildroot.build -name 'nat20crypto.ko' -exec ls -la {} \;
+
+      - name: Build nat20sw kernel module
+        env:
+          NAT20DEVICE_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20LIB_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20CRYPTO_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20SW_OVERRIDE_SRCDIR: ${{ github.workspace }}
+        run: |
+          cd ${{ runner.temp }}/buildroot.build/buildroot
+          make nat20sw-dirclean
+          make nat20sw -j $(( $(nproc) + 1 ))
+
+      - name: Verify nat20sw.ko was produced
+        run: |
+          find ${{ runner.temp }}/buildroot.build -name 'nat20sw.ko' | grep -q nat20sw.ko
+          echo "nat20sw.ko built successfully:"
+          find ${{ runner.temp }}/buildroot.build -name 'nat20sw.ko' -exec ls -la {} \;

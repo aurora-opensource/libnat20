@@ -33,7 +33,12 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
+config BR2_PACKAGE_NAT20SW
+    bool "nat20sw"
+    depends on BR2_PACKAGE_NAT20LIB
+    depends on BR2_PACKAGE_NAT20CRYPTO
+    depends on BR2_PACKAGE_NAT20DEVICE
+    help
+        Add the software implementation of a nat20 service
+        as a module. This is a driver for the nat20-device
+        class.
