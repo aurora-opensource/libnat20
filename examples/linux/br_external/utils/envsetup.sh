@@ -72,6 +72,7 @@ function brrebuild() {
         echo "  all          - Rebuild all components"
         echo "  linux        - Rebuild the linux kernel"
         echo "  nat20crypto  - Rebuild the nat20crypto module"
+        echo "  libnat20     - Rebuild the libnat20 library"
         echo "  nat20device  - Rebuild the nat20device module"
         echo "  nat20sw      - Rebuild the nat20sw module"
         echo "  nat20lib     - Rebuild the nat20lib library"
@@ -81,7 +82,7 @@ function brrebuild() {
 
     case "$1" in
         all)
-            ensure_popd make linux-rebuild nat20crypto-rebuild nat20device-rebuild nat20sw-rebuild nat20lib-rebuild all
+            ensure_popd make linux-rebuild nat20crypto-rebuild libnat20-rebuild nat20device-rebuild nat20sw-rebuild nat20lib-rebuild all
             ;;
         *)
             ensure_popd make $1-rebuild all

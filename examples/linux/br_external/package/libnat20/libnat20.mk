@@ -33,8 +33,12 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/libnat20/Config.in"
+LIBNAT20_VERSION = origin/main
+LIBNAT20_SITE = https://github.com/aurora-opensource/libnat20.git
+LIBNAT20_SITE_METHOD = git
+LIBNAT20_LICENSE = Apache-2.0 OR GPL-2.0
+LIBNAT20_LICENSE_FILES = LICENSE-Apache-2.0.txt LICENSE-GPL-2.0.txt
+
+LIBNAT20_INSTALL_STAGING = YES
+
+$(eval $(cmake-package))

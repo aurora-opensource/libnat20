@@ -138,3 +138,17 @@ jobs:
           find ${{ runner.temp }}/buildroot.build -name 'nat20sw.ko' | grep -q nat20sw.ko
           echo "nat20sw.ko built successfully:"
           find ${{ runner.temp }}/buildroot.build -name 'nat20sw.ko' -exec ls -la {} \;
+
+      - name: Build libnat20 userspace library
+        env:
+          LIBNAT20_OVERRIDE_SRCDIR: ${{ github.workspace }}
+        run: |
+          cd ${{ runner.temp }}/buildroot.build/buildroot
+          make libnat20-dirclean
+          make libnat20 -j $(( $(nproc) + 1 ))
+
+      - name: Verify libnat20 was produced
+        run: |
+          find ${{ runner.temp }}/buildroot.build -name 'libnat20.a' | grep -q libnat20.a
+          echo "libnat20.a built successfully:"
+          find ${{ runner.temp }}/buildroot.build -name 'libnat20.a' -exec ls -la {} \;
