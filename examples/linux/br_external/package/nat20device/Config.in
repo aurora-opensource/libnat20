@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
@@ -35,52 +33,25 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-if [ ! -f ".env" ]; then
-    echo ".env file not found. Please run bootstrap.sh first."
-    if (return 0 2>/dev/null); then
-        return 1
-    else
-        exit 1
-    fi
-fi
+config BR2_PACKAGE_NAT20DEVICE
+    bool "nat20device"
+    help
+        Say Y if you want to enable libnat20 based DICE support.
 
-source .env
+        Congratulations, you rolled a natural 20. You just enabled
+        DICE (Device Identifier Composition Engine) support which
+        is one step in the direction of establishing the root of
+        trust for your ZTA infrastructure.
 
-export NAT20DEVICE_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
-export NAT20LIB_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
+        To compile this driver as a module, choose M here: the
+        module will be called nat20device.
 
-function ensure_popd() {
-    "$@"
-    local rc=$?
-    popd
-    return $rc
-}
+        If in doubt, read up on ZTA, device state attestation, OpenDICE,
+        DICE Attestation Architecture, and DICE Layering Architecture.
+        Then come back and, enthusiastically, say Y here.
 
-function brbuild() {
-    pushd "${LIBNAT20_BR_BUILD_DIR}/buildroot" || return 1
-    ensure_popd make
-}
-
-function brrebuild() {
-    pushd "${LIBNAT20_BR_BUILD_DIR}/buildroot" || return 1
-
-    if [ "$#" -eq 0 ]; then
-        echo "Usage: brrebuild <target> [<target> ...]"
-        echo "Available targets:"
-        echo "  all          - Rebuild all components"
-        echo "  linux        - Rebuild the linux kernel"
-        echo "  nat20device  - Rebuild the nat20device module"
-        echo "  nat20lib     - Rebuild the nat20lib library"
-        popd
-        return 1
-    fi
-
-    case "$1" in
-        all)
-            ensure_popd make linux-rebuild nat20device-rebuild nat20lib-rebuild all
-            ;;
-        *)
-            ensure_popd make $1-rebuild all
-            ;;
-    esac
-}
+        Privacy notice: This is a trusted computing feature. It is
+        very useful for fleet management and establishing authenticity
+        and integrity to a remote relying party. It can also be
+        used for tracking, so protecting this feature from unauthorized
+        access is crucial for privacy on personal end user devices.
