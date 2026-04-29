@@ -59,14 +59,12 @@ request_types = (
 )
 request_type = &request_types
 
-request_payloads = (
-  promote_request,
-  issue_cdi_cert_request,
-  issue_eca_cert_request,
-  issue_eca_ee_cert_request,
+request_payload =
+  promote_request \
+  issue_cdi_cert_request \
+  issue_eca_cert_request \
+  issue_eca_ee_cert_request \
   eca_ee_sign_request
-)
-request_payload = &request_payloads
 
 ; Labels for map keys
 issuer_key_type_label = 1
@@ -164,7 +162,7 @@ modes = (
   mode_not_configured: 0,
   mode_normal: 1,
   mode_debug: 2,
-  mode_recovery: 3,
+  mode_recovery: 3
 )
 mode = &modes
 
@@ -175,7 +173,7 @@ key_types = (
   key_type_none: 0,
   key_type_secp256r1: 1,
   key_type_secp384r1: 2,
-  key_type_ed25519: 3,
+  key_type_ed25519: 3
 )
 key_type = &key_types
 
@@ -183,11 +181,9 @@ key_type = &key_types
 certificate_formats = (
   certificate_format_none: 0,
   certificate_format_x509: 1,
-  certificate_format_cose: 2,
+  certificate_format_cose: 2
 )
 certificate_format = &certificate_formats
-
-
 
 ; Data types
 code_hash_bytes = bstr
