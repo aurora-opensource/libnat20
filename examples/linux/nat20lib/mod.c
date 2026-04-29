@@ -38,10 +38,10 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <nat20/crypto/nat20/crypto.h>
-#include <nat20/crypto/nat20/rfc6979.h>
 #include <nat20/cbor.h>
 #include <nat20/cose.h>
+#include <nat20/crypto/nat20/crypto.h>
+#include <nat20/crypto/nat20/rfc6979.h>
 #include <nat20/cwt.h>
 #include <nat20/functionality.h>
 #include <nat20/service/gnostic.h>

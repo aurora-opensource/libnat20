@@ -9,6 +9,7 @@
       "**/Config.in",
       "**/Kbuild",
       "examples/linux/br_external/external.desc",
+      "examples/linux/**/Makefile",
       ".clang-format",
       ".gitignore"
     ],
