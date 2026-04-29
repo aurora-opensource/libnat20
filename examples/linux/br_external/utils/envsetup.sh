@@ -37,13 +37,16 @@
 
 if [ ! -f ".env" ]; then
     echo ".env file not found. Please run bootstrap.sh first."
-    exit 1
+    if (return 0 2>/dev/null); then
+        return 1
+    else
+        exit 1
+    fi
 fi
 
 source .env
 
 export NAT20LIB_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
-# export LINUX_OVERRIDE_SRCDIR=
 
 function ensure_popd() {
     "$@"

@@ -40,10 +40,10 @@ INSTALL_MOD_PATH ?= /lib/modules/`uname -r`/extra
 all: modules
 
 modules:
-	$(MAKE) -C $(KDIR) M=$$PWD
+	$(MAKE) -C $(KDIR) M=$$PWD modules
 
 modules_install:
-	$(MAKE) -C $(KDIR) M=$$PWD modules_install
+	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_PATH="$(INSTALL_MOD_PATH)" modules_install
 
 clean:
 	$(MAKE) -C $(KDIR) M=$$PWD clean

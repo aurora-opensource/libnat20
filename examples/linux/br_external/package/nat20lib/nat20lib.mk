@@ -33,6 +33,10 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
+# In CI NAT20LIB_OVERRIDE_SRCDIR is set to the root of the repository,
+# so that the source under test is always the current branch.
+# Integrators who use this configuration should pin the version
+# to a specific commit or branch to avoid breakages when the main branch changes.
 NAT20LIB_VERSION = origin/main
 NAT20LIB_SITE = https://github.com/aurora-opensource/libnat20.git
 NAT20LIB_SITE_METHOD = git

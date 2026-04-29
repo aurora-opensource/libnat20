@@ -44,9 +44,9 @@ fi
 
 source .env
 
-BUILDROOT_DIR=${LIBNAT20_BR_BUILD_DIR}/buildroot
-KERNEL_IMAGE=${BUILDROOT_DIR}/output/images/bzImage
-FS_IMAGE=${BUILDROOT_DIR}/output/images/rootfs.ext2
+BUILDROOT_DIR="${LIBNAT20_BR_BUILD_DIR}/buildroot"
+KERNEL_IMAGE="${BUILDROOT_DIR}/output/images/bzImage"
+FS_IMAGE="${BUILDROOT_DIR}/output/images/rootfs.ext2"
 
 
-${QEMU_BIN} -M pc -kernel ${KERNEL_IMAGE} -nographic -drive file=${FS_IMAGE},if=virtio,format=raw -append "rootwait root=/dev/vda console=ttyS0" -serial mon:stdio -net nic,model=virtio -net user
+"${QEMU_BIN}" -M pc -kernel "${KERNEL_IMAGE}" -nographic -drive file="${FS_IMAGE}",if=virtio,format=raw -append "rootwait root=/dev/vda console=ttyS0" -serial mon:stdio -net nic,model=virtio -net user

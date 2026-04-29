@@ -36,32 +36,50 @@
 # <https://www.gnu.org/licenses/>.
 
 PROJECT="$1"
-LIBNAT20_BR_BUILD_DIR="${2:-${LIBNAT20_ROOT}/buildroot.build}"
+LIBNAT20_BR_BUILD_DIR="$2"
 LIBNAT20_ROOT="${3:-$(pwd)}"
-
-LIBNAT20_BR_BUILD_DIR="$(readlink -f "${LIBNAT20_BR_BUILD_DIR}")"
 LIBNAT20_ROOT="$(readlink -f "${LIBNAT20_ROOT}")"
 
+usage() {
+	echo "Usage: bootstrap.sh <project> <buildroot_build_dir> <libnat20_root>"
+	echo
+	echo "This script bootstraps the Buildroot environment for the Dice project."
+	echo
+	echo "This script may be run from any directory, as long as the libnat20 root"
+	echo "directory is specified correctly. The first parameter specifies the project."
+	echo "See valid options below."
+	echo "The second parameter specifies the out of tree Buildroot build directory."
+	echo "The third parameter specifies the libnat20 root directory."
+	echo "It uses the current working directory by default."
+	echo
+	echo "Available projects:"
+	echo "  qemu       - Setup Buildroot for the QEMU-based Dice emulator"
+}
 
 case "$PROJECT" in
 	qemu)
 		;;
 	*)
-		echo "Usage: bootstrap.sh <project> <buildroot_build_dir> <libnat20_root>"
-		echo
-		echo "This script bootstraps the Buildroot environment for the Dice project."
-		echo
-		echo "This script may be run from any directory, as long as the libnat20 root"
-		echo "directory is specified correctly. The first parameter specifies the project."
-		echo "See valid options below."
-		echo "The second parameter specifies the out of tree Buildroot build directory."
-		echo "It uses \"buildroot.build\" inside of the libnat20 root directory by default."
-		echo "The third parameter specifies the libnat20 root directory."
-		echo "It uses the current working directory by default."
-		echo
-		echo "Available projects:"
-		echo "  qemu       - Setup Buildroot for the QEMU-based Dice emulator"
+		usage
 		exit 0
+		;;
+esac
+
+if [ -z "${LIBNAT20_BR_BUILD_DIR}" ]; then
+	echo "Error: buildroot_build_dir must be specified."
+	echo
+	usage
+	exit 1
+fi
+
+LIBNAT20_BR_BUILD_DIR="$(readlink -f "${LIBNAT20_BR_BUILD_DIR}")"
+
+case "${LIBNAT20_BR_BUILD_DIR}" in
+	"${LIBNAT20_ROOT}"|"${LIBNAT20_ROOT}"/*)
+		echo "Error: buildroot_build_dir must not be inside libnat20_root."
+		echo "  buildroot_build_dir: ${LIBNAT20_BR_BUILD_DIR}"
+		echo "  libnat20_root:       ${LIBNAT20_ROOT}"
+		exit 1
 		;;
 esac
 
