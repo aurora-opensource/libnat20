@@ -259,8 +259,8 @@ typedef struct n20_open_dice_public_key_info_s n20_open_dice_public_key_info_t;
  * # Example
  *
  * @code{.c}
- * n20_open_dice_cert_info_t key_usage = {0};
- * N20_OPEN_DICE_KEY_USAGE_SET_KEY_CERT_SIGN(key_usage.key_usage);
+ * n20_open_dice_cert_info_t cert_info = {0};
+ * N20_OPEN_DICE_KEY_USAGE_SET_KEY_CERT_SIGN(cert_info.key_usage);
  * @endcode
  * @{
  */
