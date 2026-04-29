@@ -45,17 +45,26 @@
 
 ; Main request message structure
 request = [
-  request_type: uint,
+  request_type: request_type,
   payload: request_payload
 ]
 
-request_type = 0..4  ; promote=0, issue_cdi_cert=1, issue_eca_cert=2, issue_eca_ee_cert=3, eca_ee_sign=4
+; Requests
+request_types = (
+  promote: 1,
+  issue_cdi_cert: 2,
+  issue_eca_cert: 3,
+  issue_eca_ee_cert: 4,
+  eca_ee_sign: 5
+)
+request_type = &request_types
 
-request_payload = promote_request /
-                  issue_cdi_cert_request /
-                  issue_eca_cert_request /
-                  issue_eca_ee_cert_request /
-                  eca_ee_sign_request
+request_payload =
+  promote_request \
+  issue_cdi_cert_request \
+  issue_eca_cert_request \
+  issue_eca_ee_cert_request \
+  eca_ee_sign_request
 
 ; Labels for map keys
 issuer_key_type_label = 1
@@ -81,7 +90,7 @@ error_code_label = 20
 certificate_label = 21
 signature_label = 22
 
-; Promote request (key 0)
+; Promote request (key 1)
 promote_request = {
   compressed_context_label: compressed_context_bytes,  ; compressed_context
   * int => any                                         ; extensible for unknown keys
@@ -89,30 +98,30 @@ promote_request = {
 
 compressed_context_bytes = bstr
 
-; Issue CDI certificate request (key 1)
+; Issue CDI certificate request (key 2)
 issue_cdi_cert_request = {
-  issuer_key_type_label: issuer_key_type,         ; issuer_key_type
-  subject_key_type_label: subject_key_type,       ; subject_key_type
+  issuer_key_type_label: key_type,                ; issuer_key_type
+  subject_key_type_label: key_type,               ; subject_key_type
   open_dice_input_label: open_dice_input,         ; context
   ? parent_path_label: compressed_context_array,  ; parent_path (optional)
   certificate_format_label: certificate_format,   ; certificate_format
   * int => any                                    ; extensible for unknown keys
 }
 
-; Issue ECA certificate request (key 2)
+; Issue ECA certificate request (key 3)
 issue_eca_cert_request = {
-  issuer_key_type_label: issuer_key_type,         ; issuer_key_type
-  subject_key_type_label: subject_key_type,       ; subject_key_type
+  issuer_key_type_label: key_type,                ; issuer_key_type
+  subject_key_type_label: key_type,               ; subject_key_type
   ? parent_path_label: compressed_context_array,  ; parent_path (optional)
   certificate_format_label: certificate_format,   ; certificate_format
   ? challenge_label: challenge_bytes,             ; challenge (optional)
   * int => any                                    ; extensible for unknown keys
 }
 
-; Issue ECA End-Entity certificate request (key 3)
+; Issue ECA End-Entity certificate request (key 4)
 issue_eca_ee_cert_request = {
-  issuer_key_type_label: issuer_key_type,         ; issuer_key_type
-  subject_key_type_label: subject_key_type,       ; subject_key_type
+  issuer_key_type_label: key_type,                ; issuer_key_type
+  subject_key_type_label: key_type,               ; subject_key_type
   ? parent_path_label: compressed_context_array,  ; parent_path (optional)
   certificate_format_label: certificate_format,   ; certificate_format
   ? name_label: name_string,                      ; name (optional)
@@ -121,9 +130,9 @@ issue_eca_ee_cert_request = {
   * int => any                                    ; extensible for unknown keys
 }
 
-; ECA End-Entity sign request (key 4)
+; ECA End-Entity sign request (key 5)
 eca_ee_sign_request = {
-  subject_key_type_label: subject_key_type,      ; subject_key_type (no issuer_key_type for signing)
+  subject_key_type_label: key_type,              ; subject_key_type (no issuer_key_type for signing)
   ? parent_path_label: compressed_context_array, ; parent_path (optional)
   name_label: name_string,                       ; name
   key_usage_label: key_usage_bytes,              ; key_usage
@@ -139,7 +148,7 @@ open_dice_input = {
   ? configuration_descriptor_label: configuration_descriptor_bytes, ; configuration_descriptor (optional)
   ? authority_hash_label: authority_hash_bytes,     ; authority_hash (optional)
   ? authority_descriptor_label: authority_descriptor_bytes, ; authority_descriptor (optional)
-  ? mode_label: mode_uint,                          ; mode (optional, 0-3)
+  ? mode_label: mode,                               ; mode (optional, 0-3)
   ? hidden_label: hidden_bytes,                     ; hidden (optional)
   ? profile_name_label: profile_name_string,        ; profile_name (optional)
   * int => any                                      ; extensible for unknown keys
@@ -147,10 +156,34 @@ open_dice_input = {
 
 ; Common types
 compressed_context_array = [* compressed_context_bytes]
-issuer_key_type = uint        ; crypto key type enum
-subject_key_type = uint       ; crypto key type enum
-certificate_format = uint     ; certificate format enum
-mode_uint = 0..3              ; not_configured=0, normal=1, debug=2, recovery=3
+
+; Mode
+modes = (
+  mode_not_configured: 0,
+  mode_normal: 1,
+  mode_debug: 2,
+  mode_recovery: 3
+)
+mode = &modes
+
+; Crypto key types
+; keep values in sync with enum n20_crypto_key_type_s
+; Note: Not all values (e.g. cdi) are part of the wire format.
+key_types = (
+  key_type_none: 0,
+  key_type_secp256r1: 1,
+  key_type_secp384r1: 2,
+  key_type_ed25519: 3
+)
+key_type = &key_types
+
+; Certificate formats (keep in sync with enum n20_certificate_format_s)
+certificate_formats = (
+  certificate_format_none: 0,
+  certificate_format_x509: 1,
+  certificate_format_cose: 2
+)
+certificate_format = &certificate_formats
 
 ; Data types
 code_hash_bytes = bstr
