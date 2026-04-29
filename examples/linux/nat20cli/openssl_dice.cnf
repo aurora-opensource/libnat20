@@ -33,9 +33,29 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20cli/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/libnat20/Config.in"
+# OpenSSL configuration for DICE certificate extensions.
+#
+# DICE certificates contain critical X.509v3 extensions with OIDs that
+# vanilla OpenSSL does not recognize. This config registers their names
+# for human-readable display in `openssl x509 -text` output.
+#
+# Because OpenSSL has no config-level mechanism to register handlers for
+# custom critical extensions, `openssl verify` must also be invoked with
+# -ignore_critical when verifying DICE certificate chains.
+#
+# Usage:
+#   export OPENSSL_CONF=/path/to/openssl_dice.cnf
+#   openssl x509 -in cert.pem -noout -text
+#   openssl verify -ignore_critical -CAfile chain.pem leaf.pem
+
+openssl_conf = openssl_init
+
+[openssl_init]
+oid_section = dice_oids
+
+[dice_oids]
+openDiceInput       = Open DICE Input,              1.3.6.1.4.1.11129.2.1.24
+tcgDiceTcbInfo      = TCG DICE TCB Info,             2.23.133.5.4.1
+tcgDiceMultiTcbInfo = TCG DICE Multi-TCB Info,       2.23.133.5.4.5
+tcgDiceUeid         = TCG DICE UEID,                 2.23.133.5.4.4
+tcgDiceTcbFreshness = TCG DICE TCB Freshness,        2.23.133.5.4.11

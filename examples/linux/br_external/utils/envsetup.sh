@@ -46,6 +46,7 @@ fi
 
 source .env
 
+export NAT20CLI_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20CRYPTO_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20SW_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20DEVICE_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
@@ -72,6 +73,7 @@ function brrebuild() {
         echo "Available targets:"
         echo "  all          - Rebuild all components"
         echo "  linux        - Rebuild the linux kernel"
+        echo "  nat20cli     - Rebuild the Dice CLI"
         echo "  nat20crypto  - Rebuild the nat20crypto module"
         echo "  libnat20     - Rebuild the libnat20 library"
         echo "  nat20device  - Rebuild the nat20device module"
@@ -83,7 +85,7 @@ function brrebuild() {
 
     case "$1" in
         all)
-            ensure_popd make linux-rebuild nat20lib-rebuild nat20crypto-rebuild nat20device-rebuild nat20sw-rebuild libnat20-rebuild all
+            ensure_popd make linux-rebuild nat20lib-rebuild nat20crypto-rebuild nat20device-rebuild nat20sw-rebuild libnat20-rebuild nat20cli-rebuild all
             ;;
         *)
             ensure_popd make $1-rebuild all

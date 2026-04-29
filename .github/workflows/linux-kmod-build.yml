@@ -49,7 +49,7 @@ jobs:
     steps:
       - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b #v4.1.5
 
-      - name: Install Buildroot dependencies
+      - name: Install build and test dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -60,6 +60,7 @@ jobs:
             git \
             libncurses-dev \
             python3 \
+            qemu-system-x86 \
             rsync \
             unzip \
             wget
@@ -152,3 +153,18 @@ jobs:
           find ${{ runner.temp }}/buildroot.build -name 'libnat20.a' | grep -q libnat20.a
           echo "libnat20.a built successfully:"
           find ${{ runner.temp }}/buildroot.build -name 'libnat20.a' -exec ls -la {} \;
+
+      - name: Build nat20cli userspace cli tool
+        env:
+          LIBNAT20_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20CLI_OVERRIDE_SRCDIR: ${{ github.workspace }}
+        run: |
+          cd ${{ runner.temp }}/buildroot.build/buildroot
+          make nat20cli-dirclean
+          make nat20cli -j $(( $(nproc) + 1 ))
+
+      - name: Verify nat20cli was produced
+        run: |
+          find ${{ runner.temp }}/buildroot.build -name 'nat20cli' | grep -q nat20cli
+          echo "nat20cli built successfully:"
+          find ${{ runner.temp }}/buildroot.build -name 'nat20cli' -exec ls -la {} \;
