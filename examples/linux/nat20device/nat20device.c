@@ -58,7 +58,7 @@
  * @device: Device structure
  * @ops: Driver operations
  * @cdev_fops: File operations for the character device.
- * @cert_fops: File operations for certificate sysfs files.
+ * @dice_chain_fops: File operations for DICE chain security file.
  * @ctx: Driver-specific context. Will be passed to ops callbacks.
  * @id: Instance ID (used for device numbering)
  */
@@ -68,11 +68,11 @@ struct nat20device_driver_instance {
     struct device* device;
     const struct nat20device_driver_ops* ops;
     struct file_operations cdev_fops;
-    struct file_operations cert_fops;
+    struct file_operations dice_chain_fops;
     void* ctx;
     int id;
-    struct dentry* nat20device_cert_dir;
-    struct dentry* nat20device_cert_file;
+    struct dentry* nat20device_dice_chain_dir;
+    struct dentry* nat20device_dice_chain_file;
 };
 
 struct nat20device_file_private {
@@ -211,25 +211,25 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
     return bytes_to_read;
 }
 
-static int nat20device_cert_fops_open(struct inode* inode, struct file* filp) {
+static int nat20device_dice_chain_fops_open(struct inode* inode, struct file* filp) {
     filp->private_data = inode->i_private;
     return 0;
 }
 
-static int nat20device_cert_fops_release(struct inode* inode, struct file* filp) {
+static int nat20device_dice_chain_fops_release(struct inode* inode, struct file* filp) {
     filp->private_data = NULL;
     return 0;
 }
 
-static ssize_t nat20device_cert_fops_read(struct file* filp,
-                                          char __user* buf,
-                                          size_t len,
-                                          loff_t* f_pos) {
+static ssize_t nat20device_dice_chain_fops_read(struct file* filp,
+                                                char __user* buf,
+                                                size_t len,
+                                                loff_t* f_pos) {
     struct nat20device_driver_instance* instance = filp->private_data;
-    if (!instance->ops || !instance->ops->cert_read) {
+    if (!instance->ops || !instance->ops->dice_chain_read) {
         return -ENODEV;
     }
-    return instance->ops->cert_read(instance->ctx, buf, len, f_pos);
+    return instance->ops->dice_chain_read(instance->ctx, buf, len, f_pos);
 }
 
 /**
@@ -262,10 +262,10 @@ struct nat20device_driver* nat20device_register_driver(const struct nat20device_
     instance->cdev_fops.release = nat20device_release;
     instance->cdev_fops.write = nat20device_write;
     instance->cdev_fops.read = nat20device_read;
-    instance->cert_fops.owner = owner;
-    instance->cert_fops.open = nat20device_cert_fops_open;
-    instance->cert_fops.release = nat20device_cert_fops_release;
-    instance->cert_fops.read = nat20device_cert_fops_read;
+    instance->dice_chain_fops.owner = owner;
+    instance->dice_chain_fops.open = nat20device_dice_chain_fops_open;
+    instance->dice_chain_fops.release = nat20device_dice_chain_fops_release;
+    instance->dice_chain_fops.read = nat20device_dice_chain_fops_read;
 
     /* Initialize character device */
     cdev_init(&instance->cdev, &instance->cdev_fops);
@@ -287,21 +287,24 @@ struct nat20device_driver* nat20device_register_driver(const struct nat20device_
         goto err_del_cdev;
     }
 
-    if (ops->cert_read) {
-        /* Create certificate sysfs file */
-        char cert_dir_name[32];
-        snprintf(cert_dir_name, sizeof(cert_dir_name), NAT20DEVICE_DEVICE_NAME "%d", id);
-        instance->nat20device_cert_dir = securityfs_create_dir(cert_dir_name, NULL);
-        if (IS_ERR(instance->nat20device_cert_dir)) {
-            ret = PTR_ERR(instance->nat20device_cert_dir);
+    if (ops->dice_chain_read) {
+        char dir_name[32];
+        snprintf(dir_name, sizeof(dir_name), NAT20DEVICE_DEVICE_NAME "%d", id);
+        instance->nat20device_dice_chain_dir = securityfs_create_dir(dir_name, NULL);
+        if (IS_ERR(instance->nat20device_dice_chain_dir)) {
+            ret = PTR_ERR(instance->nat20device_dice_chain_dir);
             goto err_destroy_device;
         }
 
-        instance->nat20device_cert_file = securityfs_create_file(
-            "certificate", 0444, instance->nat20device_cert_dir, instance, &instance->cert_fops);
-        if (IS_ERR(instance->nat20device_cert_file)) {
-            ret = PTR_ERR(instance->nat20device_cert_file);
-            goto err_destroy_cert_dir;
+        instance->nat20device_dice_chain_file =
+            securityfs_create_file("dice_chain",
+                                   0444,
+                                   instance->nat20device_dice_chain_dir,
+                                   instance,
+                                   &instance->dice_chain_fops);
+        if (IS_ERR(instance->nat20device_dice_chain_file)) {
+            ret = PTR_ERR(instance->nat20device_dice_chain_file);
+            goto err_destroy_dice_chain_dir;
         }
     }
 
@@ -309,8 +312,8 @@ struct nat20device_driver* nat20device_register_driver(const struct nat20device_
 
     return &instance->driver;
 
-err_destroy_cert_dir:
-    securityfs_remove(instance->nat20device_cert_dir);
+err_destroy_dice_chain_dir:
+    securityfs_remove(instance->nat20device_dice_chain_dir);
 err_destroy_device:
     device_destroy(nat20device_class, nat20device_dev_number + id);
 err_del_cdev:
@@ -335,12 +338,11 @@ void nat20device_unregister_driver(struct nat20device_driver* driver) {
 
     pr_info("NAT20: Unregistering driver instance %s%d\n", NAT20DEVICE_DEVICE_NAME, instance->id);
 
-    if (instance->nat20device_cert_file) {
-        /* Remove certificate sysfs file and directory */
-        securityfs_remove(instance->nat20device_cert_file);
+    if (instance->nat20device_dice_chain_file) {
+        securityfs_remove(instance->nat20device_dice_chain_file);
     }
-    if (instance->nat20device_cert_dir) {
-        securityfs_remove(instance->nat20device_cert_dir);
+    if (instance->nat20device_dice_chain_dir) {
+        securityfs_remove(instance->nat20device_dice_chain_dir);
     }
 
     /* Remove device node */

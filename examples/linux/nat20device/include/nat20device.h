@@ -73,27 +73,31 @@ typedef int (*nat20device_dispatch_fn)(void* ctx,
                                        struct nat20device_buffer* response);
 
 /**
- * typedef nat20device_cert_read - Certificate read function callback
+ * typedef nat20device_dice_chain_read - DICE chain read function callback
  * @ctx: Driver-specific context
- * @buf: User-space buffer to read certificate data into
+ * @buf: User-space buffer to read DICE chain data into
  * @len: Length of the buffer
  * @f_pos: File position offset
  *
- * The certificate read function reads certificate data into the provided
- * user-space buffer. It behaves similarly to a read file operation.
+ * Reads the DICE certificate chain into the provided user-space buffer.
+ * The data is encoded as a CBOR indefinite-length array. See
+ * examples/linux/README.md for the encoding specification.
  *
  * Return: Number of bytes read on success, negative error code on failure
  */
-typedef ssize_t (*nat20device_cert_read)(void* ctx, char __user* buf, size_t len, loff_t* f_pos);
+typedef ssize_t (*nat20device_dice_chain_read)(void* ctx,
+                                               char __user* buf,
+                                               size_t len,
+                                               loff_t* f_pos);
 
 /**
  * struct nat20device_driver_ops - Driver operations
  * @dispatch: Dispatch function for handling requests
- * @cert_read: Certificate read function for reading certificate data
+ * @dice_chain_read: DICE chain read function for reading the boot certificate chain
  */
 struct nat20device_driver_ops {
     nat20device_dispatch_fn dispatch;
-    nat20device_cert_read cert_read;
+    nat20device_dice_chain_read dice_chain_read;
 };
 
 /**
