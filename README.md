@@ -96,6 +96,15 @@ make nat20_docs
 Open the documentation by pointing your browser to `html/index.html` in your
 build directory.
 
+## Examples
+
+### Linux DICE kernel modules
+
+The `examples/linux/` directory contains a complete Linux kernel module
+implementation of a software DICE node, including a userspace CLI tool and a
+Buildroot-based build environment targeting QEMU. See
+[README_linux.md](examples/linux/README_linux.md) for details.
+
 ## API Reference
 
 The API references is generated from the main branch using doxygen and deployed

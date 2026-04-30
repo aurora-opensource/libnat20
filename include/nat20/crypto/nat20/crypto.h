@@ -70,7 +70,7 @@ extern n20_error_t n20_crypto_nat20_open(n20_crypto_digest_context_t** ctx_out);
  * @brief Close the NAT20 cryptographic context.
  *
  * This function closes and frees the resources associated with the
- * context @ref ctx_out.
+ * context @p ctx_out.
  *
  * In the current implementation this is a no-op, as the context
  * is a singleton. But this may change in the future, and must

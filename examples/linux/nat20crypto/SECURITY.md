@@ -9,19 +9,9 @@ key information through timing side channels.
 
 ## Key Material Leak Analysis
 
-### Addressed
-
-- **`nat20crypto_sign`** — stack buffers `z`, `k`, `k_inv`, `rs` are wiped via
-  `memzero_explicit` on all exit paths. This covers the nonce, the inverted
-  nonce, the byte-swapped private key (in `k_inv` via the `key_bytes` alias),
-  and intermediate signature values.
-- **`nat20crypto_key_destroy`** — uses `memzero_explicit` before `kfree`.
-- **`nat20crypto_make_secret`** — the input `secret_in` buffer is caller-owned;
-  the output key is heap-allocated and properly zeroed on free.
-
 ### Outstanding issues
 
-#### `n20_rfc6979_k_generation` internal state
+#### n20_rfc6979_k_generation internal state
 
 This function (from nat20lib) uses HMAC internally with the private key as
 input. Whether its internal buffers are zeroed depends on its implementation.
@@ -34,11 +24,12 @@ Out of scope for this module but noted as a dependency.
 In a DICE boot-time context where signing happens once during module init with
 no concurrent attacker (single-threaded init, no network, no user interaction),
 timing side channels are not practically exploitable. For a general-purpose
-signing oracle accessible from userspace, the issues below would be exploitable.
+signing oracle accessible from userspace, i.e., the embedded-CA functionality,
+the issues below would be exploitable.
 
 ### High risk
 
-#### `vli_mod_inv` — variable-time modular inverse
+#### vli_mod_inv — variable-time modular inverse
 
 The kernel's `vli_mod_inv` computes the modular inverse of `k` using a binary
 extended GCD with data-dependent branches and loop counts. The number of
@@ -46,7 +37,7 @@ iterations depends on the value of `k`, leaking nonce information through
 timing. Partial nonce knowledge enables private key recovery via lattice
 attacks.
 
-#### `ecc_make_pub_key` — variable-time point multiplication
+#### ecc_make_pub_key — variable-time point multiplication
 
 The kernel's ECC point multiplication uses a double-and-add algorithm. Older
 kernels (pre-6.10) use a naive implementation with data-dependent
@@ -54,7 +45,7 @@ doublings/additions, leaking the scalar `k` through timing.
 
 ### Medium risk
 
-#### `vli_mod_mult_slow` — conditional subtraction
+#### vli_mod_mult_slow — conditional subtraction
 
 The kernel's `vli_mod_mult_slow` is a shift-and-add modular multiplication.
 The loop count is constant, but the conditional subtraction after each shift
@@ -82,7 +73,7 @@ about the private key.
 The kernel's SHA implementations are generally constant-time for the
 compression function. HMAC processes fixed-size blocks. Low timing risk.
 
-#### `ecc_swap_digits` / `memcpy` / simple copies
+#### ecc_swap_digits / memcpy / simple copies
 
 These process a fixed number of bytes regardless of value. Constant-time.
 
