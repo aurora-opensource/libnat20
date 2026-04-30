@@ -254,8 +254,6 @@ INSTANTIATE_TEST_SUITE_P(FunctionalityX509TestInstance,
 TEST_P(FunctionalityX509Test, IssueX509CertificateTest) {
     auto [test_name, issuer_key_type, subject_key_type, cert_type, want_cert] = GetParam();
 
-    auto key_deleter = [this](void* key) { crypto_ctx->key_free(crypto_ctx, key); };
-
     // Get the root CDI from the crypto backend.
     n20_crypto_key_t issuer_secret = this->GetCdi();
     KEY_HANDLE_GUARD(issuer_secret);
@@ -483,15 +481,17 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateInvalidWriteSignerError) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* signature, size_t* signature_size) {
-        EXPECT_EQ((uintptr_t)&IssueX509CertificateInvalidWriteSignerError_signer, (uintptr_t)ctx);
-        EXPECT_GT(tbs.size, 0);
-        EXPECT_GE(tbs.buffer, &IssueX509CertificateInvalidWriteSignerError_certificate[0]);
-        EXPECT_LT(tbs.buffer,
-                  &IssueX509CertificateInvalidWriteSignerError_certificate[sizeof(
-                      IssueX509CertificateInvalidWriteSignerError_certificate)]);
-        return n20_error_crypto_implementation_specific_e;
-    };
+    auto signer_cb =
+        [](void* ctx, n20_slice_t tbs, uint8_t* /*signature*/, size_t* /*signature_size*/) {
+            EXPECT_EQ((uintptr_t)&IssueX509CertificateInvalidWriteSignerError_signer,
+                      (uintptr_t)ctx);
+            EXPECT_GT(tbs.size, 0);
+            EXPECT_GE(tbs.buffer, &IssueX509CertificateInvalidWriteSignerError_certificate[0]);
+            EXPECT_LT(tbs.buffer,
+                      &IssueX509CertificateInvalidWriteSignerError_certificate[sizeof(
+                          IssueX509CertificateInvalidWriteSignerError_certificate)]);
+            return n20_error_crypto_implementation_specific_e;
+        };
 
     IssueX509CertificateInvalidWriteSignerError_signer.cb = signer_cb;
 
@@ -519,11 +519,12 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteBufferOverflowAfterSignin
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* signature, size_t* signature_size) {
-        EXPECT_TRUE(!!signature_size);
-        EXPECT_EQ(tbs.size, 154);
-        return n20_error_ok_e;
-    };
+    auto signer_cb =
+        [](void* /*ctx*/, n20_slice_t tbs, uint8_t* /*signature*/, size_t* signature_size) {
+            EXPECT_TRUE(!!signature_size);
+            EXPECT_EQ(tbs.size, 154);
+            return n20_error_ok_e;
+        };
 
     signer.cb = signer_cb;
 
@@ -567,10 +568,11 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteEcaCertRendering) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* signature, size_t* signature_size) {
-        memset(signature, 0x55, *signature_size);
-        return n20_error_ok_e;
-    };
+    auto signer_cb =
+        [](void* /*ctx*/, n20_slice_t /*tbs*/, uint8_t* signature, size_t* signature_size) {
+            memset(signature, 0x55, *signature_size);
+            return n20_error_ok_e;
+        };
 
     signer.cb = signer_cb;
 
@@ -619,10 +621,11 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteEcaEeCertRendering) {
         .cb = nullptr,
     };
 
-    auto signer_cb = [](void* ctx, n20_slice_t tbs, uint8_t* signature, size_t* signature_size) {
-        memset(signature, 0x55, *signature_size);
-        return n20_error_ok_e;
-    };
+    auto signer_cb =
+        [](void* /*ctx*/, n20_slice_t /*tbs*/, uint8_t* signature, size_t* signature_size) {
+            memset(signature, 0x55, *signature_size);
+            return n20_error_ok_e;
+        };
 
     signer.cb = signer_cb;
 
@@ -713,7 +716,7 @@ TEST_F(CompressedInputTestFixture, CompressInputSelfSigned) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_self_signed_e;
 
-    auto err = n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
+    n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
     std::vector<uint8_t> got(output, output + sizeof(output));
     std::vector<uint8_t> want(
         TEST_COMPRESSED_INPUT_SELF_SIGNED,
@@ -727,7 +730,7 @@ TEST_F(CompressedInputTestFixture, CompressInputEca) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_eca_e;
 
-    auto err = n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
+    n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
     std::vector<uint8_t> got(output, output + sizeof(output));
     // Produces the same output as selfsigned.
     std::vector<uint8_t> want(
@@ -750,7 +753,7 @@ TEST_F(CompressedInputTestFixture, CompressInputEcaEe) {
     cert_info.eca_ee.nonce = vec2slice(TEST_NONCE);
     cert_info.eca_ee.name = N20_STR_C("Test EE");
 
-    auto err = n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
+    n20_compress_input(&crypto_ctx->digest_ctx, &cert_info, output);
     std::vector<uint8_t> got(output, output + sizeof(output));
     // Produces the same output as selfsigned.
     std::vector<uint8_t> want(TEST_COMPRESSED_INPUT_ECA_EE,
@@ -1086,12 +1089,12 @@ TEST_F(EcaEeSignMessageFixture, EeSignMessageUnexpectedInsufficientBufferSizeTes
 }
 
 TEST_F(EcaEeSignMessageFixture, EeSignMessageDigestErrorForwardingTest) {
-    crypto_ctx->digest_ctx.digest = [](n20_crypto_digest_context_t* ctx,
-                                       n20_crypto_digest_algorithm_t algorithm,
-                                       n20_crypto_gather_list_t const* gather_list,
-                                       size_t msg_count,
-                                       uint8_t* digest,
-                                       size_t* digest_size) -> n20_error_t {
+    crypto_ctx->digest_ctx.digest = [](n20_crypto_digest_context_t* /*ctx*/,
+                                       n20_crypto_digest_algorithm_t /*algorithm*/,
+                                       n20_crypto_gather_list_t const* /*gather_list*/,
+                                       size_t /*msg_count*/,
+                                       uint8_t* /*digest*/,
+                                       size_t* /*digest_size*/) -> n20_error_t {
         return n20_error_crypto_implementation_specific_e;
     };
 
@@ -1238,12 +1241,12 @@ TEST_F(ComputeCertificateContextTest, ForwardDigestError) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_eca_ee_e;
 
-    crypto_ctx->digest_ctx.digest = [](n20_crypto_digest_context_t* ctx,
-                                       n20_crypto_digest_algorithm_t algorithm,
-                                       n20_crypto_gather_list_t const* gather_list,
-                                       size_t msg_count,
-                                       uint8_t* digest,
-                                       size_t* digest_size) -> n20_error_t {
+    crypto_ctx->digest_ctx.digest = [](n20_crypto_digest_context_t* /*ctx*/,
+                                       n20_crypto_digest_algorithm_t /*algorithm*/,
+                                       n20_crypto_gather_list_t const* /*gather_list*/,
+                                       size_t /*msg_count*/,
+                                       uint8_t* /*digest*/,
+                                       size_t* /*digest_size*/) -> n20_error_t {
         return n20_error_crypto_implementation_specific_e;
     };
 
@@ -1813,8 +1816,6 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(FunctionalityCwtCoseTest, IssueCwtCoseCertificateTest) {
     auto [test_name, issuer_key_type, subject_key_type, cert_type, want_cert] = GetParam();
-
-    auto key_deleter = [this](void* key) { crypto_ctx->key_free(crypto_ctx, key); };
 
     // Get the root CDI from the crypto backend.
     n20_crypto_key_t issuer_secret = this->GetCdi();

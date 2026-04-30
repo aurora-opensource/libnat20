@@ -209,14 +209,14 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(RoundTripTest, CdiCertRequestRoundTrip) {
     auto [parent_path, expect_encoded] = GetParam();
     size_t expected_path_length = parent_path.length;
-    n20_msg_issue_cdi_cert_request_t original_request = {
-        .issuer_key_type = n20_crypto_key_type_ed25519_e,
-        .subject_key_type = n20_crypto_key_type_secp256r1_e,
-        .next_context = {.code_hash = test_code_hash,
-                         .mode = n20_open_dice_mode_normal_e,
-                         .profile_name = {8, "testprof"}},
-        .parent_path = parent_path,
-        .certificate_format = n20_certificate_format_x509_e};
+    n20_msg_issue_cdi_cert_request_t original_request = {};
+    original_request.issuer_key_type = n20_crypto_key_type_ed25519_e;
+    original_request.subject_key_type = n20_crypto_key_type_secp256r1_e;
+    original_request.next_context.code_hash = test_code_hash;
+    original_request.next_context.mode = n20_open_dice_mode_normal_e;
+    original_request.next_context.profile_name = {8, "testprof"};
+    original_request.parent_path = parent_path;
+    original_request.certificate_format = n20_certificate_format_x509_e;
 
     n20_msg_request_t request = {.request_type = n20_msg_request_type_issue_cdi_cert_e,
                                  .payload = {.issue_cdi_cert = original_request}};
@@ -570,7 +570,8 @@ TEST_F(MessagesTest, BufferOverflow) {
 }
 
 TEST_F(MessagesTest, RequestWriteRequestTypeUnknown) {
-    n20_msg_request_t msg = {.request_type = static_cast<n20_msg_request_type_t>(255)};
+    n20_msg_request_t msg = {};
+    msg.request_type = static_cast<n20_msg_request_type_t>(255);
 
     size_t buffer_size = test_buffer.size();
     EXPECT_EQ(n20_error_request_type_unknown_e,
@@ -590,10 +591,6 @@ TEST_F(MessagesTest, RequestWriteWritePositionOverflow) {
 
 // Test null pointer handling
 TEST_F(MessagesTest, RequestReadNullPointerHandling) {
-    n20_msg_request_t request = {};
-    n20_msg_error_response_t error_response = {};
-    size_t buffer_size = test_buffer.size();
-
     // Test null request pointer
     EXPECT_EQ(n20_error_unexpected_null_request_e, n20_msg_request_read(nullptr, test_slice));
 }
@@ -1049,9 +1046,6 @@ TEST_P(CompressedContextPathTestFixture, CompressedContextMalformed) {
 }
 
 TEST_F(MessagesTest, IssueCertResponseReadNullPointerHandling) {
-    n20_msg_issue_cert_response_t response = {};
-    size_t buffer_size = test_buffer.size();
-
     // Test null response pointer
     EXPECT_EQ(n20_error_unexpected_null_response_e,
               n20_msg_issue_cert_response_read(nullptr, test_slice));
@@ -1116,7 +1110,8 @@ TEST_F(MessagesTest, WriteIssueCertResponseNullPointerHandling) {
 }
 
 TEST_F(MessagesTest, WriteIssueCertResponseWritePositionOverflow) {
-    n20_msg_issue_cert_response_t response = {.certificate = {SIZE_MAX, (uint8_t const*)1}};
+    n20_msg_issue_cert_response_t response = {};
+    response.certificate = {SIZE_MAX, (uint8_t const*)1};
     size_t buffer_size = test_buffer.size();
 
     EXPECT_EQ(n20_error_write_position_overflow_e,
@@ -1124,7 +1119,8 @@ TEST_F(MessagesTest, WriteIssueCertResponseWritePositionOverflow) {
 }
 
 TEST_F(MessagesTest, WriteIssueCertResponseBufferOverflow) {
-    n20_msg_issue_cert_response_t response = {.certificate = test_cert_data};
+    n20_msg_issue_cert_response_t response = {};
+    response.certificate = test_cert_data;
     uint8_t small_buffer[4];
     size_t buffer_size = sizeof(small_buffer);
 
@@ -1134,9 +1130,6 @@ TEST_F(MessagesTest, WriteIssueCertResponseBufferOverflow) {
 }
 
 TEST_F(MessagesTest, ErrorResponseReadNullPointerHandling) {
-    n20_msg_issue_cert_response_t response = {};
-    size_t buffer_size = test_buffer.size();
-
     // Test null response pointer
     EXPECT_EQ(n20_error_unexpected_null_response_e,
               n20_msg_error_response_read(nullptr, test_slice));
@@ -1193,9 +1186,6 @@ TEST_F(MessagesTest, ErrorResponseWriteBufferOverflow) {
 }
 
 TEST_F(MessagesTest, EcaEeSignResponseReadNullPointerHandling) {
-    n20_msg_issue_cert_response_t response = {};
-    size_t buffer_size = test_buffer.size();
-
     // Test null response pointer
     EXPECT_EQ(n20_error_unexpected_null_response_e,
               n20_msg_eca_ee_sign_response_read(nullptr, test_slice));
@@ -1260,7 +1250,8 @@ TEST_F(MessagesTest, EcaEeSignResponseWriteNullPointerHandling) {
 }
 
 TEST_F(MessagesTest, EcaEeSignResponseWritePositionOverflow) {
-    n20_msg_eca_ee_sign_response_t response = {.signature = {SIZE_MAX, (uint8_t const*)1}};
+    n20_msg_eca_ee_sign_response_t response = {};
+    response.signature = {SIZE_MAX, (uint8_t const*)1};
     uint8_t small_buffer[4];
     size_t buffer_size = sizeof(small_buffer);
 
@@ -1269,7 +1260,8 @@ TEST_F(MessagesTest, EcaEeSignResponseWritePositionOverflow) {
 }
 
 TEST_F(MessagesTest, EcaEeSignResponseWriteBufferOverflow) {
-    n20_msg_eca_ee_sign_response_t response = {.signature = test_signature_data};
+    n20_msg_eca_ee_sign_response_t response = {};
+    response.signature = test_signature_data;
     uint8_t small_buffer[4];
     size_t buffer_size = sizeof(small_buffer);
 
@@ -1292,40 +1284,46 @@ TEST_F(MessagesTest, ParentPathIterateErrors) {
     n20_parent_path_t path = {
         .length = 3, .is_encoded = true, .encoded = {cbor_data.size(), cbor_data.data()}};
 
-    EXPECT_EQ(n20_error_unexpected_message_structure_e,
-              n20_msg_parent_path_iterate(
-                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+    EXPECT_EQ(
+        n20_error_unexpected_message_structure_e,
+        n20_msg_parent_path_iterate(
+            &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
 
     path.length = 2;  // Set length to actual number of items in CBOR array.
-    EXPECT_EQ(n20_error_write_position_overflow_e,
-              n20_msg_parent_path_iterate(
-                  &path,
-                  [](void* ctx, n20_slice_t item) { return n20_error_write_position_overflow_e; },
-                  nullptr));
+    EXPECT_EQ(
+        n20_error_write_position_overflow_e,
+        n20_msg_parent_path_iterate(
+            &path,
+            [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_write_position_overflow_e; },
+            nullptr));
 
-    EXPECT_EQ(n20_error_unexpected_message_structure_e,
-              n20_msg_parent_path_iterate(
-                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+    EXPECT_EQ(
+        n20_error_unexpected_message_structure_e,
+        n20_msg_parent_path_iterate(
+            &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
 
     cbor_data[0] = 0xa2;  // Change to map which is unexpected.
-    EXPECT_EQ(n20_error_unexpected_message_structure_e,
-              n20_msg_parent_path_iterate(
-                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+    EXPECT_EQ(
+        n20_error_unexpected_message_structure_e,
+        n20_msg_parent_path_iterate(
+            &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
 
     n20_slice_t parent_path_elements[] = {TEST_PATH_ELEMENT1, TEST_PATH_ELEMENT2};
     path.is_encoded = false;
     path.decoded = parent_path_elements;
 
-    EXPECT_EQ(n20_error_write_position_overflow_e,
-              n20_msg_parent_path_iterate(
-                  &path,
-                  [](void* ctx, n20_slice_t item) { return n20_error_write_position_overflow_e; },
-                  nullptr));
+    EXPECT_EQ(
+        n20_error_write_position_overflow_e,
+        n20_msg_parent_path_iterate(
+            &path,
+            [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_write_position_overflow_e; },
+            nullptr));
 
     path.decoded = nullptr;
-    EXPECT_EQ(n20_error_unexpected_null_path_e,
-              n20_msg_parent_path_iterate(
-                  &path, [](void* ctx, n20_slice_t item) { return n20_error_ok_e; }, nullptr));
+    EXPECT_EQ(
+        n20_error_unexpected_null_path_e,
+        n20_msg_parent_path_iterate(
+            &path, [](void* /*ctx*/, n20_slice_t /*item*/) { return n20_error_ok_e; }, nullptr));
 }
 
 TEST_F(MessagesTest, ParentPathIterateSuccess) {
@@ -1340,7 +1338,7 @@ TEST_F(MessagesTest, ParentPathIterateNullPath) {
     EXPECT_EQ(n20_error_ok_e,
               n20_msg_parent_path_iterate(
                   nullptr,
-                  [](void* ctx, n20_slice_t item) {
+                  [](void* ctx, n20_slice_t /*item*/) {
                       *reinterpret_cast<int*>(ctx) += 1;
                       return n20_error_ok_e;
                   },
