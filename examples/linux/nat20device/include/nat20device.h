@@ -36,8 +36,6 @@
  */
 
 #pragma once
-#ifndef NAT20_DEVICE_H
-#define NAT20_DEVICE_H
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -63,7 +61,8 @@ struct nat20device_buffer {
  *
  * The dispatch function processes a request and returns a response buffer.
  * The driver must allocate the response buffer, which will be freed by
- * the framework using kfree after the read operation completes.
+ * the framework using kfree after the read operation completes,
+ * on the next write if the buffer has not been read yet, or when the file is closed.
  *
  * Return: 0 on success, negative error code on failure
  */
@@ -122,6 +121,14 @@ struct nat20device_driver* nat20device_register_driver(const struct nat20device_
  * @driver: Driver instance to unregister
  *
  * Unregisters a driver instance and removes its character device node.
+ *
+ * IMPORTANT:
+ * This function must only be called from the registering module's exit
+ * function. The file_operations.owner field is set to the registering
+ * module, causing the kernel to hold a module reference for each open
+ * file descriptor. This guarantees that module unload (and thus this
+ * function) cannot execute while any file descriptor is still open.
+ * Calling this function from any other context voids this guarantee
+ * and results in undefined behavior.
  */
 void nat20device_unregister_driver(struct nat20device_driver* driver);
-#endif /* NAT20_DEVICE_H */

@@ -53,14 +53,16 @@
 
 /**
  * struct nat20device_driver_instance - Internal driver instance data
- * @driver: Embedded driver structure (opaque to external users)
+ * @driver: Embedded driver structure (returned as opaque handle to callers)
  * @cdev: Character device structure
- * @device: Device structure
- * @ops: Driver operations
- * @cdev_fops: File operations for the character device.
- * @dice_chain_fops: File operations for DICE chain security file.
- * @ctx: Driver-specific context. Will be passed to ops callbacks.
- * @id: Instance ID (used for device numbering)
+ * @device: Device structure for /dev/nat20<N>
+ * @ops: Driver operations (dispatch and dice_chain_read callbacks)
+ * @cdev_fops: File operations for the character device
+ * @dice_chain_fops: File operations for the DICE chain securityfs file
+ * @ctx: Driver-specific context passed to ops callbacks
+ * @id: Instance ID (minor number and securityfs directory suffix)
+ * @nat20device_dice_chain_dir: Securityfs directory dentry, or NULL
+ * @nat20device_dice_chain_file: Securityfs dice_chain file dentry, or NULL
  */
 struct nat20device_driver_instance {
     struct nat20device_driver driver;
@@ -75,6 +77,11 @@ struct nat20device_driver_instance {
     struct dentry* nat20device_dice_chain_file;
 };
 
+/**
+ * struct nat20device_file_private - Per-file-descriptor state
+ * @instance: Back-pointer to the owning driver instance
+ * @response: Response buffer from the most recent dispatch, or empty
+ */
 struct nat20device_file_private {
     struct nat20device_driver_instance* instance;
     struct nat20device_buffer response;
@@ -104,6 +111,7 @@ static int nat20device_open(struct inode* inode, struct file* filp) {
  * nat20device_release - Release file operation
  */
 static int nat20device_release(struct inode* inode, struct file* filp) {
+    (void)inode;
     struct nat20device_file_private* file_priv = filp->private_data;
 
     /* Free any pending response buffer */
@@ -120,8 +128,9 @@ static int nat20device_release(struct inode* inode, struct file* filp) {
 /**
  * nat20device_write - Write file operation
  *
- * Receives a request from userspace and dispatches it to the driver's
- * dispatch function.
+ * Copies a request from userspace, frees any unconsumed prior response,
+ * dispatches the request to the driver, and resets the file position to 0
+ * so that the response can be read back.
  */
 static ssize_t nat20device_write(struct file* filp,
                                  char __user const* buf,
@@ -151,19 +160,12 @@ static ssize_t nat20device_write(struct file* filp,
     file_priv->response.data = NULL;
     file_priv->response.size = 0;
 
-    if (!instance->ops) {
-        /* Instance has been unregistered */
-        ret = -ENODEV;
-        goto out;
-    }
-
     /* Dispatch the request */
     ret = instance->ops->dispatch(instance->ctx, request_buf, count, &file_priv->response);
     if (ret < 0) goto out;
 
-    if (f_pos) {
-        *f_pos = 0; /* Reset file offset for reading the response */
-    }
+    /* Reset file position so that a subsequent read starts at offset 0. */
+    *f_pos = 0;
 
     ret = count;
 
@@ -175,21 +177,19 @@ out:
 /**
  * nat20device_read - Read file operation
  *
- * Returns the response buffer from the dispatch function to userspace.
+ * Returns the current response buffer to userspace. Once the entire
+ * response has been read, the buffer is freed and subsequent reads
+ * return -EAGAIN until a new request is dispatched via write.
  */
 static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t count, loff_t* f_pos) {
     struct nat20device_file_private* file_priv = filp->private_data;
     size_t bytes_to_read;
     size_t bytes_remaining;
-    int ret;
-
-    /* No check if the instance has been unregistered.
-     * If there is a response buffer it can still be read
-     * from the open file descriptor until the user closes it.
-     */
 
     /* Check if we have a response buffer */
     if (!file_priv->response.data) return -EAGAIN;
+
+    if (*f_pos < 0) return -EINVAL;
 
     /* Calculate bytes remaining from current offset */
     if (file_priv->response.size <= *f_pos) {
@@ -202,11 +202,20 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
     bytes_to_read = min(count, bytes_remaining);
 
     /* Copy to userspace */
-    ret = copy_to_user(buf, (char*)file_priv->response.data + *f_pos, bytes_to_read);
-    if (ret) return -EFAULT;
+    if (copy_to_user(buf, (char*)file_priv->response.data + *f_pos, bytes_to_read)) {
+        return -EFAULT;
+    }
 
     /* Update offset */
     *f_pos += bytes_to_read;
+
+    /* Response fully consumed — free it so subsequent reads
+     * return -EAGAIN until the next write/dispatch cycle. */
+    if (*f_pos >= file_priv->response.size) {
+        kfree(file_priv->response.data);
+        file_priv->response.data = NULL;
+        file_priv->response.size = 0;
+    }
 
     return bytes_to_read;
 }
@@ -217,6 +226,7 @@ static int nat20device_dice_chain_fops_open(struct inode* inode, struct file* fi
 }
 
 static int nat20device_dice_chain_fops_release(struct inode* inode, struct file* filp) {
+    (void)inode;
     filp->private_data = NULL;
     return 0;
 }
