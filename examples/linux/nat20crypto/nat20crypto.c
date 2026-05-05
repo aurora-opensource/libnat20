@@ -242,7 +242,7 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
     kfree(context_buffer);
 
     if (rc != n20_error_ok_e) {
-        return rc;
+        goto out;
     }
 
     switch (key_type_in) {
@@ -253,7 +253,8 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
             }
             memcpy(new_cdi_key->bits, derived, 32);
             *key_out = new_cdi_key;
-            return n20_error_ok_e;
+            rc = n20_error_ok_e;
+            goto out;
         }
         case n20_crypto_key_type_secp256r1_e:
         case n20_crypto_key_type_secp384r1_e: {
@@ -263,7 +264,8 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
             };
             nat20crypto_key_t* new_ecc_key = nat20crypto_key_alloc(key_type_in);
             if (new_ecc_key == NULL) {
-                return n20_error_crypto_no_resources_e;
+                rc = n20_error_crypto_no_resources_e;
+                goto out;
             }
 
             n20_bn_t k_bn;
@@ -279,10 +281,11 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
                                           0);
             if (rc != n20_error_ok_e) {
                 nat20crypto_key_destroy(new_ecc_key);
-                return rc;
+                goto out;
             }
             *key_out = new_ecc_key;
-            return n20_error_ok_e;
+            rc = n20_error_ok_e;
+            goto out;
         }
 
         case n20_crypto_key_type_ed25519_e:
@@ -292,7 +295,10 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
             break;
     }
 
-    return n20_error_crypto_invalid_key_type_e;
+    rc = n20_error_crypto_invalid_key_type_e;
+out:
+    memzero_explicit(derived, sizeof(derived));
+    return rc;
 }
 
 /* The kernel's ECC library does not export a general scalar-point
@@ -306,12 +312,15 @@ static int nat20crypto_mult_g(unsigned int curve_id,
                               uint64_t* k,
                               uint64_t* pubkey_xy) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+    int ret = 0;
     /* Before version 6.10.0 ecc_make_pub_key swapped the bytes
      * of the key, so we have to swap them back before calling
      * ecc_make_pub_key. */
     uint64_t privkey[6] = {0};
     ecc_swap_digits(k, privkey, ndigits);
-    return ecc_make_pub_key(curve_id, ndigits, privkey, pubkey_xy);
+    ret = ecc_make_pub_key(curve_id, ndigits, privkey, pubkey_xy);
+    memzero_explicit(privkey, sizeof(privkey));
+    return ret;
 #else
     return ecc_make_pub_key(curve_id, ndigits, k, pubkey_xy);
 #endif
