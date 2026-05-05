@@ -34,10 +34,7 @@
 # <https://www.gnu.org/licenses/>.
 
 obj-m := nat20lib.o
-ccflags-y := -I $(src)/../../../include
-ccflags-y += -I $(srctree)
-ccflags-y += -std=gnu11
-ccflags-y += -DN20_WITH_X509
+ccflags-y := -I $(src)/include
 
 nat20lib-y := mod.o
 nat20lib-y += ../../../src/core/x509_ext_open_dice_input.o

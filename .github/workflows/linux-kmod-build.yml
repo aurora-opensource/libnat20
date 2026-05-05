@@ -69,7 +69,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 #v4.3.0
         with:
           path: ${{ runner.temp }}/buildroot.build
-          key: buildroot-${{ hashFiles('examples/linux/br_external/configs/qemu_br_defconfig', 'examples/linux/br_external/configs/qemu_linux_defconfig') }}
+          key: buildroot-${{ hashFiles('examples/linux/br_external/configs/qemu_br_defconfig', 'examples/linux/br_external/configs/qemu_linux_defconfig', 'examples/linux/br_external/bootstrap.sh') }}
 
       - name: Bootstrap Buildroot
         if: steps.cache-buildroot.outputs.cache-hit != 'true'

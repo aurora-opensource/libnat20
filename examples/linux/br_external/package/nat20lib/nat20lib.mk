@@ -40,7 +40,8 @@
 NAT20LIB_VERSION = origin/main
 NAT20LIB_SITE = https://github.com/aurora-opensource/libnat20.git
 NAT20LIB_SITE_METHOD = git
-NAT20LIB_LICENSE = GPL-2.0
+NAT20LIB_LICENSE = Apache-2.0 OR GPL-2.0
+NAT20LIB_LICENSE_FILES = LICENSE-Apache-2.0.txt LICENSE-GPL-2.0.txt
 
 NAT20LIB_MODULE_SUBDIRS = examples/linux/nat20lib
 
