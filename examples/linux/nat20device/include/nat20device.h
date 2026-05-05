@@ -64,6 +64,11 @@ struct nat20device_buffer {
  * the framework using kfree after the read operation completes,
  * on the next write if the buffer has not been read yet, or when the file is closed.
  *
+ * The framework serializes calls per open file descriptor. However, if the
+ * device is opened multiple times, dispatch may be called concurrently with
+ * the same @ctx from different file descriptors. The implementer must protect
+ * shared state in @ctx against concurrent access.
+ *
  * Return: 0 on success, negative error code on failure
  */
 typedef int (*nat20device_dispatch_fn)(void* ctx,
@@ -81,6 +86,10 @@ typedef int (*nat20device_dispatch_fn)(void* ctx,
  * Reads the DICE certificate chain into the provided user-space buffer.
  * The data is encoded as a CBOR indefinite-length array. See
  * examples/linux/README.md for the encoding specification.
+ *
+ * This function may be called concurrently from multiple readers via the
+ * securityfs interface. The implementer must ensure that concurrent access
+ * to the underlying data is safe.
  *
  * Return: Number of bytes read on success, negative error code on failure
  */

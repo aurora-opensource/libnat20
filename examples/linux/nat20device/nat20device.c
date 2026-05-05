@@ -80,10 +80,12 @@ struct nat20device_driver_instance {
 /**
  * struct nat20device_file_private - Per-file-descriptor state
  * @instance: Back-pointer to the owning driver instance
+ * @lock: Protects @response against concurrent read/write
  * @response: Response buffer from the most recent dispatch, or empty
  */
 struct nat20device_file_private {
     struct nat20device_driver_instance* instance;
+    struct mutex lock;
     struct nat20device_buffer response;
 };
 
@@ -103,6 +105,7 @@ static int nat20device_open(struct inode* inode, struct file* filp) {
     if (!file_priv) return -ENOMEM;
 
     file_priv->instance = instance;
+    mutex_init(&file_priv->lock);
     filp->private_data = file_priv;
     return 0;
 }
@@ -114,11 +117,8 @@ static int nat20device_release(struct inode* inode, struct file* filp) {
     (void)inode;
     struct nat20device_file_private* file_priv = filp->private_data;
 
-    /* Free any pending response buffer */
+    mutex_destroy(&file_priv->lock);
     kfree(file_priv->response.data);
-    file_priv->response.data = NULL;
-    file_priv->response.size = 0;
-
     kfree(file_priv);
     filp->private_data = NULL;
 
@@ -155,6 +155,8 @@ static ssize_t nat20device_write(struct file* filp,
         return -EFAULT;
     }
 
+    mutex_lock(&file_priv->lock);
+
     /* Free any previous response buffer */
     kfree(file_priv->response.data);
     file_priv->response.data = NULL;
@@ -170,6 +172,7 @@ static ssize_t nat20device_write(struct file* filp,
     ret = count;
 
 out:
+    mutex_unlock(&file_priv->lock);
     kfree(request_buf);
     return ret;
 }
@@ -185,16 +188,22 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
     struct nat20device_file_private* file_priv = filp->private_data;
     size_t bytes_to_read;
     size_t bytes_remaining;
-
-    /* Check if we have a response buffer */
-    if (!file_priv->response.data) return -EAGAIN;
+    ssize_t ret;
 
     if (*f_pos < 0) return -EINVAL;
 
+    mutex_lock(&file_priv->lock);
+
+    /* Check if we have a response buffer */
+    if (!file_priv->response.data) {
+        ret = -EAGAIN;
+        goto out;
+    }
+
     /* Calculate bytes remaining from current offset */
     if (file_priv->response.size <= *f_pos) {
-        /* All data has been read */
-        return 0;
+        ret = 0;
+        goto out;
     }
     bytes_remaining = file_priv->response.size - *f_pos;
 
@@ -203,7 +212,8 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
 
     /* Copy to userspace */
     if (copy_to_user(buf, (char*)file_priv->response.data + *f_pos, bytes_to_read)) {
-        return -EFAULT;
+        ret = -EFAULT;
+        goto out;
     }
 
     /* Update offset */
@@ -217,7 +227,11 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
         file_priv->response.size = 0;
     }
 
-    return bytes_to_read;
+    ret = bytes_to_read;
+
+out:
+    mutex_unlock(&file_priv->lock);
+    return ret;
 }
 
 static int nat20device_dice_chain_fops_open(struct inode* inode, struct file* filp) {
