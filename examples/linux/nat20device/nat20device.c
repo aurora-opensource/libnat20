@@ -49,6 +49,7 @@
 #include <linux/uaccess.h>
 
 #define NAT20DEVICE_DEVICE_NAME "nat20"
+#define NAT20DEVICE_MAX_INSTANCES 256
 #define NAT20DEVICE_MAX_REQUEST_SIZE (1024 * 1024) /* 1 MB max request */
 
 /**
@@ -387,7 +388,8 @@ static int __init nat20device_device_init(void) {
     int ret;
 
     /* Allocate device numbers */
-    ret = alloc_chrdev_region(&nat20device_dev_number, 0, 256, NAT20DEVICE_DEVICE_NAME);
+    ret = alloc_chrdev_region(
+        &nat20device_dev_number, 0, NAT20DEVICE_MAX_INSTANCES, NAT20DEVICE_DEVICE_NAME);
     if (ret < 0) {
         pr_err("NAT20: Failed to allocate device numbers: %d\n", ret);
         return ret;
@@ -405,7 +407,7 @@ static int __init nat20device_device_init(void) {
     return 0;
 
 err_unregister_chrdev:
-    unregister_chrdev_region(nat20device_dev_number, 256);
+    unregister_chrdev_region(nat20device_dev_number, NAT20DEVICE_MAX_INSTANCES);
     return ret;
 }
 
@@ -414,7 +416,7 @@ static void __exit nat20device_device_exit(void) {
     class_destroy(nat20device_class);
 
     /* Unregister device numbers */
-    unregister_chrdev_region(nat20device_dev_number, 256);
+    unregister_chrdev_region(nat20device_dev_number, NAT20DEVICE_MAX_INSTANCES);
 
     pr_info("NAT20: Device framework exited\n");
 }
