@@ -118,7 +118,6 @@ static n20_error_t nat20crypto_digest(n20_crypto_digest_context_t* ctx,
         return n20_error_crypto_no_resources_e;
     }
     md_ctx->tfm = md_tfm;
-    md_ctx->flags = 0;
 
     if (0 > crypto_shash_init(md_ctx)) {
         kfree(md_ctx);

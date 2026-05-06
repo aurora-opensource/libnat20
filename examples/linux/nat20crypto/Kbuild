@@ -39,6 +39,6 @@ obj-m := nat20crypto.o
 
 # The following path is added to allow the module to include
 # crypto/ecc.h (or crypto/internal/ecc.h for 6.0+).
+ccflags-y := -I $(src)/include
 ccflags-y += -I $(srctree)
 ccflags-y += -I $(NAT20CRYPTO_NAT20LIB_DIR)/include
-ccflags-y := -I $(src)/include
