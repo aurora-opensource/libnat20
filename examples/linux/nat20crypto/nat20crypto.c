@@ -105,6 +105,11 @@ static n20_error_t nat20crypto_digest(n20_crypto_digest_context_t* ctx,
         return n20_error_crypto_insufficient_buffer_size_e;
     }
 
+    if (msg_in == NULL) {
+        crypto_free_shash(md_tfm);
+        return n20_error_crypto_unexpected_null_data_e;
+    }
+
     struct shash_desc* md_ctx =
         kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(md_tfm), GFP_KERNEL);
     if (md_ctx == NULL) {
@@ -121,8 +126,11 @@ static n20_error_t nat20crypto_digest(n20_crypto_digest_context_t* ctx,
     }
 
     for (size_t list_index = 0; list_index < msg_count; ++list_index) {
-        if (msg_in[list_index].count == 0 || msg_in[list_index].list == NULL) {
-            continue;  // Skip empty gather lists
+        if (msg_in[list_index].count == 0) continue;
+        if (msg_in[list_index].list == NULL) {
+            kfree(md_ctx);
+            crypto_free_shash(md_tfm);
+            return n20_error_crypto_unexpected_null_list_e;
         }
         for (size_t slice_index = 0; slice_index < msg_in[list_index].count; ++slice_index) {
             if (msg_in[list_index].list[slice_index].size == 0) continue;
@@ -208,10 +216,21 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
         return n20_error_crypto_unexpected_null_key_out_e;
     }
 
+    if (context_in == NULL) {
+        return n20_error_crypto_unexpected_null_data_e;
+    }
+
+    if (context_in->count != 0 && context_in->list == NULL) {
+        return n20_error_crypto_unexpected_null_list_e;
+    }
+
     /* Compute the total length of the context and copy it
      * into a consecutive buffer. */
     size_t context_size = 0;
     for (size_t i = 0; i < context_in->count; ++i) {
+        if (context_in->list[i].size != 0 && context_in->list[i].buffer == NULL) {
+            return n20_error_crypto_unexpected_null_slice_e;
+        }
         context_size += context_in->list[i].size;
     }
     uint8_t* context_buffer = (uint8_t*)kmalloc(context_size, GFP_KERNEL);
@@ -376,6 +395,14 @@ static n20_error_t nat20crypto_sign(struct n20_crypto_context_s* ctx,
 
     if (curve == NULL) {
         return n20_error_crypto_invalid_key_e;
+    }
+
+    if (msg_in == NULL) {
+        return n20_error_crypto_unexpected_null_data_e;
+    }
+
+    if (msg_in->count != 0 && msg_in->list == NULL) {
+        return n20_error_crypto_unexpected_null_list_e;
     }
 
     n20_error_t result = n20_error_crypto_implementation_specific_e;
