@@ -268,7 +268,8 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
         case n20_crypto_key_type_cdi_e: {
             nat20crypto_key_t* new_cdi_key = nat20crypto_key_alloc(n20_crypto_key_type_cdi_e);
             if (new_cdi_key == NULL) {
-                return n20_error_crypto_no_resources_e;
+                rc = n20_error_crypto_no_resources_e;
+                goto out;
             }
             memcpy(new_cdi_key->bits, derived, 32);
             *key_out = new_cdi_key;
