@@ -118,6 +118,7 @@ static n20_error_t nat20crypto_digest(n20_crypto_digest_context_t* ctx,
         return n20_error_crypto_no_resources_e;
     }
     md_ctx->tfm = md_tfm;
+    md_ctx->flags = 0;
 
     if (0 > crypto_shash_init(md_ctx)) {
         kfree(md_ctx);
@@ -506,7 +507,14 @@ static n20_error_t nat20crypto_sign(struct n20_crypto_context_s* ctx,
 
         /* Modular add z (H(m)) and s: s = (s + z) mod n.
          * Compute n - z into k (scratch). */
-        vli_sub(k, curve->n, z, ndigits);
+        if (vli_cmp(z, curve->n, ndigits) >= 0) {
+            /* If z >= n we need to modular reduce z before negating,
+             * otherwise the subtraction below will underflow. */
+            vli_sub(k, z, curve->n, ndigits);
+            vli_sub(k, curve->n, k, ndigits);
+        } else {
+            vli_sub(k, curve->n, z, ndigits);
+        };
 
         if (vli_cmp(k, s, ndigits) <= 0) {
             /* If s >= n - z, we can compute s + z mod n as s - (n - z) <=> s - k. */
