@@ -73,41 +73,42 @@ static n20_error_t nat20crypto_digest(n20_crypto_digest_context_t* ctx,
     }
 
     char const* digest_name = NULL;
+    size_t digest_size = 0;
 
     switch (alg_in) {
         case n20_crypto_digest_algorithm_sha2_224_e:
             digest_name = "sha224";
+            digest_size = 28;
             break;
         case n20_crypto_digest_algorithm_sha2_256_e:
             digest_name = "sha256";
+            digest_size = 32;
             break;
         case n20_crypto_digest_algorithm_sha2_384_e:
             digest_name = "sha384";
+            digest_size = 48;
             break;
         case n20_crypto_digest_algorithm_sha2_512_e:
             digest_name = "sha512";
+            digest_size = 64;
             break;
         default:
             return n20_error_crypto_unknown_algorithm_e;
+    }
+
+    if (*digest_size_in_out < digest_size || digest_out == NULL) {
+        *digest_size_in_out = digest_size;
+        return n20_error_crypto_insufficient_buffer_size_e;
+    }
+
+    if (msg_in == NULL) {
+        return n20_error_crypto_unexpected_null_data_e;
     }
 
     struct crypto_shash* md_tfm = crypto_alloc_shash(digest_name, 0, 0);
     if (IS_ERR(md_tfm)) {
         printk(KERN_ERR "Failed to allocate hash context: %ld\n", PTR_ERR(md_tfm));
         return n20_error_crypto_no_resources_e;
-    }
-
-    size_t digest_size = crypto_shash_digestsize(md_tfm);
-
-    if (*digest_size_in_out < digest_size || digest_out == NULL) {
-        *digest_size_in_out = digest_size;
-        crypto_free_shash(md_tfm);
-        return n20_error_crypto_insufficient_buffer_size_e;
-    }
-
-    if (msg_in == NULL) {
-        crypto_free_shash(md_tfm);
-        return n20_error_crypto_unexpected_null_data_e;
     }
 
     struct shash_desc* md_ctx =
