@@ -71,6 +71,7 @@ INSTANTIATE_TEST_CASE_P(
                                                                     &testkeybuf[0]},
                                                         n20_crypto_key_type_secp384r1_e},
                         n20_cose_key_t{
+                            .key_ops = 0,
                             .algorithm_id = n20_cose_algorithm_id_es384_e,
                             .x = {.size = 48, .buffer = testkeybuf + 1},
                             .y = {.size = 48, .buffer = testkeybuf + 49},
@@ -80,6 +81,7 @@ INSTANTIATE_TEST_CASE_P(
                                                                     &testkeybuf[1]},
                                                         n20_crypto_key_type_secp384r1_e},
                         n20_cose_key_t{
+                            .key_ops = 0,
                             .algorithm_id = n20_cose_algorithm_id_es384_e,
                             .x = {.size = 48, .buffer = testkeybuf + 1},
                             .y = {.size = 48, .buffer = testkeybuf + 49},
@@ -88,6 +90,7 @@ INSTANTIATE_TEST_CASE_P(
         std::make_tuple(n20_open_dice_public_key_info_t{n20_slice_t{65, &testkeybuf[0]},
                                                         n20_crypto_key_type_secp256r1_e},
                         n20_cose_key_t{
+                            .key_ops = 0,
                             .algorithm_id = n20_cose_algorithm_id_es256_e,
                             .x = {.size = 32, .buffer = testkeybuf + 1},
                             .y = {.size = 32, .buffer = testkeybuf + 33},
@@ -96,6 +99,7 @@ INSTANTIATE_TEST_CASE_P(
         std::make_tuple(n20_open_dice_public_key_info_t{n20_slice_t{64, &testkeybuf[1]},
                                                         n20_crypto_key_type_secp256r1_e},
                         n20_cose_key_t{
+                            .key_ops = 0,
                             .algorithm_id = n20_cose_algorithm_id_es256_e,
                             .x = {.size = 32, .buffer = testkeybuf + 1},
                             .y = {.size = 32, .buffer = testkeybuf + 33},
@@ -104,6 +108,7 @@ INSTANTIATE_TEST_CASE_P(
         std::make_tuple(n20_open_dice_public_key_info_t{n20_slice_t{64, &testkeybuf[0]},
                                                         n20_crypto_key_type_ed25519_e},
                         n20_cose_key_t{
+                            .key_ops = 0,
                             .algorithm_id = n20_cose_algorithm_id_eddsa_e,
                             .x = {.size = 64, .buffer = testkeybuf},
                             .y = N20_SLICE_NULL,
@@ -130,7 +135,8 @@ TEST_P(COSEExtKeyInfoToCoseTest, OpenDiceKeyConversion) {
 
 TEST(COSEExtKeyInfoToCoseTest, OpenDiceKeyConversionNullArgs) {
 
-    n20_cose_key_t want_cose_key = {.algorithm_id = (n20_cose_algorithm_id_t)0x1337C0DE};
+    n20_cose_key_t want_cose_key = {};
+    want_cose_key.algorithm_id = (n20_cose_algorithm_id_t)0x1337C0DE;
     n20_cose_key_t got_cose_key = want_cose_key;
     n20_cwt_key_info_to_cose(&got_cose_key, nullptr);
 
@@ -514,7 +520,7 @@ INSTANTIATE_TEST_CASE_P(
                         std::nullopt,
                         std::nullopt,
                         std::nullopt,
-                        [](uint8_t key_usage[2]) -> void { /* No key usage */ },
+                        [](uint8_t /*key_usage*/[2]) -> void { /* No key usage */ },
                         TEST_OPEN_DICE_PUBLIC_KEY,
                         n20_open_dice_mode_not_configured_e,
                         std::nullopt,
