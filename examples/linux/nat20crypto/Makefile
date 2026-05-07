@@ -49,4 +49,4 @@ modules_install:
 clean:
 	$(MAKE) -C $(KDIR) M=$$PWD clean
 
-.PHONY: all modules clean
+.PHONY: all modules modules_install clean

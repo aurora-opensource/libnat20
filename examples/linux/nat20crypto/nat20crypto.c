@@ -515,8 +515,14 @@ static n20_error_t nat20crypto_sign(struct n20_crypto_context_s* ctx,
 
         if (vli_is_zero(s, ndigits)) continue;
 
-        ecc_swap_digits(r, (uint64_t*)signature_out, ndigits);
-        ecc_swap_digits(s, ((uint64_t*)signature_out) + ndigits, ndigits);
+        /* Use k as scratch space for swapping the signature bytes.
+         * This avoids allocating additional memory.
+         * Swapping with signature_out as target directly may
+         * not work on all architectures due to alignment requirements. */
+        ecc_swap_digits(r, k, ndigits);
+        memcpy(signature_out, k, ndigits * 8);
+        ecc_swap_digits(s, k, ndigits);
+        memcpy(signature_out + ndigits * 8, k, ndigits * 8);
 
         *signature_size_in_out = expected_signature_size;
         result = n20_error_ok_e;
@@ -575,13 +581,15 @@ static n20_error_t nat20crypto_key_get_public_key(struct n20_crypto_context_s* c
 
     *public_key_size_in_out = public_key_size;
 
-    int err = nat20crypto_mult_g(
-        curve_id, priv_key->ndigits, priv_key->digits, (uint64_t*)public_key_out);
+    uint64_t xy[12] = {0};  // 64 bit aligned buffer for public key (x and y coordinates)
+    int err = nat20crypto_mult_g(curve_id, priv_key->ndigits, priv_key->digits, xy);
 
     if (err) {
         printk(KERN_ERR "Failed to generate public key: %d\n", err);
         return n20_error_crypto_implementation_specific_e;
     }
+
+    memcpy(public_key_out, xy, public_key_size);
 
     return n20_error_ok_e;
 }
