@@ -101,9 +101,9 @@ class HeaderWithContentTest
                                                std::vector<uint8_t>,
                                                n20_asn1_tag_info_t>> {};
 
-void noop(n20_stream_t *s, void *cb_context) {}
+void noop(n20_stream_t * /*s*/, void * /*cb_context*/){};
 
-void prepend_five_zeros(n20_stream_t *s, void *cb_context) {
+void prepend_five_zeros(n20_stream_t *s, void * /*cb_context*/) {
     std::vector<uint8_t> zeros(5, 0);
 
     n20_stream_prepend(s, zeros.data(), zeros.size());
@@ -654,7 +654,7 @@ class SequenceTest
     : public testing::TestWithParam<
           std::tuple<void (*)(n20_stream_t *, void *), void *, std::vector<uint8_t>>> {};
 
-void flat(n20_stream_t *s, void *cb_context) {
+void flat(n20_stream_t *s, void *) {
     n20_string_slice_t slice = N20_STR_C("flat");
     n20_asn1_printablestring(s, &slice, n20_asn1_tag_info_no_override());
     n20_asn1_boolean(s, true, n20_asn1_tag_info_no_override());
