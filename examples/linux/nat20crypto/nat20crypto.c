@@ -427,16 +427,6 @@ static n20_error_t nat20crypto_sign(struct n20_crypto_context_s* ctx,
         goto cleanup;
     }
 
-    n20_slice_t z_slice = {
-        .size = digest_size,
-        .buffer = (uint8_t*)s,
-    };
-
-    n20_crypto_gather_list_t gather_list = {
-        .count = 1,
-        .list = &z_slice,
-    };
-
     /* Convert digest to little-endian big number for modular arithmetic.
      * z is stable across loop iterations. */
     ecc_swap_digits(s, z, ndigits);
@@ -452,10 +442,7 @@ static n20_error_t nat20crypto_sign(struct n20_crypto_context_s* ctx,
         .words = (uint32_t*)k,
     };
 
-    /* On the first iteration, s still holds the big-endian digest as needed by gather_list.
-     * It is clobbered during the loop body and must be restored between iterations.
-     * Since z is stable, s can be restored by swapping digits back from z. */
-    for (unsigned int skip = 0; skip < 8; ++skip, ecc_swap_digits(z, s, ndigits)) {
+    for (unsigned int skip = 0; skip < 8; ++skip) {
         /* key_bytes aliases k_inv which is clobbered below.
          * Recompute on each iteration. */
         ecc_swap_digits(priv_key->digits, key_bytes, ndigits);
@@ -466,13 +453,8 @@ static n20_error_t nat20crypto_sign(struct n20_crypto_context_s* ctx,
         };
 
         /* Generate k (deterministic per RFC 6979; skip selects the candidate). */
-        n20_err = n20_rfc6979_k_generation(&ctx->digest_ctx,
-                                           digest_algorithm,
-                                           priv_key->type,
-                                           &key_slice,
-                                           &gather_list,
-                                           &k_bn,
-                                           skip);
+        n20_err = n20_rfc6979_k_generation(
+            &ctx->digest_ctx, digest_algorithm, priv_key->type, &key_slice, msg_in, &k_bn, skip);
         if (n20_err != n20_error_ok_e) {
             result = n20_err;
             goto cleanup;
