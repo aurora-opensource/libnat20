@@ -4,6 +4,12 @@
       "**/*.yml",
       "**/CMakeLists.txt",
       "**/*.cmake.in",
+      "**/*.mk",
+      "**/*.sh",
+      "**/Config.in",
+      "**/Kbuild",
+      "examples/linux/br_external/external.desc",
+      "examples/linux/**/Makefile",
       ".clang-format",
       ".gitignore"
     ],
@@ -26,7 +32,8 @@
   {
     "include": [
       "**/*.md",
-      "**/*.txt"
+      "**/*.txt",
+      "examples/linux/br_external/configs/*"
     ],
     "exclude": [
       "**/CMakeLists.txt"

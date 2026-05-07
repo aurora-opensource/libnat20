@@ -1,0 +1,58 @@
+# Copyright 2026 Aurora Operations, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
+#
+# This work is dual licensed.
+# You may use it under Apache-2.0 or GPL-2.0 at your option.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# OR
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see
+# <https://www.gnu.org/licenses/>.
+
+obj-m := nat20lib.o
+ccflags-y := -I $(src)/include
+
+nat20lib-y := mod.o
+nat20lib-y += ../../../src/core/x509_ext_open_dice_input.o
+nat20lib-y += ../../../src/core/x509_ext_tcg_dice_tcb_freshness.o
+nat20lib-y += ../../../src/core/oid.o
+nat20lib-y += ../../../src/core/x509.o
+nat20lib-y += ../../../src/core/stream.o
+nat20lib-y += ../../../src/core/asn1.o
+nat20lib-y += ../../../src/core/functionality.o
+nat20lib-y += ../../../src/core/cbor.o
+nat20lib-y += ../../../src/core/x509_ext_tcg_dice_tcb_info.o
+nat20lib-y += ../../../src/core/x509_ext_tcg_dice_ueid.o
+nat20lib-y += ../../../src/core/cwt.o
+nat20lib-y += ../../../src/core/cose.o
+nat20lib-y += ../../../src/crypto/nat20/rfc6979.o
+nat20lib-y += ../../../src/crypto/nat20/crypto.o
+nat20lib-y += ../../../src/crypto/nat20/sha256.o
+nat20lib-y += ../../../src/crypto/nat20/sha512.o
+nat20lib-y += ../../../src/service/messages.o
+nat20lib-y += ../../../src/service/gnostic.o
+nat20lib-y += ../../../src/service/service_message_dispatch.o
