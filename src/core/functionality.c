@@ -498,29 +498,50 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
     tbs.subject_name.elements[0] =
         (n20_x509_rdn_t){&OID_SERIAL_NUMBER, .bytes = cert_info->subject};
 
-    // Create a new stream for the attestation certificate
+    bool compute_size_mode = (certificate == NULL || *certificate_size == 0);
+
     n20_stream_t stream;
-    n20_stream_init(&stream, certificate, *certificate_size);
-    n20_x509_cert_tbs(&stream, &tbs);
-    if (n20_stream_has_buffer_overflow(&stream)) {
-        if (n20_stream_has_write_position_overflow(&stream)) {
-            return n20_error_write_position_overflow_e;
+    if (!compute_size_mode) {
+        // Create a new stream for the attestation certificate
+        n20_stream_init(&stream, certificate, *certificate_size);
+        n20_x509_cert_tbs(&stream, &tbs);
+        if (n20_stream_has_buffer_overflow(&stream)) {
+            if (n20_stream_has_write_position_overflow(&stream)) {
+                return n20_error_write_position_overflow_e;
+            }
+            compute_size_mode = true;
         }
-        *certificate_size = n20_stream_byte_count(&stream);
-        return n20_error_insufficient_buffer_size_e;
     }
 
-    // Sign the to-be-signed part of the certificate.
-    uint8_t signature[96];
+    uint8_t signature[96] = {0};
     size_t signature_size = sizeof(signature);
 
-    err = signer->cb(
-        signer,
-        (n20_slice_t){.size = n20_stream_byte_count(&stream), .buffer = n20_stream_data(&stream)},
-        signature,
-        &signature_size);
-    if (err != n20_error_ok_e) {
-        return err;
+    if (!compute_size_mode) {
+        // Sign the to-be-signed part of the certificate.
+        err = signer->cb(signer,
+                         (n20_slice_t){.size = n20_stream_byte_count(&stream),
+                                       .buffer = n20_stream_data(&stream)},
+                         signature,
+                         &signature_size);
+        if (err != n20_error_ok_e) {
+            return err;
+        }
+    } else {
+        /* If we are in compute size mode, we can skip signing and just
+         * use the maximum signature size for the given key type. */
+        switch (issuer_key_type) {
+            case n20_crypto_key_type_ed25519_e:
+            case n20_crypto_key_type_secp256r1_e:
+                signature_size = 64;
+                break;
+            case n20_crypto_key_type_secp384r1_e:
+                signature_size = 96;
+                break;
+            default:
+                return n20_error_crypto_unknown_algorithm_e;  // Unsupported algorithm
+        }
+        // Fill the signature with dummy data to ensure that the stream calculates the m
+        memset(signature, 0xff, signature_size);
     }
 
     /* Reinitialize the stream. */
@@ -1005,6 +1026,7 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
     if (cert_info_in == NULL) {
         return n20_error_unexpected_null_certificate_info_e;
     }
+    n20_error_t err = n20_error_ok_e;
 
     n20_crypto_key_t signing_key = NULL;
     n20_cdi_id_t issuer_serial_number = {0};
@@ -1056,18 +1078,40 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
         subject_key_type_in = issuer_key_type_in;
     }
 
-    n20_error_t err = n20_compute_certificate_context(crypto_ctx,
-                                                      issuer_secret_in,
-                                                      cert_info_in,
-                                                      issuer_key_type_in,
-                                                      subject_key_type_in,
-                                                      &signing_key,
-                                                      issuer_serial_number,
-                                                      subject_serial_number,
-                                                      public_key,
-                                                      &public_key_size);
-    if (err != n20_error_ok_e) {
-        return err;
+    if (certificate_out != NULL) {
+        err = n20_compute_certificate_context(crypto_ctx,
+                                              issuer_secret_in,
+                                              cert_info_in,
+                                              issuer_key_type_in,
+                                              subject_key_type_in,
+                                              &signing_key,
+                                              issuer_serial_number,
+                                              subject_serial_number,
+                                              public_key,
+                                              &public_key_size);
+        if (err != n20_error_ok_e) {
+            return err;
+        }
+    } else {
+        /* Size-query mode: fill serial numbers with worst-case values
+         * to ensure DER INTEGER encoding uses maximum length.
+         * CDI IDs always have the high bit cleared, so 0x7f is the
+         * maximum first byte that avoids a leading-zero pad. */
+        memset(issuer_serial_number, 0x7f, sizeof(n20_cdi_id_t));
+        memset(subject_serial_number, 0x7f, sizeof(n20_cdi_id_t));
+        switch (subject_key_type_in) {
+            case n20_crypto_key_type_secp256r1_e:
+                public_key_size = 64;
+                break;
+            case n20_crypto_key_type_secp384r1_e:
+                public_key_size = 96;
+                break;
+            case n20_crypto_key_type_ed25519_e:
+                public_key_size = 32;
+                break;
+            default:
+                return n20_error_crypto_invalid_key_type_e;
+        }
     }
 
     /* If the key type is one of the supported NIST curves,
