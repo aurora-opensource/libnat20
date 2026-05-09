@@ -537,6 +537,65 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteBufferOverflowAfterSignin
     ASSERT_EQ(certificate_size, 231);
 }
 
+TEST_F(FunctionalityX509Test, PostSignOverflowWithShortEcdsaSignatureReportsWorstCase) {
+    n20_open_dice_cert_info_t cert_info = {};
+    cert_info.cert_type = n20_cert_type_cdi_e;
+    cert_info.subject_public_key.algorithm = n20_crypto_key_type_secp256r1_e;
+
+    static uint8_t large_certificate[2048] = {};
+    static size_t captured_tbs_size = 0;
+
+    static n20_signer_t signer = {
+        .crypto_ctx = nullptr,
+        .signing_key = nullptr,
+        .cb = nullptr,
+    };
+
+    /* The signer captures the TBS size and returns a signature with leading
+     * zeros in both coordinates, producing the shortest DER encoding. */
+    signer.cb = [](void* /*ctx*/,
+                   n20_slice_t tbs,
+                   uint8_t* signature,
+                   size_t* signature_size) -> n20_error_t {
+        captured_tbs_size = tbs.size;
+        memset(signature, 0x00, 64);
+        *signature_size = 64;
+        return n20_error_ok_e;
+    };
+
+    /* First call with a large buffer to learn the TBS size. */
+    size_t full_size = sizeof(large_certificate);
+    ASSERT_EQ(
+        n20_error_ok_e,
+        n20_issue_x509_cert(
+            &cert_info, &signer, n20_crypto_key_type_secp256r1_e, large_certificate, &full_size));
+    ASSERT_GT(captured_tbs_size, 0u);
+
+    /* Get the worst-case size for comparison. */
+    size_t worst_case_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_issue_x509_cert(
+                  &cert_info, &signer, n20_crypto_key_type_secp256r1_e, nullptr, &worst_case_size));
+
+    /* Use a buffer of exactly TBS size. This is large enough for the
+     * TBS encoding to succeed (triggering signing) but too small for
+     * the full certificate. */
+    size_t certificate_size = captured_tbs_size;
+
+    size_t reported_size = certificate_size;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_issue_x509_cert(&cert_info,
+                                  &signer,
+                                  n20_crypto_key_type_secp256r1_e,
+                                  large_certificate,
+                                  &reported_size));
+
+    /* The reported size must be the worst-case — not the size based on
+     * the actual short signature. This guarantees a retry will succeed
+     * even if the signature coordinates change on non-deterministic ECDSA. */
+    EXPECT_EQ(reported_size, worst_case_size);
+}
+
 class CertificateSizeEstimationTest
     : public BsslTestFixtureBase,
       public ::testing::WithParamInterface<
