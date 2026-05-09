@@ -532,7 +532,9 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteBufferOverflowAfterSignin
         n20_error_insufficient_buffer_size_e,
         n20_issue_x509_cert(
             &cert_info, &signer, n20_crypto_key_type_ed25519_e, certificate, &certificate_size));
-    ASSERT_EQ(certificate_size, 264);
+    /* The reported size is the worst-case for Ed25519 (64-byte fixed signature),
+     * not the size based on the mock signer's (incorrect) 96-byte signature. */
+    ASSERT_EQ(certificate_size, 231);
 }
 
 class CertificateSizeEstimationTest

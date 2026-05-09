@@ -398,6 +398,49 @@ void n20_func_key_usage_open_dice_to_x509(n20_open_dice_cert_info_t const* cert_
     }
 }
 
+static n20_error_t n20_x509_raw_signature_size(n20_crypto_key_type_t key_type,
+                                               size_t* signature_size) {
+    switch (key_type) {
+        case n20_crypto_key_type_ed25519_e:
+        case n20_crypto_key_type_secp256r1_e:
+            *signature_size = 64;
+            return n20_error_ok_e;
+        case n20_crypto_key_type_secp384r1_e:
+            *signature_size = 96;
+            return n20_error_ok_e;
+        default:
+            return n20_error_crypto_unknown_algorithm_e;
+    }
+}
+
+static n20_error_t n20_x509_worst_case_size(n20_x509_tbs_t* tbs,
+                                            n20_crypto_key_type_t issuer_key_type,
+                                            size_t* certificate_size) {
+    uint8_t signature[96];
+    size_t signature_size;
+    n20_error_t err = n20_x509_raw_signature_size(issuer_key_type, &signature_size);
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+    memset(signature, 0xff, signature_size);
+
+    n20_x509_t cert = {
+        .tbs = tbs,
+        .signature_algorithm = tbs->signature_algorithm,
+        .signature_bits = signature_size * 8,
+        .signature = signature,
+    };
+
+    n20_stream_t stream;
+    n20_stream_init(&stream, NULL, 0);
+    n20_x509_cert(&stream, &cert);
+    if (n20_stream_has_write_position_overflow(&stream)) {
+        return n20_error_write_position_overflow_e;
+    }
+    *certificate_size = n20_stream_byte_count(&stream);
+    return n20_error_insufficient_buffer_size_e;
+}
+
 n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
                                 n20_signer_t* signer,
                                 n20_crypto_key_type_t issuer_key_type,
@@ -498,53 +541,32 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
     tbs.subject_name.elements[0] =
         (n20_x509_rdn_t){&OID_SERIAL_NUMBER, .bytes = cert_info->subject};
 
-    bool compute_size_mode = (certificate == NULL || *certificate_size == 0);
+    if (certificate == NULL || *certificate_size == 0) {
+        return n20_x509_worst_case_size(&tbs, issuer_key_type, certificate_size);
+    }
 
     n20_stream_t stream;
-    if (!compute_size_mode) {
-        // Create a new stream for the attestation certificate
-        n20_stream_init(&stream, certificate, *certificate_size);
-        n20_x509_cert_tbs(&stream, &tbs);
-        if (n20_stream_has_buffer_overflow(&stream)) {
-            if (n20_stream_has_write_position_overflow(&stream)) {
-                return n20_error_write_position_overflow_e;
-            }
-            compute_size_mode = true;
+    n20_stream_init(&stream, certificate, *certificate_size);
+    n20_x509_cert_tbs(&stream, &tbs);
+    if (n20_stream_has_buffer_overflow(&stream)) {
+        if (n20_stream_has_write_position_overflow(&stream)) {
+            return n20_error_write_position_overflow_e;
         }
+        return n20_x509_worst_case_size(&tbs, issuer_key_type, certificate_size);
     }
 
     uint8_t signature[96] = {0};
     size_t signature_size = sizeof(signature);
 
-    if (!compute_size_mode) {
-        // Sign the to-be-signed part of the certificate.
-        err = signer->cb(signer,
-                         (n20_slice_t){.size = n20_stream_byte_count(&stream),
-                                       .buffer = n20_stream_data(&stream)},
-                         signature,
-                         &signature_size);
-        if (err != n20_error_ok_e) {
-            return err;
-        }
-    } else {
-        /* If we are in compute size mode, we can skip signing and just
-         * use the maximum signature size for the given key type. */
-        switch (issuer_key_type) {
-            case n20_crypto_key_type_ed25519_e:
-            case n20_crypto_key_type_secp256r1_e:
-                signature_size = 64;
-                break;
-            case n20_crypto_key_type_secp384r1_e:
-                signature_size = 96;
-                break;
-            default:
-                return n20_error_crypto_unknown_algorithm_e;  // Unsupported algorithm
-        }
-        // Fill the signature with dummy data to ensure that the stream calculates the m
-        memset(signature, 0xff, signature_size);
+    err = signer->cb(
+        signer,
+        (n20_slice_t){.size = n20_stream_byte_count(&stream), .buffer = n20_stream_data(&stream)},
+        signature,
+        &signature_size);
+    if (err != n20_error_ok_e) {
+        return err;
     }
 
-    /* Reinitialize the stream. */
     n20_stream_init(&stream, certificate, *certificate_size);
     n20_x509_t cert = {
         .tbs = &tbs,
@@ -557,12 +579,9 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
     *certificate_size = n20_stream_byte_count(&stream);
     if (n20_stream_has_buffer_overflow(&stream)) {
         if (n20_stream_has_write_position_overflow(&stream)) {
-            /* This is not reachable because any malformed input
-             * would have been caught when generating the tbs part
-             * of the certificate. */
             return n20_error_write_position_overflow_e;
         }
-        return n20_error_insufficient_buffer_size_e;
+        return n20_x509_worst_case_size(&tbs, issuer_key_type, certificate_size);
     }
 
     return n20_error_ok_e;
