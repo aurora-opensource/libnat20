@@ -49,6 +49,8 @@
 #include <nat20crypto.h>
 #include <nat20device.h>
 
+#define NAT20SW_UDS_SIZE 32
+
 struct nat20sw_node_state {
     n20_gnostic_node_state_t gnostic_node_state;
     struct mutex dispatch_lock;
@@ -115,13 +117,13 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
         goto err_out;
     }
 
-    n20_slice_t info = {.size = 18, .buffer = (uint8_t*)"example_info_value"};
+    n20_slice_t info = {.size = 18, .buffer = (uint8_t const*)"example_info_value"};
 
-    n20_slice_t salt = {.size = 18, .buffer = (uint8_t*)"example_salt_value"};
+    n20_slice_t salt = {.size = 18, .buffer = (uint8_t const*)"example_salt_value"};
 
-    n20_slice_t ikm = {.size = 22, .buffer = (uint8_t*)"example_uds_passphrase"};
+    n20_slice_t ikm = {.size = 22, .buffer = (uint8_t const*)"example_uds_passphrase"};
 
-    uint8_t uds[32] = {0};  // Example UDS passphrase buffer.
+    uint8_t uds[NAT20SW_UDS_SIZE] = {0};  // Example UDS passphrase buffer.
 
     rc = node_state->gnostic_node_state.crypto_context->digest_ctx.hkdf(
         &node_state->gnostic_node_state.crypto_context->digest_ctx,
@@ -129,7 +131,7 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
         ikm,
         salt,
         info,
-        32,
+        sizeof(uds),
         uds);
     if (rc != n20_error_ok_e) {
         err = -EINVAL;
@@ -143,6 +145,7 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
     rc = nat20crypto_make_secret(node_state->gnostic_node_state.crypto_context,
                                  &uds_slice,
                                  &node_state->gnostic_node_state.min_cdi);
+    memzero_explicit(uds, sizeof(uds));  // Clear UDS passphrase from memory as soon as possible.
     if (rc != n20_error_ok_e) {
         err = -EINVAL;
         goto err_out;
@@ -150,7 +153,7 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
 
     n20_open_dice_cert_info_t cert_info = {0};
     cert_info.cert_type = n20_cert_type_self_signed_e;
-    size_t certificate_size = 0;
+    size_t estimated_certificate_size = 0;
     /* Issue certificate to determine required buffer size. */
     rc = n20_issue_certificate(node_state->gnostic_node_state.crypto_context,
                                node_state->gnostic_node_state.min_cdi,
@@ -159,7 +162,7 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
                                &cert_info,
                                n20_certificate_format_x509_e,
                                NULL,
-                               &certificate_size);
+                               &estimated_certificate_size);
 
     if (rc != n20_error_insufficient_buffer_size_e) {
         err = -EFAULT;
@@ -167,13 +170,13 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
     }
 
     /* Allocate buffer for certificate. */
-    uint8_t* certificate_buffer = kzalloc(certificate_size, GFP_KERNEL);
+    uint8_t* certificate_buffer = kzalloc(estimated_certificate_size, GFP_KERNEL);
     if (certificate_buffer == NULL) {
         err = -ENOMEM;
         goto err_out;
     }
 
-    size_t actual_certificate_size = certificate_size;
+    size_t actual_certificate_size = estimated_certificate_size;
     /* Issue certificate with allocated buffer. */
     rc = n20_issue_certificate(node_state->gnostic_node_state.crypto_context,
                                node_state->gnostic_node_state.min_cdi,
@@ -182,18 +185,19 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
                                &cert_info,
                                n20_certificate_format_x509_e,
                                certificate_buffer,
-                               &certificate_size);
-    if (rc != n20_error_ok_e) {
+                               &actual_certificate_size);
+    if (rc == n20_error_insufficient_buffer_size_e) {
+        printk(KERN_ERR
+               "Estimated certificate size was too small. This indicates that the worst-case "
+               "certificate size was underestimated. "
+               "Actual certificate size %zu, estimated certificate size %zu.\n",
+               actual_certificate_size,
+               estimated_certificate_size);
         kfree(certificate_buffer);
         err = -EFAULT;
         goto err_out;
     }
-    if (certificate_size != actual_certificate_size) {
-        printk(KERN_ERR
-               "Certificate issuance returned success but actual certificate size %zu does not "
-               "match previously computed expected size %zu.\n",
-               certificate_size,
-               actual_certificate_size);
+    if (rc != n20_error_ok_e) {
         kfree(certificate_buffer);
         err = -EFAULT;
         goto err_out;
@@ -203,7 +207,7 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
     n20_stream_init(&stream, NULL, 0);
     /* Render dice chain with NULL buffer to measure size. */
     nat20sw_render_dice_chain(
-        &stream, (n20_slice_t){.size = certificate_size, .buffer = certificate_buffer});
+        &stream, (n20_slice_t){.size = actual_certificate_size, .buffer = certificate_buffer});
     if (n20_stream_has_write_position_overflow(&stream)) {
         kfree(certificate_buffer);
         err = -EFAULT;
@@ -222,7 +226,7 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
     /* Render dice chain with actual buffer. */
     n20_stream_init(&stream, node_state->cached_dice_chain, node_state->cached_dice_chain_size);
     nat20sw_render_dice_chain(
-        &stream, (n20_slice_t){.size = certificate_size, .buffer = certificate_buffer});
+        &stream, (n20_slice_t){.size = actual_certificate_size, .buffer = certificate_buffer});
 
     /* Free temporary buffer unconditionally. */
     kfree(certificate_buffer);
