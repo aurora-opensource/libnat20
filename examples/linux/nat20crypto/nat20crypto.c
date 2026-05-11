@@ -58,6 +58,9 @@
 #include <crypto/internal/ecc.h>
 #endif
 
+#define NAT20CRYPTO_MAX_DIGITS 6 /* Supports up to 384-bit keys (6 * 64 = 384) */
+#define NAT20CRYPTO_CDI_SIZE 32  /* Supports up to 256-bit CDI keys */
+
 static n20_error_t nat20crypto_digest(n20_crypto_digest_context_t* ctx,
                                       n20_crypto_digest_algorithm_t alg_in,
                                       n20_crypto_gather_list_t const* msg_in,
@@ -105,61 +108,60 @@ static n20_error_t nat20crypto_digest(n20_crypto_digest_context_t* ctx,
         return n20_error_crypto_unexpected_null_data_e;
     }
 
+    n20_error_t result = n20_error_ok_e;
+    struct shash_desc* md_ctx = NULL;
+
     struct crypto_shash* md_tfm = crypto_alloc_shash(digest_name, 0, 0);
     if (IS_ERR(md_tfm)) {
         printk(KERN_ERR "Failed to allocate hash context: %ld\n", PTR_ERR(md_tfm));
         return n20_error_crypto_no_resources_e;
     }
 
-    struct shash_desc* md_ctx =
-        kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(md_tfm), GFP_KERNEL);
+    md_ctx = kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(md_tfm), GFP_KERNEL);
     if (md_ctx == NULL) {
-        crypto_free_shash(md_tfm);
         printk(KERN_ERR "Failed to allocate hash descriptor.\n");
-        return n20_error_crypto_no_resources_e;
+        result = n20_error_crypto_no_resources_e;
+        goto out;
     }
     md_ctx->tfm = md_tfm;
 
     if (0 > crypto_shash_init(md_ctx)) {
-        kfree(md_ctx);
-        crypto_free_shash(md_tfm);
-        return n20_error_crypto_implementation_specific_e;
+        result = n20_error_crypto_implementation_specific_e;
+        goto out;
     }
 
     for (size_t list_index = 0; list_index < msg_count; ++list_index) {
         if (msg_in[list_index].count == 0) continue;
         if (msg_in[list_index].list == NULL) {
-            kfree(md_ctx);
-            crypto_free_shash(md_tfm);
-            return n20_error_crypto_unexpected_null_list_e;
+            result = n20_error_crypto_unexpected_null_list_e;
+            goto out;
         }
         for (size_t slice_index = 0; slice_index < msg_in[list_index].count; ++slice_index) {
             if (msg_in[list_index].list[slice_index].size == 0) continue;
             if (msg_in[list_index].list[slice_index].buffer == NULL) {
-                kfree(md_ctx);
-                crypto_free_shash(md_tfm);
-                return n20_error_crypto_unexpected_null_slice_e;
+                result = n20_error_crypto_unexpected_null_slice_e;
+                goto out;
             }
             if (0 > crypto_shash_update(md_ctx,
                                         msg_in[list_index].list[slice_index].buffer,
                                         msg_in[list_index].list[slice_index].size)) {
-                kfree(md_ctx);
-                crypto_free_shash(md_tfm);
-                return n20_error_crypto_implementation_specific_e;
+                result = n20_error_crypto_implementation_specific_e;
+                goto out;
             }
         }
     }
 
     if (0 > crypto_shash_final(md_ctx, digest_out)) {
-        kfree(md_ctx);
-        crypto_free_shash(md_tfm);
-        return n20_error_crypto_implementation_specific_e;
+        result = n20_error_crypto_implementation_specific_e;
+        goto out;
     }
 
     *digest_size_in_out = digest_size;
+
+out:
     kfree(md_ctx);
     crypto_free_shash(md_tfm);
-    return n20_error_ok_e;
+    return result;
 }
 
 struct nat20crypto_key {
@@ -168,11 +170,11 @@ struct nat20crypto_key {
         /* This variant is used for ECC keys. */
         struct {
             size_t ndigits;
-            uint64_t digits[6];
+            uint64_t digits[NAT20CRYPTO_MAX_DIGITS];
         };
         /* This variant is used for CDIs. */
         struct {
-            uint8_t bits[32];
+            uint8_t bits[NAT20CRYPTO_CDI_SIZE];
         };
     };
 };
@@ -257,7 +259,7 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
                                          .size = context_size,
                                          .buffer = context_buffer,
                                      },
-                                     32,
+                                     sizeof(derived),
                                      derived);
     kfree(context_buffer);
 
@@ -272,7 +274,7 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
                 rc = n20_error_crypto_no_resources_e;
                 goto out;
             }
-            memcpy(new_cdi_key->bits, derived, 32);
+            memcpy(new_cdi_key->bits, derived, sizeof(derived));
             *key_out = new_cdi_key;
             rc = n20_error_ok_e;
             goto out;
@@ -280,7 +282,7 @@ static n20_error_t nat20crypto_kdf(struct n20_crypto_context_s* ctx,
         case n20_crypto_key_type_secp256r1_e:
         case n20_crypto_key_type_secp384r1_e: {
             n20_slice_t x_octets = {
-                .size = 32,
+                .size = sizeof(derived),
                 .buffer = derived,
             };
             nat20crypto_key_t* new_ecc_key = nat20crypto_key_alloc(key_type_in);
