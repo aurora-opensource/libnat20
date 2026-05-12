@@ -34,7 +34,7 @@
 # <https://www.gnu.org/licenses/>.
 
 KDIR ?= /lib/modules/`uname -r`/build
-INSTALL_MOD_PATH ?= /lib/modules/`uname -r`/extra
+INSTALL_MOD_DIR ?= extra
 
 NAT20SW_NAT20LIB_DIR ?= $(PWD)/../nat20lib
 NAT20SW_NAT20DEVICE_DIR ?= $(PWD)/../nat20device
@@ -46,7 +46,7 @@ modules:
 	$(MAKE) -C $(KDIR) NAT20SW_NAT20LIB_DIR=$(NAT20SW_NAT20LIB_DIR) NAT20SW_NAT20DEVICE_DIR=$(NAT20SW_NAT20DEVICE_DIR) NAT20SW_NAT20CRYPTO_DIR=$(NAT20SW_NAT20CRYPTO_DIR) M=$$PWD
 
 modules_install:
-	$(MAKE) -C $(KDIR) INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) M=$$PWD modules_install
+	$(MAKE) -C $(KDIR) INSTALL_MOD_DIR=$(INSTALL_MOD_DIR) M=$$PWD modules_install
 
 clean:
 	$(MAKE) -C $(KDIR) M=$$PWD clean
