@@ -50,6 +50,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <vector>
 
 namespace {
 
@@ -749,6 +750,173 @@ TEST_F(GnosticNodeTest, ResolvePathFreesIntermediateDerivedKeyIfPathParsingError
 
     // The intermediate key must have been freed.
     EXPECT_EQ(1u, mock_crypto_context_.free_key_calls);
+}
+
+// ---------------------------------------------------------------------------
+// Size estimation tests
+// ---------------------------------------------------------------------------
+
+class GnosticSizeEstimationTest : public GnosticNodeTest,
+                                  public ::testing::WithParamInterface<n20_crypto_key_type_t> {};
+
+INSTANTIATE_TEST_SUITE_P(AllKeyTypes,
+                         GnosticSizeEstimationTest,
+                         ::testing::Values(n20_crypto_key_type_ed25519_e,
+                                           n20_crypto_key_type_secp256r1_e,
+                                           n20_crypto_key_type_secp384r1_e));
+
+#if N20_WITH_X509 == 1
+
+TEST_P(GnosticSizeEstimationTest, CdiCertX509NullBufferSizeEstimate) {
+    auto key_type = GetParam();
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = valid_path();
+    req.parent_path.length = 0;
+    req.issuer_key_type = key_type;
+    req.subject_key_type = key_type;
+    req.certificate_format = n20_certificate_format_x509_e;
+
+    size_t estimated_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
+                  &state_, &req, nullptr, &estimated_size));
+    ASSERT_GT(estimated_size, 0u);
+
+    std::vector<uint8_t> buffer(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
+                  &state_, &req, buffer.data(), &actual_size));
+    EXPECT_LE(actual_size, estimated_size);
+}
+
+TEST_P(GnosticSizeEstimationTest, CdiCertX509SmallBufferSizeEstimate) {
+    auto key_type = GetParam();
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = valid_path();
+    req.parent_path.length = 0;
+    req.issuer_key_type = key_type;
+    req.subject_key_type = key_type;
+    req.certificate_format = n20_certificate_format_x509_e;
+
+    uint8_t small_buffer[16] = {};
+    size_t estimated_size = sizeof(small_buffer);
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
+                  &state_, &req, small_buffer, &estimated_size));
+    ASSERT_GT(estimated_size, sizeof(small_buffer));
+
+    std::vector<uint8_t> buffer(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
+                  &state_, &req, buffer.data(), &actual_size));
+    EXPECT_LE(actual_size, estimated_size);
+}
+
+TEST_P(GnosticSizeEstimationTest, EcaCertX509NullBufferSizeEstimate) {
+    auto key_type = GetParam();
+    n20_msg_issue_eca_cert_request_t req{};
+    req.parent_path = valid_path();
+    req.parent_path.length = 0;
+    req.issuer_key_type = key_type;
+    req.subject_key_type = key_type;
+    req.certificate_format = n20_certificate_format_x509_e;
+    req.challenge = {0, nullptr};
+
+    size_t estimated_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_gnostic_service_ops.n20_srv_issue_eca_certificate(
+                  &state_, &req, nullptr, &estimated_size));
+    ASSERT_GT(estimated_size, 0u);
+
+    std::vector<uint8_t> buffer(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_gnostic_service_ops.n20_srv_issue_eca_certificate(
+                  &state_, &req, buffer.data(), &actual_size));
+    EXPECT_LE(actual_size, estimated_size);
+}
+
+TEST_P(GnosticSizeEstimationTest, EcaEeCertX509NullBufferSizeEstimate) {
+    auto key_type = GetParam();
+    std::array<uint8_t, 1> const key_usage_data = {0x01};
+    n20_msg_issue_eca_ee_cert_request_t req{};
+    req.parent_path = valid_path();
+    req.parent_path.length = 0;
+    req.issuer_key_type = key_type;
+    req.subject_key_type = key_type;
+    req.certificate_format = n20_certificate_format_x509_e;
+    req.name = {3, "key"};
+    req.key_usage = {key_usage_data.size(), const_cast<uint8_t*>(key_usage_data.data())};
+    req.challenge = {0, nullptr};
+
+    size_t estimated_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_gnostic_service_ops.n20_srv_issue_eca_ee_certificate(
+                  &state_, &req, nullptr, &estimated_size));
+    ASSERT_GT(estimated_size, 0u);
+
+    std::vector<uint8_t> buffer(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_gnostic_service_ops.n20_srv_issue_eca_ee_certificate(
+                  &state_, &req, buffer.data(), &actual_size));
+    EXPECT_LE(actual_size, estimated_size);
+}
+
+#endif  // N20_WITH_X509 == 1
+
+#if N20_WITH_COSE == 1
+
+TEST_P(GnosticSizeEstimationTest, CdiCertCoseNullBufferSizeEstimate) {
+    auto key_type = GetParam();
+    n20_msg_issue_cdi_cert_request_t req{};
+    req.parent_path = valid_path();
+    req.parent_path.length = 0;
+    req.issuer_key_type = key_type;
+    req.subject_key_type = key_type;
+    req.certificate_format = n20_certificate_format_cose_e;
+
+    size_t estimated_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
+                  &state_, &req, nullptr, &estimated_size));
+    ASSERT_GT(estimated_size, 0u);
+
+    std::vector<uint8_t> buffer(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_gnostic_service_ops.n20_srv_issue_cdi_certificate(
+                  &state_, &req, buffer.data(), &actual_size));
+    EXPECT_EQ(actual_size, estimated_size);
+}
+
+#endif  // N20_WITH_COSE == 1
+
+TEST_P(GnosticSizeEstimationTest, EcaSignNullBufferSizeEstimate) {
+    auto key_type = GetParam();
+    std::array<uint8_t, 1> const key_usage_data = {0x01};
+    std::array<uint8_t, 8> const message_data = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    n20_msg_eca_ee_sign_request_t req{};
+    req.parent_path = valid_path();
+    req.parent_path.length = 0;
+    req.subject_key_type = key_type;
+    req.name = {3, "key"};
+    req.key_usage = {key_usage_data.size(), const_cast<uint8_t*>(key_usage_data.data())};
+    req.message = {message_data.size(), const_cast<uint8_t*>(message_data.data())};
+
+    size_t estimated_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_gnostic_service_ops.n20_srv_eca_ee_sign(&state_, &req, nullptr, &estimated_size));
+    ASSERT_GT(estimated_size, 0u);
+
+    std::vector<uint8_t> buffer(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(
+        n20_error_ok_e,
+        n20_gnostic_service_ops.n20_srv_eca_ee_sign(&state_, &req, buffer.data(), &actual_size));
+    EXPECT_EQ(actual_size, estimated_size);
 }
 
 }  // namespace

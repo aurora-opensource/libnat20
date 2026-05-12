@@ -100,9 +100,13 @@ typedef struct n20_service_message_dispatch_ctx_s n20_service_message_dispatch_c
  * * @ref n20_error_unexpected_null_service_ops_e if @p ctx->ops is NULL.
  * * @ref n20_error_unexpected_null_buffer_size_e if @p response_size_in_out is NULL.
  * * @ref n20_error_insufficient_buffer_size_e if the provided response buffer is too
- * * small to hold the response or error message. This error may also be returned by
+ *   small to hold the response or error message. This error may also be returned by
  *   the underlying service operations. As an exception, this error is intercepted
  *   and returned directly by the dispatcher to allow the caller to resize the buffer.
+ *   When this error is returned, @p *response_size_in_out is set to the required
+ *   buffer size. This value may slightly overestimate the actual size needed, but
+ *   is guaranteed to be sufficient for the final result when the function is called
+ *   again with the same arguments and a buffer of the reported size.
  *
  * ## Service errors:
  * If the dispatcher successfully calls the appropriate service operation but that

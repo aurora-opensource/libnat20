@@ -521,15 +521,49 @@ extern n20_error_t n20_compute_certificate_context(n20_crypto_context_t *crypto_
  *   may be set in @p cert_info_in.eca_ee.nonce.
  * - @ref n20_cert_type_self_signed_e does not require any additional fields.
  *
+ * ## Size query
+ *
+ * If @p certificate_out is NULL, the function determines the required buffer
+ * size without performing cryptographic operations (no key derivation, no
+ * signing) and returns @ref n20_error_insufficient_buffer_size_e with
+ * @p *certificate_size_in_out set to the required size.
+ *
+ * If @p certificate_out is non-NULL but the buffer is too small, the function
+ * also returns @ref n20_error_insufficient_buffer_size_e with
+ * @p *certificate_size_in_out set to the required size. In the X.509 case,
+ * key derivation is performed (to obtain the real serial numbers) but signing
+ * is skipped.
+ *
+ * The precision of the reported size depends on the certificate format:
+ * - **COSE**: The reported size is exact. COSE encodes signatures as
+ *   fixed-length byte strings, so the encoded size is fully determined by
+ *   the key types and payload content.
+ * - **X.509**: The reported size is a worst-case upper bound. There are
+ *   two sources of variability:
+ *   1. ECDSA signatures are DER-encoded as a SEQUENCE of two INTEGERs,
+ *      and DER INTEGER encoding length varies depending on whether the
+ *      leading bit of each coordinate is set (requiring a 0x00 padding
+ *      byte). The estimate assumes maximum-length encoding for both
+ *      coordinates. For Ed25519, the signature is a fixed-length bit
+ *      string and does not contribute to variability.
+ *   2. The issuer and subject serial numbers (CDI IDs) are DER-encoded
+ *      as INTEGERs, and leading zeros are stripped. The estimate assumes
+ *      maximum-length encoding (no leading zeros). The actual serial
+ *      numbers may be shorter if the hash-derived values happen to have
+ *      leading zero bytes.
+ *
+ *   In practice the overestimate is small (a few bytes).
+ *
  * @param crypto_ctx
  * @param issuer_secret_in
  * @param issuer_key_type_in
  * @param subject_key_type_in
  * @param cert_info_in
  * @param certificate_format_in
- * @param certificate_out
- * @param certificate_size_in_out
- * @return n20_error_t
+ * @param certificate_out May be NULL to query the required buffer size.
+ * @param certificate_size_in_out In: buffer capacity. Out: required or used size.
+ * @return @ref n20_error_ok_e on success,
+ *         @ref n20_error_insufficient_buffer_size_e if the buffer is NULL or too small.
  */
 extern n20_error_t n20_issue_certificate(n20_crypto_context_t *crypto_ctx,
                                          n20_crypto_key_t issuer_secret_in,

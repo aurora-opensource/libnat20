@@ -84,15 +84,17 @@ struct n20_service_ops_s {
      *
      * The serialized certificate is placed at the end of the buffer.
      * On entry @p *attestation_certificate_size is the total size of the buffer.
-     * On success, or when @ref n20_error_insufficient_buffer_size_e is returned,
-     * it must be set to the number of certificate bytes written or the required buffer
-     * size respectively.
-     *
+     * On success it must be set to the number of certificate bytes written.
+     * When @ref n20_error_insufficient_buffer_size_e is returned, it must be set
+     * to the required buffer size. The reported size may slightly overestimate
+     * the actual size needed, but is guaranteed to be sufficient for the final
+     * result when the function is called again with the same arguments.
      *
      * @param ctx  Opaque implementation context.
      * @param request  CDI certificate request payload.
      * @param attestation_certificate  Output buffer for the certificate.
-     * @param attestation_certificate_size  In: buffer capacity. Out: bytes written.
+     * @param attestation_certificate_size  In: buffer capacity. Out: bytes written
+     *        or required size.
      * @return @ref n20_error_ok_e on success, an error code otherwise.
      */
     n20_error_t (*n20_srv_issue_cdi_certificate)(void* ctx,
@@ -109,14 +111,16 @@ struct n20_service_ops_s {
      *
      * The serialized certificate is placed at the end of the buffer.
      * On entry @p *certificate_size is the total size of the buffer.
-     * On success, or when @ref n20_error_insufficient_buffer_size_e is returned,
-     * it must be set to the number of certificate bytes written or the required buffer
-     * size respectively.
+     * On success it must be set to the number of certificate bytes written.
+     * When @ref n20_error_insufficient_buffer_size_e is returned, it must be set
+     * to the required buffer size. The reported size may slightly overestimate
+     * the actual size needed, but is guaranteed to be sufficient for the final
+     * result when the function is called again with the same arguments.
      *
      * @param ctx  Opaque implementation context.
      * @param request  ECA certificate request payload.
      * @param certificate  Output buffer for the certificate.
-     * @param certificate_size  In: buffer capacity. Out: bytes written.
+     * @param certificate_size  In: buffer capacity. Out: bytes written or required size.
      * @return @ref n20_error_ok_e on success, an error code otherwise.
      */
     n20_error_t (*n20_srv_issue_eca_certificate)(void* ctx,
@@ -133,14 +137,16 @@ struct n20_service_ops_s {
      *
      * The serialized certificate is placed at the end of the buffer.
      * On entry @p *certificate_size is the total size of the buffer.
-     * On success, or when @ref n20_error_insufficient_buffer_size_e is returned,
-     * it must be set to the number of certificate bytes written or the required buffer
-     * size respectively.
+     * On success it must be set to the number of certificate bytes written.
+     * When @ref n20_error_insufficient_buffer_size_e is returned, it must be set
+     * to the required buffer size. The reported size may slightly overestimate
+     * the actual size needed, but is guaranteed to be sufficient for the final
+     * result when the function is called again with the same arguments.
      *
      * @param ctx  Opaque implementation context.
      * @param request  ECA end-entity certificate request payload.
      * @param certificate  Output buffer for the certificate.
-     * @param certificate_size  In: buffer capacity. Out: bytes written.
+     * @param certificate_size  In: buffer capacity. Out: bytes written or required size.
      * @return @ref n20_error_ok_e on success, an error code otherwise.
      */
     n20_error_t (*n20_srv_issue_eca_ee_certificate)(void* ctx,
@@ -158,14 +164,14 @@ struct n20_service_ops_s {
      *
      * The serialized signature is placed at the end of the buffer.
      * On entry @p *signature_size is the total size of the buffer.
-     * On success, or when @ref n20_error_insufficient_buffer_size_e is returned,
-     * it must be set to the number of signature bytes written or the required buffer
-     * size respectively.
+     * On success it must be set to the number of signature bytes written.
+     * When @ref n20_error_insufficient_buffer_size_e is returned, it must be set
+     * to the required buffer size. For raw signatures the reported size is exact.
      *
      * @param ctx  Opaque implementation context.
      * @param request  ECA end-entity sign request payload.
      * @param signature  Output buffer for the signature.
-     * @param signature_size  In: buffer capacity. Out: bytes written.
+     * @param signature_size  In: buffer capacity. Out: bytes written or required size.
      * @return @ref n20_error_ok_e on success, an error code otherwise.
      */
     n20_error_t (*n20_srv_eca_ee_sign)(void* ctx,

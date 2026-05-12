@@ -174,7 +174,7 @@ struct BsslTestFixtureCryptoContext : public n20_crypto_context_t {
             BsslTestFixtureCryptoContext* bctx =
                 reinterpret_cast<BsslTestFixtureCryptoContext*>(ctx);
             n20_error_t err = bctx->backup.key_free(ctx, key);
-            if (err == n20_error_ok_e) {
+            if (err == n20_error_ok_e && key != nullptr) {
                 bctx->active_key_handles--;
             }
             return err;
@@ -532,7 +532,231 @@ TEST_F(FunctionalityX509Test, IssueX509CertificateWriteBufferOverflowAfterSignin
         n20_error_insufficient_buffer_size_e,
         n20_issue_x509_cert(
             &cert_info, &signer, n20_crypto_key_type_ed25519_e, certificate, &certificate_size));
-    ASSERT_EQ(certificate_size, 264);
+    /* The reported size is the worst-case for Ed25519 (64-byte fixed signature),
+     * not the size based on the mock signer's (incorrect) 96-byte signature. */
+    ASSERT_EQ(certificate_size, 231);
+}
+
+TEST_F(FunctionalityX509Test, PostSignOverflowWithShortEcdsaSignatureReportsWorstCase) {
+    n20_open_dice_cert_info_t cert_info = {};
+    cert_info.cert_type = n20_cert_type_cdi_e;
+    cert_info.subject_public_key.algorithm = n20_crypto_key_type_secp256r1_e;
+
+    static uint8_t large_certificate[2048] = {};
+    static size_t captured_tbs_size = 0;
+
+    static n20_signer_t signer = {
+        .crypto_ctx = nullptr,
+        .signing_key = nullptr,
+        .cb = nullptr,
+    };
+
+    /* The signer captures the TBS size and returns a signature with leading
+     * zeros in both coordinates, producing the shortest DER encoding. */
+    signer.cb = [](void* /*ctx*/,
+                   n20_slice_t tbs,
+                   uint8_t* signature,
+                   size_t* signature_size) -> n20_error_t {
+        captured_tbs_size = tbs.size;
+        memset(signature, 0x00, 64);
+        *signature_size = 64;
+        return n20_error_ok_e;
+    };
+
+    /* First call with a large buffer to learn the TBS size. */
+    size_t full_size = sizeof(large_certificate);
+    ASSERT_EQ(
+        n20_error_ok_e,
+        n20_issue_x509_cert(
+            &cert_info, &signer, n20_crypto_key_type_secp256r1_e, large_certificate, &full_size));
+    ASSERT_GT(captured_tbs_size, 0u);
+
+    /* Get the worst-case size for comparison. */
+    size_t worst_case_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_issue_x509_cert(
+                  &cert_info, &signer, n20_crypto_key_type_secp256r1_e, nullptr, &worst_case_size));
+
+    /* Use a buffer of exactly TBS size. This is large enough for the
+     * TBS encoding to succeed (triggering signing) but too small for
+     * the full certificate. */
+    size_t certificate_size = captured_tbs_size;
+
+    size_t reported_size = certificate_size;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_issue_x509_cert(&cert_info,
+                                  &signer,
+                                  n20_crypto_key_type_secp256r1_e,
+                                  large_certificate,
+                                  &reported_size));
+
+    /* The reported size must be the worst-case — not the size based on
+     * the actual short signature. This guarantees a retry will succeed
+     * even if the signature coordinates change on non-deterministic ECDSA. */
+    EXPECT_EQ(reported_size, worst_case_size);
+}
+
+class CertificateSizeEstimationTest
+    : public BsslTestFixtureBase,
+      public ::testing::WithParamInterface<
+          std::tuple<n20_crypto_key_type_t, n20_crypto_key_type_t, n20_cert_type_t>> {};
+
+INSTANTIATE_TEST_SUITE_P(CertificateSizeEstimationTestInstance,
+                         CertificateSizeEstimationTest,
+                         ::testing::Combine(::testing::Values(n20_crypto_key_type_ed25519_e,
+                                                              n20_crypto_key_type_secp256r1_e,
+                                                              n20_crypto_key_type_secp384r1_e),
+                                            ::testing::Values(n20_crypto_key_type_ed25519_e,
+                                                              n20_crypto_key_type_secp256r1_e,
+                                                              n20_crypto_key_type_secp384r1_e),
+                                            ::testing::Values(n20_cert_type_self_signed_e,
+                                                              n20_cert_type_cdi_e,
+                                                              n20_cert_type_eca_e,
+                                                              n20_cert_type_eca_ee_e)));
+
+TEST_P(CertificateSizeEstimationTest, NullBufferReportsWorstCaseSize) {
+    auto [issuer_key_type, subject_key_type, cert_type] = GetParam();
+
+    n20_crypto_key_t issuer_secret = this->GetCdi();
+    KEY_HANDLE_GUARD(issuer_secret);
+
+    n20_open_dice_cert_info_t cert_info = {};
+    cert_info.cert_type = cert_type;
+    switch (cert_type) {
+        case n20_cert_type_self_signed_e:
+            break;
+        case n20_cert_type_cdi_e:
+            cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+            break;
+        case n20_cert_type_eca_e:
+            cert_info.eca.nonce = vec2slice(TEST_NONCE);
+            break;
+        case n20_cert_type_eca_ee_e:
+            cert_info.eca_ee.nonce = vec2slice(TEST_NONCE);
+            cert_info.eca_ee.name = N20_STR_C("Test EE");
+            break;
+        default:
+            GTEST_FAIL() << "Unsupported certificate type";
+            return;
+    }
+
+    size_t estimated_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_x509_e,
+                                    nullptr,
+                                    &estimated_size));
+    ASSERT_GT(estimated_size, 0);
+
+    cert_info = {};
+    cert_info.cert_type = cert_type;
+    switch (cert_type) {
+        case n20_cert_type_self_signed_e:
+            break;
+        case n20_cert_type_cdi_e:
+            cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+            break;
+        case n20_cert_type_eca_e:
+            cert_info.eca.nonce = vec2slice(TEST_NONCE);
+            break;
+        case n20_cert_type_eca_ee_e:
+            cert_info.eca_ee.nonce = vec2slice(TEST_NONCE);
+            cert_info.eca_ee.name = N20_STR_C("Test EE");
+            break;
+        default:
+            break;
+    }
+
+    std::vector<uint8_t> certificate(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_x509_e,
+                                    certificate.data(),
+                                    &actual_size));
+    EXPECT_LE(actual_size, estimated_size)
+        << "Actual certificate size exceeds the estimated worst-case size";
+}
+
+TEST_P(CertificateSizeEstimationTest, InsufficientBufferReportsWorstCaseSize) {
+    auto [issuer_key_type, subject_key_type, cert_type] = GetParam();
+
+    n20_crypto_key_t issuer_secret = this->GetCdi();
+    KEY_HANDLE_GUARD(issuer_secret);
+
+    n20_open_dice_cert_info_t cert_info = {};
+    cert_info.cert_type = cert_type;
+    switch (cert_type) {
+        case n20_cert_type_self_signed_e:
+            break;
+        case n20_cert_type_cdi_e:
+            cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+            break;
+        case n20_cert_type_eca_e:
+            cert_info.eca.nonce = vec2slice(TEST_NONCE);
+            break;
+        case n20_cert_type_eca_ee_e:
+            cert_info.eca_ee.nonce = vec2slice(TEST_NONCE);
+            cert_info.eca_ee.name = N20_STR_C("Test EE");
+            break;
+        default:
+            GTEST_FAIL() << "Unsupported certificate type";
+            return;
+    }
+
+    uint8_t small_buffer[16] = {};
+    size_t estimated_size = sizeof(small_buffer);
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_x509_e,
+                                    small_buffer,
+                                    &estimated_size));
+    ASSERT_GT(estimated_size, sizeof(small_buffer));
+
+    cert_info = {};
+    cert_info.cert_type = cert_type;
+    switch (cert_type) {
+        case n20_cert_type_self_signed_e:
+            break;
+        case n20_cert_type_cdi_e:
+            cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+            break;
+        case n20_cert_type_eca_e:
+            cert_info.eca.nonce = vec2slice(TEST_NONCE);
+            break;
+        case n20_cert_type_eca_ee_e:
+            cert_info.eca_ee.nonce = vec2slice(TEST_NONCE);
+            cert_info.eca_ee.name = N20_STR_C("Test EE");
+            break;
+        default:
+            break;
+    }
+
+    std::vector<uint8_t> certificate(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_x509_e,
+                                    certificate.data(),
+                                    &actual_size));
+    EXPECT_LE(actual_size, estimated_size)
+        << "Actual certificate size exceeds the estimated worst-case size";
 }
 
 std::vector<uint8_t> TEST_ECA_CERT = {
@@ -1640,6 +1864,8 @@ TEST_F(IssueCertificateTestFixture, UnsupportedCertificateType) {
 TEST_F(IssueCertificateTestFixture, ForwardComputeCertificateContextError) {
     n20_open_dice_cert_info_t cert_info = {};
     cert_info.cert_type = n20_cert_type_eca_ee_e;
+    uint8_t certificate[512] = {};
+    size_t certificate_size = sizeof(certificate);
 
     auto err = n20_issue_certificate(crypto_ctx,
                                      nullptr,
@@ -1647,8 +1873,8 @@ TEST_F(IssueCertificateTestFixture, ForwardComputeCertificateContextError) {
                                      n20_crypto_key_type_ed25519_e,
                                      &cert_info,
                                      n20_certificate_format_x509_e,
-                                     nullptr,
-                                     nullptr);
+                                     certificate,
+                                     &certificate_size);
     ASSERT_EQ(err, n20_error_crypto_unexpected_null_key_in_e);
 }
 
@@ -2001,4 +2227,99 @@ TEST_F(FunctionalityCwtCoseTest, CoseSign1PayloadForwardCryptoError) {
                                      output.data(),
                                      &cose_sign1_size));
 }
+
+class CoseCertSizeTest : public BsslTestFixtureBase,
+                         public ::testing::WithParamInterface<
+                             std::tuple<n20_crypto_key_type_t, n20_crypto_key_type_t>> {};
+
+INSTANTIATE_TEST_SUITE_P(CoseCertSizeTestInstance,
+                         CoseCertSizeTest,
+                         ::testing::Combine(::testing::Values(n20_crypto_key_type_ed25519_e,
+                                                              n20_crypto_key_type_secp256r1_e,
+                                                              n20_crypto_key_type_secp384r1_e),
+                                            ::testing::Values(n20_crypto_key_type_ed25519_e,
+                                                              n20_crypto_key_type_secp256r1_e,
+                                                              n20_crypto_key_type_secp384r1_e)));
+
+TEST_P(CoseCertSizeTest, NullBufferReportsExactSize) {
+    auto [issuer_key_type, subject_key_type] = GetParam();
+
+    n20_crypto_key_t issuer_secret = this->GetCdi();
+    KEY_HANDLE_GUARD(issuer_secret);
+
+    n20_open_dice_cert_info_t cert_info = {};
+    cert_info.cert_type = n20_cert_type_cdi_e;
+    cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+
+    size_t estimated_size = 0;
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_cose_e,
+                                    nullptr,
+                                    &estimated_size));
+    ASSERT_GT(estimated_size, 0u);
+
+    cert_info = {};
+    cert_info.cert_type = n20_cert_type_cdi_e;
+    cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+
+    std::vector<uint8_t> certificate(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_cose_e,
+                                    certificate.data(),
+                                    &actual_size));
+    EXPECT_EQ(actual_size, estimated_size) << "COSE certificate size should be exactly predicted";
+}
+
+TEST_P(CoseCertSizeTest, InsufficientBufferReportsExactSize) {
+    auto [issuer_key_type, subject_key_type] = GetParam();
+
+    n20_crypto_key_t issuer_secret = this->GetCdi();
+    KEY_HANDLE_GUARD(issuer_secret);
+
+    n20_open_dice_cert_info_t cert_info = {};
+    cert_info.cert_type = n20_cert_type_cdi_e;
+    cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+
+    uint8_t small_buffer[16] = {};
+    size_t estimated_size = sizeof(small_buffer);
+    ASSERT_EQ(n20_error_insufficient_buffer_size_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_cose_e,
+                                    small_buffer,
+                                    &estimated_size));
+    ASSERT_GT(estimated_size, sizeof(small_buffer));
+
+    cert_info = {};
+    cert_info.cert_type = n20_cert_type_cdi_e;
+    cert_info.open_dice_input = TEST_OPEN_DICE_INPUT;
+
+    std::vector<uint8_t> certificate(estimated_size);
+    size_t actual_size = estimated_size;
+    ASSERT_EQ(n20_error_ok_e,
+              n20_issue_certificate(crypto_ctx,
+                                    issuer_secret,
+                                    issuer_key_type,
+                                    subject_key_type,
+                                    &cert_info,
+                                    n20_certificate_format_cose_e,
+                                    certificate.data(),
+                                    &actual_size));
+    EXPECT_EQ(actual_size, estimated_size) << "COSE certificate size should be exactly predicted";
+}
+
 #endif  // N20_WITH_COSE == 1

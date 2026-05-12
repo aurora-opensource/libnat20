@@ -398,6 +398,49 @@ void n20_func_key_usage_open_dice_to_x509(n20_open_dice_cert_info_t const* cert_
     }
 }
 
+static n20_error_t n20_x509_raw_signature_size(n20_crypto_key_type_t key_type,
+                                               size_t* signature_size) {
+    switch (key_type) {
+        case n20_crypto_key_type_ed25519_e:
+        case n20_crypto_key_type_secp256r1_e:
+            *signature_size = 64;
+            return n20_error_ok_e;
+        case n20_crypto_key_type_secp384r1_e:
+            *signature_size = 96;
+            return n20_error_ok_e;
+        default:
+            return n20_error_crypto_unknown_algorithm_e;
+    }
+}
+
+static n20_error_t n20_x509_worst_case_size(n20_x509_tbs_t* tbs,
+                                            n20_crypto_key_type_t issuer_key_type,
+                                            size_t* certificate_size) {
+    uint8_t signature[96];
+    size_t signature_size;
+    n20_error_t err = n20_x509_raw_signature_size(issuer_key_type, &signature_size);
+    if (err != n20_error_ok_e) {
+        return err;
+    }
+    memset(signature, 0xff, signature_size);
+
+    n20_x509_t cert = {
+        .tbs = tbs,
+        .signature_algorithm = tbs->signature_algorithm,
+        .signature_bits = signature_size * 8,
+        .signature = signature,
+    };
+
+    n20_stream_t stream;
+    n20_stream_init(&stream, NULL, 0);
+    n20_x509_cert(&stream, &cert);
+    if (n20_stream_has_write_position_overflow(&stream)) {
+        return n20_error_write_position_overflow_e;
+    }
+    *certificate_size = n20_stream_byte_count(&stream);
+    return n20_error_insufficient_buffer_size_e;
+}
+
 n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
                                 n20_signer_t* signer,
                                 n20_crypto_key_type_t issuer_key_type,
@@ -498,7 +541,10 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
     tbs.subject_name.elements[0] =
         (n20_x509_rdn_t){&OID_SERIAL_NUMBER, .bytes = cert_info->subject};
 
-    // Create a new stream for the attestation certificate
+    if (certificate == NULL || *certificate_size == 0) {
+        return n20_x509_worst_case_size(&tbs, issuer_key_type, certificate_size);
+    }
+
     n20_stream_t stream;
     n20_stream_init(&stream, certificate, *certificate_size);
     n20_x509_cert_tbs(&stream, &tbs);
@@ -506,12 +552,10 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
         if (n20_stream_has_write_position_overflow(&stream)) {
             return n20_error_write_position_overflow_e;
         }
-        *certificate_size = n20_stream_byte_count(&stream);
-        return n20_error_insufficient_buffer_size_e;
+        return n20_x509_worst_case_size(&tbs, issuer_key_type, certificate_size);
     }
 
-    // Sign the to-be-signed part of the certificate.
-    uint8_t signature[96];
+    uint8_t signature[96] = {0};
     size_t signature_size = sizeof(signature);
 
     err = signer->cb(
@@ -523,7 +567,6 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
         return err;
     }
 
-    /* Reinitialize the stream. */
     n20_stream_init(&stream, certificate, *certificate_size);
     n20_x509_t cert = {
         .tbs = &tbs,
@@ -536,12 +579,9 @@ n20_error_t n20_issue_x509_cert(n20_open_dice_cert_info_t const* cert_info,
     *certificate_size = n20_stream_byte_count(&stream);
     if (n20_stream_has_buffer_overflow(&stream)) {
         if (n20_stream_has_write_position_overflow(&stream)) {
-            /* This is not reachable because any malformed input
-             * would have been caught when generating the tbs part
-             * of the certificate. */
             return n20_error_write_position_overflow_e;
         }
-        return n20_error_insufficient_buffer_size_e;
+        return n20_x509_worst_case_size(&tbs, issuer_key_type, certificate_size);
     }
 
     return n20_error_ok_e;
@@ -1005,6 +1045,7 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
     if (cert_info_in == NULL) {
         return n20_error_unexpected_null_certificate_info_e;
     }
+    n20_error_t err = n20_error_ok_e;
 
     n20_crypto_key_t signing_key = NULL;
     n20_cdi_id_t issuer_serial_number = {0};
@@ -1056,18 +1097,40 @@ n20_error_t n20_issue_certificate(n20_crypto_context_t* crypto_ctx,
         subject_key_type_in = issuer_key_type_in;
     }
 
-    n20_error_t err = n20_compute_certificate_context(crypto_ctx,
-                                                      issuer_secret_in,
-                                                      cert_info_in,
-                                                      issuer_key_type_in,
-                                                      subject_key_type_in,
-                                                      &signing_key,
-                                                      issuer_serial_number,
-                                                      subject_serial_number,
-                                                      public_key,
-                                                      &public_key_size);
-    if (err != n20_error_ok_e) {
-        return err;
+    if (certificate_out != NULL) {
+        err = n20_compute_certificate_context(crypto_ctx,
+                                              issuer_secret_in,
+                                              cert_info_in,
+                                              issuer_key_type_in,
+                                              subject_key_type_in,
+                                              &signing_key,
+                                              issuer_serial_number,
+                                              subject_serial_number,
+                                              public_key,
+                                              &public_key_size);
+        if (err != n20_error_ok_e) {
+            return err;
+        }
+    } else {
+        /* Size-query mode: fill serial numbers with worst-case values
+         * to ensure DER INTEGER encoding uses maximum length.
+         * CDI IDs always have the high bit cleared, so 0x7f is the
+         * maximum first byte that avoids a leading-zero pad. */
+        memset(issuer_serial_number, 0x7f, sizeof(n20_cdi_id_t));
+        memset(subject_serial_number, 0x7f, sizeof(n20_cdi_id_t));
+        switch (subject_key_type_in) {
+            case n20_crypto_key_type_secp256r1_e:
+                public_key_size = 64;
+                break;
+            case n20_crypto_key_type_secp384r1_e:
+                public_key_size = 96;
+                break;
+            case n20_crypto_key_type_ed25519_e:
+                public_key_size = 32;
+                break;
+            default:
+                return n20_error_crypto_invalid_key_type_e;
+        }
     }
 
     /* If the key type is one of the supported NIST curves,
