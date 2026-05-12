@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
@@ -35,54 +33,16 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-if [ ! -f ".env" ]; then
-    echo ".env file not found. Please run bootstrap.sh first."
-    if (return 0 2>/dev/null); then
-        return 1
-    else
-        exit 1
-    fi
-fi
+NAT20CRYPTO_VERSION = origin/main
+NAT20CRYPTO_SITE = https://github.com/aurora-opensource/libnat20.git
+NAT20CRYPTO_SITE_METHOD = git
+NAT20CRYPTO_LICENSE = Apache-2.0 OR GPL-2.0
+NAT20CRYPTO_LICENSE_FILES = LICENSE-Apache-2.0.txt LICENSE-GPL-2.0.txt
 
-source .env
+NAT20CRYPTO_DEPENDENCIES += nat20lib
+NAT20CRYPTO_MODULE_MAKE_OPTS += NAT20CRYPTO_NAT20LIB_DIR=$(NAT20LIB_DIR)/examples/linux/nat20lib
 
-export NAT20CRYPTO_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
-export NAT20DEVICE_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
-export NAT20LIB_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
+NAT20CRYPTO_MODULE_SUBDIRS = examples/linux/nat20crypto
 
-function ensure_popd() {
-    "$@"
-    local rc=$?
-    popd
-    return $rc
-}
-
-function brbuild() {
-    pushd "${LIBNAT20_BR_BUILD_DIR}/buildroot" || return 1
-    ensure_popd make
-}
-
-function brrebuild() {
-    pushd "${LIBNAT20_BR_BUILD_DIR}/buildroot" || return 1
-
-    if [ "$#" -eq 0 ]; then
-        echo "Usage: brrebuild <target> [<target> ...]"
-        echo "Available targets:"
-        echo "  all          - Rebuild all components"
-        echo "  linux        - Rebuild the linux kernel"
-        echo "  nat20crypto  - Rebuild the nat20crypto module"
-        echo "  nat20device  - Rebuild the nat20device module"
-        echo "  nat20lib     - Rebuild the nat20lib library"
-        popd
-        return 1
-    fi
-
-    case "$1" in
-        all)
-            ensure_popd make linux-rebuild nat20crypto-rebuild nat20device-rebuild nat20lib-rebuild all
-            ;;
-        *)
-            ensure_popd make $1-rebuild all
-            ;;
-    esac
-}
+$(eval $(kernel-module))
+$(eval $(generic-package))
