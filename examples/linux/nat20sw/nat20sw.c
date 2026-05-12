@@ -289,7 +289,7 @@ static int nat20sw_service_message_dispatch(void* ctx,
 
     /* Use a heuristic to estimate the initial response buffer size. */
     /* Heuristic: request size + overhead for CBOR encoding and response metadata */
-    response->size = request_size + 384;
+    response->size = request_size + 450;
     response->data = kzalloc(response->size, GFP_KERNEL);
     if (response->data == NULL) {
         return -ENOMEM;
