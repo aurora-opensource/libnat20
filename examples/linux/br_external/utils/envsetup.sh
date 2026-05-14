@@ -51,6 +51,7 @@ export NAT20CRYPTO_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20SW_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20DEVICE_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20LIB_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
+export NAT20TEST_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export LIBNAT20_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 
 function ensure_popd() {
@@ -79,13 +80,14 @@ function brrebuild() {
         echo "  nat20device  - Rebuild the nat20device module"
         echo "  nat20sw      - Rebuild the nat20sw module"
         echo "  nat20lib     - Rebuild the nat20lib library"
+        echo "  nat20test    - Rebuild the nat20device integration test"
         popd
         return 1
     fi
 
     case "$1" in
         all)
-            ensure_popd make linux-rebuild nat20lib-rebuild nat20crypto-rebuild nat20device-rebuild nat20sw-rebuild libnat20-rebuild nat20cli-rebuild all
+            ensure_popd make linux-rebuild nat20lib-rebuild nat20crypto-rebuild nat20device-rebuild nat20sw-rebuild libnat20-rebuild nat20cli-rebuild nat20test-rebuild all
             ;;
         *)
             ensure_popd make $1-rebuild all

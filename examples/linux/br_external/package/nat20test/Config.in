@@ -33,10 +33,9 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20cli/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/libnat20/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20test/Config.in"
+config BR2_PACKAGE_NAT20TEST
+    bool "nat20cli"
+    depends on BR2_PACKAGE_LIBNAT20
+    depends on BR2_PACKAGE_OPENSSL
+    help
+        Enable building the nat20test, an integration test for ant20device with nat20sw.

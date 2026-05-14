@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
@@ -33,10 +35,12 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20cli/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/libnat20/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20test/Config.in"
+set -e
+
+SCRIPT_DIR="$(dirname "$0")"
+
+modprobe nat20sw
+mount -t securityfs none /sys/kernel/security
+
+echo "Running integration test suite..."
+"${SCRIPT_DIR}/nat20_integration_test"

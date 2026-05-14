@@ -168,3 +168,39 @@ jobs:
           find ${{ runner.temp }}/buildroot.build -name 'nat20cli' | grep -q nat20cli
           echo "nat20cli built successfully:"
           find ${{ runner.temp }}/buildroot.build -name 'nat20cli' -exec ls -la {} \;
+
+      - name: Build rootfs image
+        env:
+          NAT20LIB_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20DEVICE_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20CRYPTO_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20SW_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          LIBNAT20_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20CLI_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20TEST_OVERRIDE_SRCDIR: ${{ github.workspace }}
+        run: make -C ${{ runner.temp }}/buildroot.build/buildroot -j $(( $(nproc) + 1 ))
+
+      - name: Run integration tests in QEMU
+        timeout-minutes: 5
+        run: |
+          BUILDROOT_DIR="${{ runner.temp }}/buildroot.build/buildroot"
+          KERNEL="${BUILDROOT_DIR}/output/images/bzImage"
+          ROOTFS="${BUILDROOT_DIR}/output/images/rootfs.ext2"
+
+          qemu-system-x86_64 \
+            -M pc \
+            -kernel "${KERNEL}" \
+            -drive file="${ROOTFS}",if=virtio,format=raw \
+            -append "rootwait root=/dev/vda console=ttyS0 init=/usr/bin/nat20_qemu_init.sh" \
+            -nographic \
+            -no-reboot \
+            -net none \
+            2>&1 | tee qemu_output.log
+
+          if grep -q "INTEGRATION_TESTS_PASSED" qemu_output.log; then
+            echo "Integration tests passed."
+          else
+            echo "Integration tests failed. QEMU output:"
+            cat qemu_output.log
+            exit 1
+          fi

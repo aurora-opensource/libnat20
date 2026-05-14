@@ -33,10 +33,50 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20cli/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/libnat20/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20test/Config.in"
+cmake_minimum_required(VERSION 3.22)
+
+project(NAT20TEST VERSION 0.0.1 LANGUAGES C)
+
+# The C standard shall be C11.
+set(CMAKE_C_STANDARD 11)
+
+# CMake shall generate a compile_commands.json file for
+# the benfit of clangd based IDE support.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
+###################################################################################################
+# Integration test binary — exercises the nat20 DICE service via /dev/nat200.
+add_executable(nat20_integration_test)
+
+find_package(LibNat20 REQUIRED)
+find_package(OpenSSL REQUIRED)
+
+target_sources(nat20_integration_test
+PRIVATE test/nat20_integration_test.c
+PRIVATE test/test_helpers.c
+)
+
+target_include_directories(nat20_integration_test
+    PRIVATE test
+)
+
+target_link_libraries(nat20_integration_test
+PRIVATE LibNat20::nat20
+PRIVATE LibNat20::nat20_service
+PRIVATE LibNat20::nat20_crypto_nat20
+PRIVATE OpenSSL::Crypto
+)
+
+target_compile_options(nat20_integration_test
+PRIVATE -pedantic
+PRIVATE -Wall
+PRIVATE -Wextra
+PRIVATE -Werror
+)
+
+install(TARGETS nat20_integration_test RUNTIME DESTINATION bin)
+install(PROGRAMS nat20test.sh DESTINATION bin)
+install(PROGRAMS nat20_qemu_init.sh DESTINATION bin)
+
+###################################################################################################

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
@@ -33,10 +35,26 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20cli/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/libnat20/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20test/Config.in"
+# Init wrapper for running nat20clitest.sh in a QEMU VM.
+# This script is intended to be used as the init process (PID 1).
+# It mounts the necessary filesystems, runs the test suite, prints
+# a machine-parseable result marker, and powers off the VM.
+
+export PATH="/usr/bin:/bin:/sbin:/usr/sbin"
+
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t tmpfs none /tmp
+
+cd /tmp
+
+nat20test.sh
+rc=$?
+
+if [ $rc -eq 0 ]; then
+    echo "INTEGRATION_TESTS_PASSED"
+else
+    echo "INTEGRATION_TESTS_FAILED (exit code: $rc)"
+fi
+
+poweroff -f
