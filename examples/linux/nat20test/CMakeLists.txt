@@ -41,7 +41,7 @@ project(NAT20TEST VERSION 0.0.1 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 
 # CMake shall generate a compile_commands.json file for
-# the benfit of clangd based IDE support.
+# the benefit of clangd based IDE support.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 

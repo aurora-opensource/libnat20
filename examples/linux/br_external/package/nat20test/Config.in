@@ -34,8 +34,9 @@
 # <https://www.gnu.org/licenses/>.
 
 config BR2_PACKAGE_NAT20TEST
-    bool "nat20cli"
+    bool "nat20test"
     depends on BR2_PACKAGE_LIBNAT20
     depends on BR2_PACKAGE_OPENSSL
+    select BR2_PACKAGE_NAT20SW
     help
-        Enable building the nat20test, an integration test for ant20device with nat20sw.
+        Enable building the nat20test, an integration test for nat20device with nat20sw.

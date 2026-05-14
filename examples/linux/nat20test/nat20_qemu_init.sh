@@ -35,7 +35,7 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-# Init wrapper for running nat20clitest.sh in a QEMU VM.
+# Init wrapper for running nat20test.sh in a QEMU VM.
 # This script is intended to be used as the init process (PID 1).
 # It mounts the necessary filesystems, runs the test suite, prints
 # a machine-parseable result marker, and powers off the VM.
