@@ -83,7 +83,7 @@ function brrebuild() {
 
     case "$1" in
         all)
-            ensure_popd make linux-rebuild nat20crypto-rebuild libnat20-rebuild nat20device-rebuild nat20sw-rebuild nat20lib-rebuild all
+            ensure_popd make linux-rebuild nat20lib-rebuild nat20crypto-rebuild nat20device-rebuild nat20sw-rebuild libnat20-rebuild all
             ;;
         *)
             ensure_popd make $1-rebuild all
