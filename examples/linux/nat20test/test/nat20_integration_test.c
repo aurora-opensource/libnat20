@@ -1118,6 +1118,18 @@ static void test_level3(void) {
     TEST_PASS();
 }
 
+static void test_promote_1_to_2(void) {
+    TEST_BEGIN("Promote from level 1 to level 2");
+    ASSERT(do_promote(compressed_input, sizeof(compressed_input)), "Promote failed");
+    TEST_PASS();
+}
+
+static void test_promote_2_to_3(void) {
+    TEST_BEGIN("Promote from level 2 to level 3");
+    ASSERT(do_promote(compressed_input, sizeof(compressed_input)), "Promote failed");
+    TEST_PASS();
+}
+
 int main(void) {
     printf("nat20 integration test suite\n");
     printf("============================\n\n");
@@ -1133,9 +1145,9 @@ int main(void) {
 
     /* Full parameterized chain test (promote is irreversible — runs once) */
     test_level1();
-    do_promote(compressed_input, sizeof(compressed_input));
+    test_promote_1_to_2();
     test_level2();
-    do_promote(compressed_input, sizeof(compressed_input));
+    test_promote_2_to_3();
     test_level3();
 
     printf("\n============================\n");

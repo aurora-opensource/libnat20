@@ -66,7 +66,7 @@ n20_error_t test_compress_cdi_input(uint8_t const* code_hash,
  *
  * @param cert_der       DER-encoded certificate
  * @param cert_der_size  Size of the certificate
- * @param issuer_pubkey  Raw public key (x||y for EC, compressed for Ed25519)
+ * @param issuer_pubkey  Raw public key (0x04||x||y for EC, compressed for Ed25519)
  * @param issuer_pubkey_size  Size of the public key
  * @param key_type       Key type of the issuer
  * @return true if signature is valid
