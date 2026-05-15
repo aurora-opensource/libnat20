@@ -33,7 +33,6 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20cli/Config.in"
 source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
 source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
 source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
