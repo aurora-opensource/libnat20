@@ -154,6 +154,21 @@ jobs:
           echo "libnat20.a built successfully:"
           find ${{ runner.temp }}/buildroot.build -name 'libnat20.a' -exec ls -la {} \;
 
+      - name: Build nat20cli userspace cli tool
+        env:
+          LIBNAT20_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20CLI_OVERRIDE_SRCDIR: ${{ github.workspace }}
+        run: |
+          cd ${{ runner.temp }}/buildroot.build/buildroot
+          make nat20cli-dirclean
+          make nat20cli -j $(( $(nproc) + 1 ))
+
+      - name: Verify nat20cli was produced
+        run: |
+          find ${{ runner.temp }}/buildroot.build -name 'nat20cli' | grep -q nat20cli
+          echo "nat20cli built successfully:"
+          find ${{ runner.temp }}/buildroot.build -name 'nat20cli' -exec ls -la {} \;
+
       - name: Build rootfs image
         env:
           NAT20LIB_OVERRIDE_SRCDIR: ${{ github.workspace }}
@@ -161,6 +176,7 @@ jobs:
           NAT20CRYPTO_OVERRIDE_SRCDIR: ${{ github.workspace }}
           NAT20SW_OVERRIDE_SRCDIR: ${{ github.workspace }}
           LIBNAT20_OVERRIDE_SRCDIR: ${{ github.workspace }}
+          NAT20CLI_OVERRIDE_SRCDIR: ${{ github.workspace }}
           NAT20TEST_OVERRIDE_SRCDIR: ${{ github.workspace }}
         run: make -C ${{ runner.temp }}/buildroot.build/buildroot -j $(( $(nproc) + 1 ))
 

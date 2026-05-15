@@ -10,6 +10,7 @@
       "**/Kbuild",
       "examples/linux/br_external/external.desc",
       "examples/linux/**/Makefile",
+      "examples/linux/nat20cli/openssl_dice.cnf",
       ".clang-format",
       ".gitignore"
     ],
