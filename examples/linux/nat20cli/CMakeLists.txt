@@ -76,7 +76,8 @@ target_compile_options(nat20cli
 )
 
 install(TARGETS nat20cli RUNTIME DESTINATION bin)
-install(PROGRAMS nat20clitest.sh DESTINATION bin)
+install(PROGRAMS nat20cli_test.sh DESTINATION bin)
+install(PROGRAMS nat20cli_qemu_init.sh DESTINATION bin)
 install(FILES openssl_dice.cnf DESTINATION bin)
 
 ###################################################################################################

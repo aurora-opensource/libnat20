@@ -204,3 +204,28 @@ jobs:
             cat qemu_output.log
             exit 1
           fi
+
+      - name: Run nat20cli tests in QEMU
+        timeout-minutes: 5
+        run: |
+          BUILDROOT_DIR="${{ runner.temp }}/buildroot.build/buildroot"
+          KERNEL="${BUILDROOT_DIR}/output/images/bzImage"
+          ROOTFS="${BUILDROOT_DIR}/output/images/rootfs.ext2"
+
+          qemu-system-x86_64 \
+            -M pc \
+            -kernel "${KERNEL}" \
+            -drive file="${ROOTFS}",if=virtio,format=raw \
+            -append "rootwait root=/dev/vda console=ttyS0 init=/usr/bin/nat20cli_qemu_init.sh" \
+            -nographic \
+            -no-reboot \
+            -net none \
+            2>&1 | tee qemu_output.log
+
+          if grep -q "NAT20CLI_TESTS_PASSED" qemu_output.log; then
+            echo "NAT20CLI tests passed."
+          else
+            echo "NAT20CLI tests failed. QEMU output:"
+            cat qemu_output.log
+            exit 1
+          fi
