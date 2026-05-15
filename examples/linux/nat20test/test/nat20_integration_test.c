@@ -60,6 +60,8 @@ static int tests_run = 0;
 static int tests_passed = 0;
 static int tests_failed = 0;
 
+/* Start a test case. Call once at the beginning of each test function.
+ * Usage: TEST_BEGIN("descriptive test name"); */
 #define TEST_BEGIN(name)                   \
     do {                                   \
         tests_run++;                       \
@@ -67,6 +69,8 @@ static int tests_failed = 0;
         fflush(stdout);                    \
     } while (0)
 
+/* Mark the current test as passed. Call once at the end of a successful test.
+ * Usage: TEST_PASS(); */
 #define TEST_PASS()       \
     do {                  \
         tests_passed++;   \
@@ -74,23 +78,35 @@ static int tests_failed = 0;
         fflush(stdout);   \
     } while (0)
 
-#define TEST_FAIL(fmt, ...)                              \
-    do {                                                 \
-        tests_failed++;                                  \
-        printf("FAIL\n");                                \
-        fprintf(stderr, "    " fmt "\n", ##__VA_ARGS__); \
-        fflush(stderr);                                  \
+/* Mark the current test as failed and print a diagnostic message.
+ * The first variadic argument is a printf format string; subsequent
+ * arguments are format parameters.
+ * Usage: TEST_FAIL("expected %d, got %d", expected, actual); */
+#define TEST_FAIL(...)                       \
+    do {                                     \
+        tests_failed++;                      \
+        printf("FAIL\n");                    \
+        fprintf(stderr, "    " __VA_ARGS__); \
+        fprintf(stderr, "\n");               \
+        fflush(stderr);                      \
     } while (0)
 
-#define ASSERT(cond, fmt, ...)             \
-    do {                                   \
-        if (!(cond)) {                     \
-            TEST_FAIL(fmt, ##__VA_ARGS__); \
-            return;                        \
-        }                                  \
+/* Assert a condition. On failure, prints a diagnostic and returns from
+ * the enclosing function (marking the test as failed).
+ * The first argument is the condition; the remaining variadic arguments
+ * form a printf-style diagnostic message.
+ * Usage: ASSERT(ptr != NULL, "allocation failed for size %zu", size); */
+#define ASSERT(cond, ...)           \
+    do {                            \
+        if (!(cond)) {              \
+            TEST_FAIL(__VA_ARGS__); \
+            return;                 \
+        }                           \
     } while (0)
 
-#define ASSERT_EQ(a, b, fmt, ...) ASSERT((a) == (b), fmt, ##__VA_ARGS__)
+/* Assert equality. Convenience wrapper around ASSERT for comparing two values.
+ * Usage: ASSERT_EQ(err, n20_error_ok_e, "unexpected error: 0x%x", err); */
+#define ASSERT_EQ(a, b, ...) ASSERT((a) == (b), __VA_ARGS__)
 
 static ssize_t dispatch_request(uint8_t const* request,
                                 size_t request_size,
