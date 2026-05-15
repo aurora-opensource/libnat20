@@ -33,7 +33,22 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
+KDIR ?= /lib/modules/`uname -r`/build
+INSTALL_MOD_DIR ?= extra
+
+NAT20SW_NAT20LIB_DIR ?= $(PWD)/../nat20lib
+NAT20SW_NAT20DEVICE_DIR ?= $(PWD)/../nat20device
+NAT20SW_NAT20CRYPTO_DIR ?= $(PWD)/../nat20crypto
+
+all: modules
+
+modules:
+	$(MAKE) -C $(KDIR) NAT20SW_NAT20LIB_DIR=$(NAT20SW_NAT20LIB_DIR) NAT20SW_NAT20DEVICE_DIR=$(NAT20SW_NAT20DEVICE_DIR) NAT20SW_NAT20CRYPTO_DIR=$(NAT20SW_NAT20CRYPTO_DIR) M=$$PWD modules
+
+modules_install:
+	$(MAKE) -C $(KDIR) INSTALL_MOD_DIR=$(INSTALL_MOD_DIR) M=$$PWD modules_install
+
+clean:
+	$(MAKE) -C $(KDIR) M=$$PWD clean
+
+.PHONY: all modules modules_install clean
