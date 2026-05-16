@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
@@ -33,20 +35,26 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-KDIR ?= /lib/modules/`uname -r`/build
-INSTALL_MOD_DIR ?= extra
+# Init wrapper for running nat20test.sh in a QEMU VM.
+# This script is intended to be used as the init process (PID 1).
+# It mounts the necessary filesystems, runs the test suite, prints
+# a machine-parseable result marker, and powers off the VM.
 
-NAT20CRYPTO_NAT20LIB_DIR ?= $(PWD)/../nat20lib
+export PATH="/usr/bin:/bin:/sbin:/usr/sbin"
 
-all: modules
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t tmpfs none /tmp
 
-modules:
-	$(MAKE) -C $(KDIR) M=$$PWD NAT20CRYPTO_NAT20LIB_DIR="$(NAT20CRYPTO_NAT20LIB_DIR)" modules
+cd /tmp
 
-modules_install:
-	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_DIR=$(INSTALL_MOD_DIR) modules_install
+nat20cli_test.sh
+rc=$?
 
-clean:
-	$(MAKE) -C $(KDIR) M=$$PWD clean
+if [ $rc -eq 0 ]; then
+    echo "NAT20CLI_TESTS_PASSED"
+else
+    echo "NAT20CLI_TESTS_FAILED (exit code: $rc)"
+fi
 
-.PHONY: all modules modules_install clean
+poweroff -f

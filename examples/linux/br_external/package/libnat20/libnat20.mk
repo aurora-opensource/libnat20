@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
@@ -35,18 +33,17 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-QEMU_BIN=qemu-system-x86_64
+# In CI LIBNAT20_OVERRIDE_SRCDIR is set to the root of the repository,
+# so that the source under test is always the current branch.
+# Integrators who use this configuration should pin the version
+# to a specific commit or branch to avoid breakages when the main branch changes.
+LIBNAT20_VERSION = origin/main
+LIBNAT20_SITE = https://github.com/aurora-opensource/libnat20.git
+LIBNAT20_SITE_METHOD = git
+LIBNAT20_LICENSE = Apache-2.0 OR GPL-2.0
+LIBNAT20_LICENSE_FILES = LICENSE-Apache-2.0.txt LICENSE-GPL-2.0.txt
 
-if [ ! -f ".env" ]; then
-    echo ".env file not found. Please run bootstrap.sh first."
-    exit 1
-fi
+LIBNAT20_INSTALL_STAGING = YES
+LIBNAT20_INSTALL_TARGET = NO
 
-source .env
-
-BUILDROOT_DIR="${LIBNAT20_BR_BUILD_DIR}/buildroot"
-KERNEL_IMAGE="${BUILDROOT_DIR}/output/images/bzImage"
-FS_IMAGE="${BUILDROOT_DIR}/output/images/rootfs.ext2"
-
-
-"${QEMU_BIN}" -M pc -kernel "${KERNEL_IMAGE}" -nographic -drive file="${FS_IMAGE}",if=virtio,format=raw -append "rootwait root=/dev/vda console=ttyS0" -serial mon:stdio -net nic,model=virtio -net user
+$(eval $(cmake-package))

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
@@ -33,20 +35,12 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-KDIR ?= /lib/modules/`uname -r`/build
-INSTALL_MOD_DIR ?= extra
+set -e
 
-NAT20CRYPTO_NAT20LIB_DIR ?= $(PWD)/../nat20lib
+SCRIPT_DIR="$(dirname "$0")"
 
-all: modules
+modprobe nat20sw
+mount -t securityfs none /sys/kernel/security
 
-modules:
-	$(MAKE) -C $(KDIR) M=$$PWD NAT20CRYPTO_NAT20LIB_DIR="$(NAT20CRYPTO_NAT20LIB_DIR)" modules
-
-modules_install:
-	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_DIR=$(INSTALL_MOD_DIR) modules_install
-
-clean:
-	$(MAKE) -C $(KDIR) M=$$PWD clean
-
-.PHONY: all modules modules_install clean
+echo "Running integration test suite..."
+"${SCRIPT_DIR}/nat20_integration_test"

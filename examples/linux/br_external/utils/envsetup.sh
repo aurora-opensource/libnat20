@@ -46,10 +46,13 @@ fi
 
 source .env
 
+export NAT20CLI_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20CRYPTO_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20SW_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20DEVICE_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 export NAT20LIB_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
+export NAT20TEST_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
+export LIBNAT20_OVERRIDE_SRCDIR="$LIBNAT20_ROOT"
 
 function ensure_popd() {
     "$@"
@@ -71,20 +74,50 @@ function brrebuild() {
         echo "Available targets:"
         echo "  all          - Rebuild all components"
         echo "  linux        - Rebuild the linux kernel"
+        echo "  nat20cli     - Rebuild the Dice CLI"
         echo "  nat20crypto  - Rebuild the nat20crypto module"
+        echo "  libnat20     - Rebuild the libnat20 library"
         echo "  nat20device  - Rebuild the nat20device module"
         echo "  nat20sw      - Rebuild the nat20sw module"
         echo "  nat20lib     - Rebuild the nat20lib library"
+        echo "  nat20test    - Rebuild the nat20device integration test"
         popd
         return 1
     fi
 
     case "$1" in
         all)
-            ensure_popd make linux-rebuild nat20lib-rebuild nat20crypto-rebuild nat20device-rebuild nat20sw-rebuild all
+            ensure_popd make linux-rebuild nat20lib-rebuild nat20crypto-rebuild nat20device-rebuild nat20sw-rebuild libnat20-rebuild nat20cli-rebuild nat20test-rebuild all
             ;;
         *)
             ensure_popd make $1-rebuild all
             ;;
     esac
+}
+
+function run-qemu() {
+    if [ $LIBNAT20_PROJECT != "qemu" ]; then
+        echo "Error: run-qemu is only supported for the qemu project."
+        return 1
+    fi
+
+    QEMU_BIN=qemu-system-x86_64
+
+    BUILDROOT_DIR="${LIBNAT20_BR_BUILD_DIR}/buildroot"
+    KERNEL_IMAGE="${BUILDROOT_DIR}/output/images/bzImage"
+    FS_IMAGE="${BUILDROOT_DIR}/output/images/rootfs.ext2"
+
+    if [ -n "$1" ]; then
+        "${QEMU_BIN}" -M pc -kernel "${KERNEL_IMAGE}" -nographic -drive file="${FS_IMAGE}",if=virtio,format=raw -append "rootwait root=/dev/vda console=ttyS0 init=$1" -serial mon:stdio -net nic,model=virtio -net user
+    else
+        "${QEMU_BIN}" -M pc -kernel "${KERNEL_IMAGE}" -nographic -drive file="${FS_IMAGE}",if=virtio,format=raw -append "rootwait root=/dev/vda console=ttyS0" -serial mon:stdio -net nic,model=virtio -net user
+    fi
+}
+
+function run-nat20test-test() {
+    run-qemu "/usr/bin/nat20test_qemu_init.sh"
+}
+
+function run-nat20cli-test() {
+    run-qemu "/usr/bin/nat20cli_qemu_init.sh"
 }

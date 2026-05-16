@@ -33,20 +33,29 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-KDIR ?= /lib/modules/`uname -r`/build
-INSTALL_MOD_DIR ?= extra
+# OpenSSL configuration for DICE certificate extensions.
+#
+# DICE certificates contain critical X.509v3 extensions with OIDs that
+# vanilla OpenSSL does not recognize. This config registers their names
+# for human-readable display in `openssl x509 -text` output.
+#
+# Because OpenSSL has no config-level mechanism to register handlers for
+# custom critical extensions, `openssl verify` must also be invoked with
+# -ignore_critical when verifying DICE certificate chains.
+#
+# Usage:
+#   export OPENSSL_CONF=/path/to/openssl_dice.cnf
+#   openssl x509 -in cert.pem -noout -text
+#   openssl verify -ignore_critical -CAfile chain.pem leaf.pem
 
-NAT20CRYPTO_NAT20LIB_DIR ?= $(PWD)/../nat20lib
+openssl_conf = openssl_init
 
-all: modules
+[openssl_init]
+oid_section = dice_oids
 
-modules:
-	$(MAKE) -C $(KDIR) M=$$PWD NAT20CRYPTO_NAT20LIB_DIR="$(NAT20CRYPTO_NAT20LIB_DIR)" modules
-
-modules_install:
-	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_DIR=$(INSTALL_MOD_DIR) modules_install
-
-clean:
-	$(MAKE) -C $(KDIR) M=$$PWD clean
-
-.PHONY: all modules modules_install clean
+[dice_oids]
+openDiceInput       = Open DICE Input,              1.3.6.1.4.1.11129.2.1.24
+tcgDiceTcbInfo      = TCG DICE TCB Info,             2.23.133.5.4.1
+tcgDiceMultiTcbInfo = TCG DICE Multi-TCB Info,       2.23.133.5.4.5
+tcgDiceUeid         = TCG DICE UEID,                 2.23.133.5.4.4
+tcgDiceTcbFreshness = TCG DICE TCB Freshness,        2.23.133.5.4.11

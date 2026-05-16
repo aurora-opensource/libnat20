@@ -33,20 +33,8 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-KDIR ?= /lib/modules/`uname -r`/build
-INSTALL_MOD_DIR ?= extra
-
-NAT20CRYPTO_NAT20LIB_DIR ?= $(PWD)/../nat20lib
-
-all: modules
-
-modules:
-	$(MAKE) -C $(KDIR) M=$$PWD NAT20CRYPTO_NAT20LIB_DIR="$(NAT20CRYPTO_NAT20LIB_DIR)" modules
-
-modules_install:
-	$(MAKE) -C $(KDIR) M=$$PWD INSTALL_MOD_DIR=$(INSTALL_MOD_DIR) modules_install
-
-clean:
-	$(MAKE) -C $(KDIR) M=$$PWD clean
-
-.PHONY: all modules modules_install clean
+config BR2_PACKAGE_NAT20CLI
+    bool "nat20cli"
+    depends on BR2_PACKAGE_LIBNAT20
+    help
+        Enable building the nat20cli tool.
