@@ -49,4 +49,3 @@ build/
 cmake_install.cmake
 compile_commands.json
 html/
-nat20test

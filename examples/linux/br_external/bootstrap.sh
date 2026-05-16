@@ -99,6 +99,7 @@ pushd ${LIBNAT20_BR_BUILD_DIR}
 
 echo "LIBNAT20_BR_BUILD_DIR=${LIBNAT20_BR_BUILD_DIR}" | tee .env
 echo "LIBNAT20_ROOT=${LIBNAT20_ROOT}" | tee -a .env
+echo "LIBNAT20_PROJECT=${PROJECT}" | tee -a .env
 
 cp ${LIBNAT20_ROOT}/examples/linux/br_external/utils/envsetup.sh ./
 
@@ -109,7 +110,6 @@ git clone --depth 1 --branch "2025.08.1" https://gitlab.com/buildroot.org/buildr
 case "$PROJECT" in
 	qemu)
 		cp ${LIBNAT20_ROOT}/examples/linux/br_external/configs/qemu_br_defconfig buildroot/.config
-		cp ${LIBNAT20_ROOT}/examples/linux/br_external/run-qemu.sh ./
 		;;
 	esac
 
