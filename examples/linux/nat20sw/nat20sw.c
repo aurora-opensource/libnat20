@@ -50,6 +50,9 @@
 #include <nat20device.h>
 
 #define NAT20SW_UDS_SIZE 32
+/* CBOR tag #6.80150 for byte string containing DER encoded X.509 certificate */
+#define NAT20SW_X509_TAG 80150
+#define NAT20SW_ESTIMATED_RESPONSE_OVERHEAD 450
 
 struct nat20sw_node_state {
     n20_gnostic_node_state_t gnostic_node_state;
@@ -93,16 +96,16 @@ static void nat20sw_cleanup_gnostic_node(struct nat20sw_node_state* node_state) 
 }
 
 static void nat20sw_render_dice_chain(n20_stream_t* stream, n20_slice_t certificate) {
-    n20_stream_put(stream, 0xff);  // Terminator for CBOR indefinite length array
+    n20_stream_put(stream, 0xff); /* Terminator for CBOR indefinite length array */
     n20_cbor_write_byte_string(stream, certificate);
-    n20_cbor_write_tag(
-        stream,
-        80150);  // CBOR tag #6.80150 for byte string containing DER encoded X.509 certificate
-    n20_stream_put(stream, 0x9f);  // Start of CBOR indefinite length array
+    n20_cbor_write_tag(stream, NAT20SW_X509_TAG);
+    n20_stream_put(stream, 0x9f); /* Start of CBOR indefinite length array */
 }
 
 static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(void) {
     int err;
+    uint8_t* certificate_buffer = NULL;
+
     struct nat20sw_node_state* node_state = kzalloc(sizeof(struct nat20sw_node_state), GFP_KERNEL);
     if (node_state == NULL) {
         return ERR_PTR(-ENOMEM);
@@ -170,7 +173,7 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
     }
 
     /* Allocate buffer for certificate. */
-    uint8_t* certificate_buffer = kzalloc(estimated_certificate_size, GFP_KERNEL);
+    certificate_buffer = kzalloc(estimated_certificate_size, GFP_KERNEL);
     if (certificate_buffer == NULL) {
         err = -ENOMEM;
         goto err_out;
@@ -198,7 +201,6 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
         goto err_out;
     }
     if (rc != n20_error_ok_e) {
-        kfree(certificate_buffer);
         err = -EFAULT;
         goto err_out;
     }
@@ -209,7 +211,6 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
     nat20sw_render_dice_chain(
         &stream, (n20_slice_t){.size = actual_certificate_size, .buffer = certificate_buffer});
     if (n20_stream_has_write_position_overflow(&stream)) {
-        kfree(certificate_buffer);
         err = -EFAULT;
         goto err_out;
     }
@@ -217,7 +218,6 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
     /* Allocate buffer for cached dice chain. */
     node_state->cached_dice_chain = kzalloc(n20_stream_byte_count(&stream), GFP_KERNEL);
     if (node_state->cached_dice_chain == NULL) {
-        kfree(certificate_buffer);
         err = -ENOMEM;
         goto err_out;
     }
@@ -228,17 +228,17 @@ static struct nat20sw_node_state* nat20sw_make_gnostic_node_with_linux_crypto(vo
     nat20sw_render_dice_chain(
         &stream, (n20_slice_t){.size = actual_certificate_size, .buffer = certificate_buffer});
 
-    /* Free temporary buffer unconditionally. */
-    kfree(certificate_buffer);
-
     if (n20_stream_has_buffer_overflow(&stream)) {
         err = -EFAULT;
         goto err_out;
     }
 
+    /* Free temporary buffer unconditionally. */
+    kfree(certificate_buffer);
     return node_state;
 
 err_out:
+    kfree(certificate_buffer);
     nat20sw_cleanup_gnostic_node(node_state);
     return ERR_PTR(err);
 }
@@ -273,6 +273,7 @@ static int nat20sw_service_message_dispatch(void* ctx,
                                             void const* request_buffer,
                                             size_t request_size,
                                             struct nat20device_buffer* response) {
+    int err = 0;
     struct nat20sw_node_state* node_state = (struct nat20sw_node_state*)ctx;
     if (node_state == NULL || response == NULL) {
         return -EINVAL;
@@ -289,7 +290,7 @@ static int nat20sw_service_message_dispatch(void* ctx,
 
     /* Use a heuristic to estimate the initial response buffer size. */
     /* Heuristic: request size + overhead for CBOR encoding and response metadata */
-    response->size = request_size + 450;
+    response->size = request_size + NAT20SW_ESTIMATED_RESPONSE_OVERHEAD;
     response->data = kzalloc(response->size, GFP_KERNEL);
     if (response->data == NULL) {
         return -ENOMEM;
@@ -316,7 +317,8 @@ static int nat20sw_service_message_dispatch(void* ctx,
         response->size = 0;
         response->data = kzalloc(actual_response_size, GFP_KERNEL);
         if (response->data == NULL) {
-            return -ENOMEM;
+            err = -ENOMEM;
+            goto err_out;
         }
         response->size = actual_response_size;
         mutex_lock(&node_state->dispatch_lock);
@@ -326,26 +328,23 @@ static int nat20sw_service_message_dispatch(void* ctx,
             &actual_response_size,
             (n20_slice_t){.size = request_size, .buffer = request_buffer});
         mutex_unlock(&node_state->dispatch_lock);
-        if (rc == n20_error_ok_e && actual_response_size > response->size) {
-            /* The actual response exceeds the estimated buffer size.
-             * This indicates a bug in the size estimation. */
+        if (rc == n20_error_insufficient_buffer_size_e) {
             printk(KERN_ERR
-                   "Service message dispatch returned success but actual response size %zu "
-                   "exceeds estimated buffer size %zu.\n",
+                   "Service message dispatch returned insufficient buffer size: Actual response "
+                   "size %zu "
+                   "exceeds estimated buffer size %zu.\n"
+                   "This means that the response size estimation of the underlying implementaiton "
+                   "is incorrect.\n",
                    actual_response_size,
                    response->size);
-            kfree(response->data);
-            response->data = NULL;
-            response->size = 0;
-            return -EFAULT;
+            err = -EFAULT;
+            goto err_out;
         }
     }
 
     if (rc != n20_error_ok_e) {
-        kfree(response->data);
-        response->data = NULL;
-        response->size = 0;
-        return -EFAULT;
+        err = -EFAULT;
+        goto err_out;
     }
 
     memmove(response->data,
@@ -354,6 +353,12 @@ static int nat20sw_service_message_dispatch(void* ctx,
     response->size = actual_response_size;
 
     return 0;
+
+err_out:
+    kfree(response->data);
+    response->data = NULL;
+    response->size = 0;
+    return err;
 }
 
 static struct nat20device_driver_ops const nat20sw_driver_ops = {
