@@ -77,6 +77,6 @@ PRIVATE -Werror
 
 install(TARGETS nat20_integration_test RUNTIME DESTINATION bin)
 install(PROGRAMS nat20test.sh DESTINATION bin)
-install(PROGRAMS nat20_qemu_init.sh DESTINATION bin)
+install(PROGRAMS nat20test_qemu_init.sh DESTINATION bin)
 
 ###################################################################################################

@@ -175,7 +175,7 @@ jobs:
             -M pc \
             -kernel "${KERNEL}" \
             -drive file="${ROOTFS}",if=virtio,format=raw \
-            -append "rootwait root=/dev/vda console=ttyS0 init=/usr/bin/nat20_qemu_init.sh" \
+            -append "rootwait root=/dev/vda console=ttyS0 init=/usr/bin/nat20test_qemu_init.sh" \
             -nographic \
             -no-reboot \
             -net none \
