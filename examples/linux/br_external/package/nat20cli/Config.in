@@ -36,5 +36,6 @@
 config BR2_PACKAGE_NAT20CLI
     bool "nat20cli"
     depends on BR2_PACKAGE_LIBNAT20
+    select BR2_PACKAGE_NAT20SW
     help
         Enable building the nat20cli tool.
