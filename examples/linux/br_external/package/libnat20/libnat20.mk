@@ -33,8 +33,17 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/libnat20/Config.in"
+# In CI LIBNAT20_OVERRIDE_SRCDIR is set to the root of the repository,
+# so that the source under test is always the current branch.
+# Integrators who use this configuration should pin the version
+# to a specific commit or branch to avoid breakages when the main branch changes.
+LIBNAT20_VERSION = origin/main
+LIBNAT20_SITE = https://github.com/aurora-opensource/libnat20.git
+LIBNAT20_SITE_METHOD = git
+LIBNAT20_LICENSE = Apache-2.0 OR GPL-2.0
+LIBNAT20_LICENSE_FILES = LICENSE-Apache-2.0.txt LICENSE-GPL-2.0.txt
+
+LIBNAT20_INSTALL_STAGING = YES
+LIBNAT20_INSTALL_TARGET = NO
+
+$(eval $(cmake-package))
