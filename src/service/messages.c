@@ -40,6 +40,7 @@
 #include <nat20/service/messages.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
+#include <nat20/limits.h>
 
 n20_error_t n20_msg_read_map_with_int_key(n20_istream_t* istream,
                                           n20_error_t (*cb)(n20_istream_t* istream,
