@@ -35,6 +35,7 @@
 
 obj-m := nat20lib.o
 ccflags-y := -I $(src)/include
+ccflags-y += -std=gnu11
 
 nat20lib-y := mod.o
 nat20lib-y += ../../../src/core/x509_ext_open_dice_input.o
