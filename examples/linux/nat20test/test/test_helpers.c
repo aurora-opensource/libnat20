@@ -268,6 +268,10 @@ bool test_verify_raw_signature(uint8_t const* pubkey,
             /* The pubkey is raw x||y — wrap with 0x04 uncompressed prefix */
             uint8_t uncompressed[1 + 96];
             uncompressed[0] = 0x04;
+            if (pubkey_size > sizeof(uncompressed) - 1) {
+                fprintf(stderr, "    Public key size too large for uncompressed format\n");
+                return false;
+            }
             memcpy(uncompressed + 1, pubkey, pubkey_size);
             pkey = evp_pkey_from_ec_pubkey(uncompressed, 1 + pubkey_size, key_type);
             break;
