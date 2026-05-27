@@ -212,7 +212,6 @@ static void test_cdi_cert_x509_p256(void) {
     TEST_PASS();
 }
 
-#if N20_WITH_COSE == 1
 static void test_cdi_cert_cose_p256(void) {
     TEST_BEGIN("cdi-cert COSE P-256");
 
@@ -247,7 +246,6 @@ static void test_cdi_cert_cose_p256(void) {
 
     TEST_PASS();
 }
-#endif
 
 static void test_eca_cert_x509_p256(void) {
     TEST_BEGIN("eca-cert X.509 P-256");
@@ -423,7 +421,10 @@ static bool issue_cdi_cert(n20_crypto_key_type_t issuer_key_type,
         fprintf(stderr, "    cdi-cert error: 0x%x\n", cert_response.error_code);
         return false;
     }
-    if (cert_response.certificate.size > sizeof(out->data)) return false;
+    if (cert_response.certificate.size > sizeof(out->data)) {
+        return false;
+    }
+
     memcpy(out->data, cert_response.certificate.buffer, cert_response.certificate.size);
     out->size = cert_response.certificate.size;
     return true;
@@ -456,7 +457,10 @@ static bool issue_eca_cert(n20_crypto_key_type_t issuer_key_type,
         fprintf(stderr, "    eca-cert error: 0x%x\n", cert_response.error_code);
         return false;
     }
-    if (cert_response.certificate.size > sizeof(out->data)) return false;
+    if (cert_response.certificate.size > sizeof(out->data)) {
+        return false;
+    }
+
     memcpy(out->data, cert_response.certificate.buffer, cert_response.certificate.size);
     out->size = cert_response.certificate.size;
     return true;
@@ -493,7 +497,10 @@ static bool issue_eca_ee_cert(n20_crypto_key_type_t issuer_key_type,
         fprintf(stderr, "    eca-ee-cert error: 0x%x\n", cert_response.error_code);
         return false;
     }
-    if (cert_response.certificate.size > sizeof(out->data)) return false;
+    if (cert_response.certificate.size > sizeof(out->data)) {
+        return false;
+    }
+
     memcpy(out->data, cert_response.certificate.buffer, cert_response.certificate.size);
     out->size = cert_response.certificate.size;
     return true;
@@ -529,7 +536,10 @@ static bool eca_ee_sign(n20_crypto_key_type_t key_type,
         fprintf(stderr, "    eca-ee-sign error: 0x%x\n", sign_response.error_code);
         return false;
     }
-    if (sign_response.signature.size > sizeof(out->data)) return false;
+    if (sign_response.signature.size > sizeof(out->data)) {
+        return false;
+    }
+
     memcpy(out->data, sign_response.signature.buffer, sign_response.signature.size);
     out->size = sign_response.signature.size;
     return true;
@@ -561,11 +571,16 @@ static bool do_promote(uint8_t const* compressed_input, size_t compressed_input_
 
 static bool read_uds_cert(cert_buffer_t* out) {
     int fd = open(DICE_CHAIN_PATH, O_RDONLY);
-    if (fd < 0) return false;
+    if (fd < 0) {
+        return false;
+    }
+
     uint8_t dice_chain_buf[4096];
     ssize_t dc_size = read(fd, dice_chain_buf, sizeof(dice_chain_buf));
     close(fd);
-    if (dc_size <= 10) return false;
+    if (dc_size <= 10) {
+        return false;
+    }
 
     n20_istream_t dc_stream;
     n20_istream_init(&dc_stream, dice_chain_buf, (size_t)dc_size);
@@ -575,8 +590,12 @@ static bool read_uds_cert(cert_buffer_t* out) {
     n20_cbor_read_header(&dc_stream, &cbor_type, &cbor_value);
     n20_cbor_read_header(&dc_stream, &cbor_type, &cbor_value);
     n20_slice_t uds_cert_slice;
-    if (!n20_istream_get_slice(&dc_stream, &uds_cert_slice, cbor_value)) return false;
-    if (uds_cert_slice.size > sizeof(out->data)) return false;
+    if (!n20_istream_get_slice(&dc_stream, &uds_cert_slice, cbor_value)) {
+        return false;
+    }
+    if (uds_cert_slice.size > sizeof(out->data)) {
+        return false;
+    }
     memcpy(out->data, uds_cert_slice.buffer, uds_cert_slice.size);
     out->size = uds_cert_slice.size;
     return true;
@@ -688,11 +707,15 @@ static void test_level1(void) {
     /* CDI1: subject_key_type × format, issuer = P-256, no parent path */
     for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
         for (size_t fi = 0; fi < NUM_CDI_FORMATS; fi++) {
-            level1_artifacts.cdi1_valid[si][fi] = issue_cdi_cert(n20_crypto_key_type_secp256r1_e,
-                                                                 KEY_TYPES[si],
-                                                                 CDI_FORMATS[fi],
-                                                                 no_path,
-                                                                 &level1_artifacts.cdi1[si][fi]);
+            ASSERT((level1_artifacts.cdi1_valid[si][fi] =
+                        issue_cdi_cert(n20_crypto_key_type_secp256r1_e,
+                                       KEY_TYPES[si],
+                                       CDI_FORMATS[fi],
+                                       no_path,
+                                       &level1_artifacts.cdi1[si][fi])),
+                   "Failed to issue CDI1 cert (subject key type %d, format %d)",
+                   KEY_TYPES[si],
+                   CDI_FORMATS[fi]);
         }
     }
 
@@ -700,12 +723,17 @@ static void test_level1(void) {
     for (size_t ii = 0; ii < NUM_KEY_TYPES; ii++) {
         for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
             for (size_t fi = 0; fi < NUM_CDI_FORMATS; fi++) {
-                level1_artifacts.cdi2_valid[ii][si][fi] =
-                    issue_cdi_cert(KEY_TYPES[ii],
-                                   KEY_TYPES[si],
-                                   CDI_FORMATS[fi],
-                                   path_depth1,
-                                   &level1_artifacts.cdi2[ii][si][fi]);
+                ASSERT((level1_artifacts.cdi2_valid[ii][si][fi] =
+                            issue_cdi_cert(KEY_TYPES[ii],
+                                           KEY_TYPES[si],
+                                           CDI_FORMATS[fi],
+                                           path_depth1,
+                                           &level1_artifacts.cdi2[ii][si][fi])),
+                       "Failed to issue CDI2 cert (issuer key type %d, subject key type %d, format "
+                       "%d)",
+                       KEY_TYPES[ii],
+                       KEY_TYPES[si],
+                       CDI_FORMATS[fi]);
             }
         }
     }
@@ -713,11 +741,15 @@ static void test_level1(void) {
     /* ECA: issuer_key_type × subject_key_type, parent_path depth 2 */
     for (size_t ii = 0; ii < NUM_KEY_TYPES; ii++) {
         for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
-            level1_artifacts.eca_valid[ii][si] = issue_eca_cert(KEY_TYPES[ii],
-                                                                KEY_TYPES[si],
-                                                                n20_certificate_format_x509_e,
-                                                                path_depth2,
-                                                                &level1_artifacts.eca[ii][si]);
+            ASSERT((level1_artifacts.eca_valid[ii][si] =
+                        issue_eca_cert(KEY_TYPES[ii],
+                                       KEY_TYPES[si],
+                                       n20_certificate_format_x509_e,
+                                       path_depth2,
+                                       &level1_artifacts.eca[ii][si])),
+                   "Failed to issue ECA cert (issuer key type %d, subject key type %d)",
+                   KEY_TYPES[ii],
+                   KEY_TYPES[si]);
         }
     }
 
@@ -725,22 +757,28 @@ static void test_level1(void) {
      * The ECA_EE issuer key type = ECA subject key type. */
     for (size_t ei = 0; ei < NUM_KEY_TYPES; ei++) {
         for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
-            level1_artifacts.eca_ee_valid[ei][si] =
-                issue_eca_ee_cert(KEY_TYPES[ei],
-                                  KEY_TYPES[si],
-                                  n20_certificate_format_x509_e,
-                                  path_depth2,
-                                  &level1_artifacts.eca_ee[ei][si]);
+            ASSERT((level1_artifacts.eca_ee_valid[ei][si] =
+                        issue_eca_ee_cert(KEY_TYPES[ei],
+                                          KEY_TYPES[si],
+                                          n20_certificate_format_x509_e,
+                                          path_depth2,
+                                          &level1_artifacts.eca_ee[ei][si])),
+                   "Failed to issue ECA_EE cert (eca subject key type %d, ee subject key type %d)",
+                   KEY_TYPES[ei],
+                   KEY_TYPES[si]);
         }
     }
 
     /* Signature: ee_subject_key_type, parent_path depth 2 */
     for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
-        level1_artifacts.signature_valid[si] = eca_ee_sign(KEY_TYPES[si],
-                                                           path_depth2,
-                                                           test_message,
-                                                           sizeof(test_message) - 1,
-                                                           &level1_artifacts.signature[si]);
+        ASSERT(
+            (level1_artifacts.signature_valid[si] = eca_ee_sign(KEY_TYPES[si],
+                                                                path_depth2,
+                                                                test_message,
+                                                                sizeof(test_message) - 1,
+                                                                &level1_artifacts.signature[si])),
+            "Failed to issue signature (ee subject key type %d)",
+            KEY_TYPES[si]);
     }
 
     /* Verification: check X.509 chains where applicable */
@@ -757,7 +795,9 @@ static void test_level1(void) {
 
     /* Verify CDI1 X.509 certs against UDS key */
     for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
-        if (!level1_artifacts.cdi1_valid[si][0]) continue; /* X.509 is index 0 */
+        if (!level1_artifacts.cdi1_valid[si][0]) {
+            continue; /* X.509 is index 0 */
+        }
         ASSERT(test_verify_x509_signature(level1_artifacts.cdi1[si][0].data,
                                           level1_artifacts.cdi1[si][0].size,
                                           uds_pubkey,
@@ -813,7 +853,9 @@ static void test_level1(void) {
                               KEY_TYPES[ii]);
                 }
                 for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
-                    if (!level1_artifacts.cdi2_valid[ii][si][0]) continue;
+                    if (!level1_artifacts.cdi2_valid[ii][si][0]) {
+                        continue;
+                    }
                     ASSERT(test_verify_x509_signature(level1_artifacts.cdi2[ii][si][0].data,
                                                       level1_artifacts.cdi2[ii][si][0].size,
                                                       cdi1_pubkey,
@@ -851,7 +893,9 @@ static void test_level1(void) {
                 /* Get CDI2 public key for this issuer key type.
                  * Use the issuer index ii as the subject index of the CDI2 matrix.
                  * The issuer index ii2 corresponds to the CDI2 issuer key type. */
-                if (!level1_artifacts.cdi2_valid[ii2][ii][issfi]) continue;
+                if (!level1_artifacts.cdi2_valid[ii2][ii][issfi]) {
+                    continue;
+                }
                 uint8_t cdi2_pubkey[97];
                 size_t cdi2_pubkey_size = sizeof(cdi2_pubkey);
                 if (issfi == 0) {
@@ -884,7 +928,9 @@ static void test_level1(void) {
                 }
 
                 for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
-                    if (!level1_artifacts.eca_valid[ii][si]) continue;
+                    if (!level1_artifacts.eca_valid[ii][si]) {
+                        continue;
+                    }
 
                     /* ECA signed by CDI2's subject key (type = KEY_TYPES[ii]) */
                     ASSERT(test_verify_x509_signature(level1_artifacts.eca[ii][si].data,
@@ -905,17 +951,23 @@ static void test_level1(void) {
         for (size_t ii = 0; ii < NUM_KEY_TYPES; ii++) {
             /* Get ECA public key for this issuer key type.
              * Use the issuer index ii as the subject index of the CDI2 matrix. */
-            if (!level1_artifacts.eca_valid[ii2][ii]) continue;
+            if (!level1_artifacts.eca_valid[ii2][ii]) {
+                continue;
+            }
             uint8_t eca_pubkey[97];
             size_t eca_pubkey_size = sizeof(eca_pubkey);
-            if (!test_extract_x509_pubkey(level1_artifacts.eca[ii2][ii].data,
-                                          level1_artifacts.eca[ii2][ii].size,
-                                          eca_pubkey,
-                                          &eca_pubkey_size))
-                continue;
+            ASSERT(test_extract_x509_pubkey(level1_artifacts.eca[ii2][ii].data,
+                                            level1_artifacts.eca[ii2][ii].size,
+                                            eca_pubkey,
+                                            &eca_pubkey_size),
+                   "Failed to extract public key from ECA cert (iss=%d, sub=%d)",
+                   KEY_TYPES[ii2],
+                   KEY_TYPES[ii]);
 
             for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
-                if (!level1_artifacts.eca_ee_valid[ii][si]) continue;
+                if (!level1_artifacts.eca_ee_valid[ii][si]) {
+                    continue;
+                }
 
                 /* ECA_EE signed by ECA's subject key (type = KEY_TYPES[ii]) */
                 ASSERT(test_verify_x509_signature(level1_artifacts.eca_ee[ii][si].data,
@@ -934,16 +986,22 @@ static void test_level1(void) {
     /* Verify ECA_EE Signatures against ECA_EE keys */
     for (size_t ii = 0; ii < NUM_KEY_TYPES; ii++) {
         for (size_t si = 0; si < NUM_KEY_TYPES; si++) {
-            if (!level1_artifacts.eca_ee_valid[ii][si]) continue;
+            if (!level1_artifacts.eca_ee_valid[ii][si]) {
+                continue;
+            }
             uint8_t eca_ee_pubkey[97];
             size_t eca_ee_pubkey_size = sizeof(eca_ee_pubkey);
-            if (!test_extract_x509_pubkey(level1_artifacts.eca_ee[ii][si].data,
-                                          level1_artifacts.eca_ee[ii][si].size,
-                                          eca_ee_pubkey,
-                                          &eca_ee_pubkey_size))
-                continue;
+            ASSERT(test_extract_x509_pubkey(level1_artifacts.eca_ee[ii][si].data,
+                                            level1_artifacts.eca_ee[ii][si].size,
+                                            eca_ee_pubkey,
+                                            &eca_ee_pubkey_size),
+                   "Failed to extract public key from ECA_EE cert (iss=%d, sub=%d)",
+                   KEY_TYPES[ii],
+                   KEY_TYPES[si]);
 
-            if (!level1_artifacts.signature_valid[si]) continue;
+            if (!level1_artifacts.signature_valid[si]) {
+                continue;
+            }
             /* Verify signature against ECA_EE key */
             ASSERT(test_verify_raw_signature(eca_ee_pubkey + 1,
                                              eca_ee_pubkey_size - 1,
