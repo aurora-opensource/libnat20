@@ -396,7 +396,12 @@ static int __init nat20device_device_init(void) {
     }
 
     /* Create device class */
+#if defined(class_create)
+    nat20device_class = class_create(THIS_MODULE, NAT20DEVICE_DEVICE_NAME);
+#else
     nat20device_class = class_create(NAT20DEVICE_DEVICE_NAME);
+#endif
+
     if (IS_ERR(nat20device_class)) {
         ret = PTR_ERR(nat20device_class);
         pr_err("NAT20: Failed to create device class: %d\n", ret);
