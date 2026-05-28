@@ -193,7 +193,7 @@ typedef struct owned_buffer {
     size_t size;
 } owned_buffer_t;
 
-owned_buffer_t make_owned_buffer(size_t size) {
+static owned_buffer_t make_owned_buffer(size_t size) {
     owned_buffer_t buf;
     buf.data = malloc(size);
     if (buf.data != NULL) {
@@ -205,12 +205,19 @@ owned_buffer_t make_owned_buffer(size_t size) {
     return buf;
 }
 
-void free_owned_buffer(owned_buffer_t *buf) {
+static void free_owned_buffer(owned_buffer_t *buf) {
     if (buf->data != NULL) {
         free(buf->data);
         buf->data = NULL;
         buf->size = 0;
     }
+}
+
+static n20_slice_t owned_buffer_to_slice(owned_buffer_t const *buf) {
+    n20_slice_t slice;
+    slice.buffer = buf->data;
+    slice.size = buf->size;
+    return slice;
 }
 
 // Intermediate structure to hold parsed command-line options
@@ -225,14 +232,14 @@ typedef struct {
 
     // Parent path (used by most commands except promote)
     struct {
-        char const **elements;  // Array of hex strings
+        owned_buffer_t *elements;  // Array of binary buffers representing parent path elements
         size_t count;
         size_t capacity;
     } parent_path;
 
     // Certificate-related
-    int certificate_format;  // -f
-    char const *challenge;   // -l
+    int certificate_format;    // -f
+    owned_buffer_t challenge;  // -l
 
     // CDI-specific fields
     struct {
@@ -301,35 +308,35 @@ static owned_buffer_t hex_string_to_bytes(char const *hex) {
     return buf;
 }
 
-static n20_slice_t owned_buffer_to_slice(owned_buffer_t const *buf) {
-    n20_slice_t slice;
-    slice.buffer = buf->data;
-    slice.size = buf->size;
-    return slice;
-}
-
 // Helper function to add parent path element to options
 static bool add_parent_path_element(parsed_options_t *opts, char const *element) {
     if (opts->parent_path.count >= opts->parent_path.capacity) {
         size_t new_capacity = opts->parent_path.capacity == 0 ? 4 : opts->parent_path.capacity * 2;
-        char const **new_elements =
-            reallocarray((void *)opts->parent_path.elements, new_capacity, sizeof(char const *));
+        owned_buffer_t *new_elements =
+            reallocarray((void *)opts->parent_path.elements, new_capacity, sizeof(owned_buffer_t));
         if (new_elements == NULL) {
             return false;
         }
         opts->parent_path.elements = new_elements;
         opts->parent_path.capacity = new_capacity;
     }
-    opts->parent_path.elements[opts->parent_path.count++] = element;
+    opts->parent_path.elements[opts->parent_path.count++] = hex_string_to_bytes(element);
+    if (opts->parent_path.elements[opts->parent_path.count - 1].data == NULL) {
+        return false;  // Failed to parse hex string
+    }
     return true;
 }
 
 // Helper function to clean up parsed options
 static void cleanup_parsed_options(parsed_options_t *opts) {
     if (opts->parent_path.elements != NULL) {
+        for (size_t i = 0; i < opts->parent_path.count; i++) {
+            free_owned_buffer(&opts->parent_path.elements[i]);
+        }
         free((void *)opts->parent_path.elements);
         opts->parent_path.elements = NULL;
     }
+    free_owned_buffer(&opts->challenge);
     free_owned_buffer(&opts->cdi_fields.code_hash);
     free_owned_buffer(&opts->cdi_fields.code_desc);
     free_owned_buffer(&opts->cdi_fields.conf_hash);
@@ -341,7 +348,7 @@ static void cleanup_parsed_options(parsed_options_t *opts) {
     free_owned_buffer(&opts->message);
 }
 
-static bool add_parent_path_decoded(n20_parent_path_t *path, char const *hex_str) {
+static bool add_parent_path_decoded(n20_parent_path_t *path, owned_buffer_t const *buf) {
     if (path->is_encoded) {
         fprintf(stderr, "Cannot add parent path element to already encoded path\n");
         return false;
@@ -354,8 +361,7 @@ static bool add_parent_path_decoded(n20_parent_path_t *path, char const *hex_str
         return false;
     }
     path->decoded = new_slices;
-    new_slices[path->length].buffer = (uint8_t *)hex_str;
-    new_slices[path->length].size = strlen(hex_str) / 2;  // Assuming hex string represents bytes
+    new_slices[path->length] = owned_buffer_to_slice(buf);
     path->length++;
     return true;
 }
@@ -442,7 +448,11 @@ static int parse_command_options(int argc, char *argv[], parsed_options_t *opts)
                 opts->certificate_format = parse_output_format(optarg);
                 break;
             case 'l':
-                opts->challenge = optarg;
+                opts->challenge = hex_string_to_bytes(optarg);
+                if (opts->challenge.data == NULL) {
+                    fprintf(stderr, "Invalid challenge hex string\n");
+                    return -1;
+                }
                 break;
 
             // Promote options
@@ -554,8 +564,6 @@ static cli_error_t init_promote_request(n20_msg_request_t *request, parsed_optio
 
 // Initialize CDI cert request from parsed options
 static cli_error_t init_cdi_cert_request(n20_msg_request_t *request, parsed_options_t const *opts) {
-    cli_error_t err;
-
     request->request_type = n20_msg_request_type_issue_cdi_cert_e;
     request->payload.issue_cdi_cert.subject_key_type = opts->subject_key_type;
     request->payload.issue_cdi_cert.issuer_key_type = opts->issuer_key_type;
@@ -603,19 +611,10 @@ static cli_error_t init_cdi_cert_request(n20_msg_request_t *request, parsed_opti
     // Build parent path
     for (size_t i = 0; i < opts->parent_path.count; ++i) {
         if (!add_parent_path_decoded(&request->payload.issue_cdi_cert.parent_path,
-                                     opts->parent_path.elements[i])) {
+                                     &opts->parent_path.elements[i])) {
             fprintf(stderr, "Failed to add parent path element\n");
             return cli_error_invalid_argument;
         }
-    }
-
-    // Parse parent path hex strings
-    for (size_t i = 0; i < request->payload.issue_cdi_cert.parent_path.length; ++i) {
-        err = parse_hex_to_slice(
-            (n20_slice_t *)&request->payload.issue_cdi_cert.parent_path.decoded[i],
-            (char const *)request->payload.issue_cdi_cert.parent_path.decoded[i].buffer,
-            "parent path element");
-        if (err != cli_error_ok) return err;
     }
 
     return cli_error_ok;
@@ -623,8 +622,6 @@ static cli_error_t init_cdi_cert_request(n20_msg_request_t *request, parsed_opti
 
 // Initialize ECA cert request from parsed options
 static cli_error_t init_eca_cert_request(n20_msg_request_t *request, parsed_options_t const *opts) {
-    cli_error_t err;
-
     request->request_type = n20_msg_request_type_issue_eca_cert_e;
     request->payload.issue_eca_cert.subject_key_type = opts->subject_key_type;
     request->payload.issue_eca_cert.issuer_key_type = opts->issuer_key_type;
@@ -645,26 +642,15 @@ static cli_error_t init_eca_cert_request(n20_msg_request_t *request, parsed_opti
     }
 
     // Parse challenge if provided
-    err = parse_hex_to_slice(
-        &request->payload.issue_eca_cert.challenge, opts->challenge, "challenge");
-    if (err != cli_error_ok) return err;
+    request->payload.issue_eca_cert.challenge = owned_buffer_to_slice(&opts->challenge);
 
     // Build parent path
     for (size_t i = 0; i < opts->parent_path.count; ++i) {
         if (!add_parent_path_decoded(&request->payload.issue_eca_cert.parent_path,
-                                     opts->parent_path.elements[i])) {
+                                     &opts->parent_path.elements[i])) {
             fprintf(stderr, "Failed to add parent path element\n");
             return cli_error_invalid_argument;
         }
-    }
-
-    // Parse parent path hex strings
-    for (size_t i = 0; i < request->payload.issue_eca_cert.parent_path.length; ++i) {
-        err = parse_hex_to_slice(
-            (n20_slice_t *)&request->payload.issue_eca_cert.parent_path.decoded[i],
-            (char const *)request->payload.issue_eca_cert.parent_path.decoded[i].buffer,
-            "parent path element");
-        if (err != cli_error_ok) return err;
     }
 
     return cli_error_ok;
@@ -674,8 +660,6 @@ static cli_error_t init_eca_cert_request(n20_msg_request_t *request, parsed_opti
 static cli_error_t init_eca_ee_cert_request(n20_msg_request_t *request,
                                             parsed_options_t const *opts,
                                             uint8_t key_usage[2]) {
-    cli_error_t err;
-
     request->request_type = n20_msg_request_type_issue_eca_ee_cert_e;
     request->payload.issue_eca_ee_cert.subject_key_type = opts->subject_key_type;
     request->payload.issue_eca_ee_cert.issuer_key_type = opts->issuer_key_type;
@@ -709,26 +693,15 @@ static cli_error_t init_eca_ee_cert_request(n20_msg_request_t *request,
     }
 
     // Parse challenge if provided
-    err = parse_hex_to_slice(
-        &request->payload.issue_eca_ee_cert.challenge, opts->challenge, "challenge");
-    if (err != cli_error_ok) return err;
+    request->payload.issue_eca_ee_cert.challenge = owned_buffer_to_slice(&opts->challenge);
 
     // Build parent path
     for (size_t i = 0; i < opts->parent_path.count; ++i) {
         if (!add_parent_path_decoded(&request->payload.issue_eca_ee_cert.parent_path,
-                                     opts->parent_path.elements[i])) {
+                                     &opts->parent_path.elements[i])) {
             fprintf(stderr, "Failed to add parent path element\n");
             return cli_error_invalid_argument;
         }
-    }
-
-    // Parse parent path hex strings
-    for (size_t i = 0; i < request->payload.issue_eca_ee_cert.parent_path.length; ++i) {
-        err = parse_hex_to_slice(
-            (n20_slice_t *)&request->payload.issue_eca_ee_cert.parent_path.decoded[i],
-            (char const *)request->payload.issue_eca_ee_cert.parent_path.decoded[i].buffer,
-            "parent path element");
-        if (err != cli_error_ok) return err;
     }
 
     return cli_error_ok;
@@ -738,8 +711,6 @@ static cli_error_t init_eca_ee_cert_request(n20_msg_request_t *request,
 static cli_error_t init_eca_ee_sign_request(n20_msg_request_t *request,
                                             parsed_options_t const *opts,
                                             uint8_t key_usage[2]) {
-    cli_error_t err;
-
     request->request_type = n20_msg_request_type_eca_ee_sign_e;
     request->payload.eca_ee_sign.subject_key_type = opts->subject_key_type;
 
@@ -763,25 +734,15 @@ static cli_error_t init_eca_ee_sign_request(n20_msg_request_t *request,
     }
 
     // Parse message
-    err = parse_hex_to_slice(&request->payload.eca_ee_sign.message, opts->message, "message");
-    if (err != cli_error_ok) return err;
+    request->payload.eca_ee_sign.message = owned_buffer_to_slice(&opts->message);
 
     // Build parent path
     for (size_t i = 0; i < opts->parent_path.count; ++i) {
         if (!add_parent_path_decoded(&request->payload.eca_ee_sign.parent_path,
-                                     opts->parent_path.elements[i])) {
+                                     &opts->parent_path.elements[i])) {
             fprintf(stderr, "Failed to add parent path element\n");
             return cli_error_invalid_argument;
         }
-    }
-
-    // Parse parent path hex strings
-    for (size_t i = 0; i < request->payload.eca_ee_sign.parent_path.length; ++i) {
-        err = parse_hex_to_slice(
-            (n20_slice_t *)&request->payload.eca_ee_sign.parent_path.decoded[i],
-            (char const *)request->payload.eca_ee_sign.parent_path.decoded[i].buffer,
-            "parent path element");
-        if (err != cli_error_ok) return err;
     }
 
     return cli_error_ok;
