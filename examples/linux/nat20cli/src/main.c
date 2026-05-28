@@ -93,7 +93,7 @@ char const *usage_format_str =
     "                 The output file to write the resulting certificate or "
     "signature to.\n"
     "\n"
-    "Options  (*-cert commands):\n"
+    "Options (*-cert commands):\n"
     "  --parent-key-type -p <ed25519|p256|p384>\n"
     "                 The key type of the parent key. This is used to identify "
     "the\n"
@@ -101,7 +101,7 @@ char const *usage_format_str =
     "  --certificate-format -f <x509|cose>\n"
     "                 The format of the certificate to be issued.\n"
     "\n"
-    "Options (cdi-cert):"
+    "Options (cdi-cert):\n"
     "  --code -c <code_hash>\n"
     "                 The code hash as hex string.\n"
     "  --code-desc -C <code_desc>\n"
@@ -176,9 +176,7 @@ int parse_mode(char const *str) {
 
 int parse_output_format(char const *str) {
     if (strcmp(str, "x509") == 0) return n20_certificate_format_x509_e;
-#ifdef N20_WITH_COSE
     if (strcmp(str, "cose") == 0) return n20_certificate_format_cose_e;
-#endif
     return n20_certificate_format_none_e;
 }
 
@@ -187,6 +185,31 @@ void parse_key_usage(char const *str, uint8_t key_usage[2]) {
         N20_OPEN_DICE_KEY_USAGE_SET_DIGITAL_SIGNATURE(key_usage);
     } else if (strcmp(str, "cert-sign") == 0) {
         N20_OPEN_DICE_KEY_USAGE_SET_KEY_CERT_SIGN(key_usage);
+    }
+}
+
+typedef struct owned_buffer {
+    uint8_t *data;
+    size_t size;
+} owned_buffer_t;
+
+owned_buffer_t make_owned_buffer(size_t size) {
+    owned_buffer_t buf;
+    buf.data = malloc(size);
+    if (buf.data != NULL) {
+        memset(buf.data, 0, size);
+        buf.size = size;
+    } else {
+        buf.size = 0;
+    }
+    return buf;
+}
+
+void free_owned_buffer(owned_buffer_t *buf) {
+    if (buf->data != NULL) {
+        free(buf->data);
+        buf->data = NULL;
+        buf->size = 0;
     }
 }
 
@@ -213,13 +236,13 @@ typedef struct {
 
     // CDI-specific fields
     struct {
-        char const *code_hash;     // -c
-        char const *code_desc;     // -C
-        char const *conf_hash;     // -g
-        char const *conf_desc;     // -G
-        char const *auth_hash;     // -a
-        char const *auth_desc;     // -A
-        char const *hidden;        // -H
+        owned_buffer_t code_hash;  // -c
+        owned_buffer_t code_desc;  // -C
+        owned_buffer_t conf_hash;  // -g
+        owned_buffer_t conf_desc;  // -G
+        owned_buffer_t auth_hash;  // -a
+        owned_buffer_t auth_desc;  // -A
+        owned_buffer_t hidden;     // -H
         int mode;                  // -m
         char const *profile_name;  // -P
     } cdi_fields;
@@ -231,8 +254,8 @@ typedef struct {
     } ee_fields;
 
     // Command-specific fields
-    char const *compressed_input;  // -i (promote)
-    char const *message;           // -M (eca-ee-sign)
+    owned_buffer_t compressed_input;  // -i (promote)
+    owned_buffer_t message;           // -M (eca-ee-sign)
 } parsed_options_t;
 
 // Convert a hex nibble character to its 4-bit value
@@ -245,13 +268,23 @@ static int8_t nibble2bits(uint8_t nibble) {
     return -1;
 }
 
-static int hex_string_to_bytes_in_place(char *hex) {
+static owned_buffer_t hex_string_to_bytes(char const *hex) {
+    owned_buffer_t buf = {0};
     size_t len = strlen(hex);
-    uint8_t *out_pos = (uint8_t *)hex;
+    buf = make_owned_buffer((len + 1) / 2);  // Allocate enough memory for bytes
+    if (buf.data == NULL) {
+        return buf;  // Memory allocation failed
+    }
+    uint8_t *out_pos = buf.data;
     size_t pos = 0;
     if ((len & 1) != 0) {
         // Odd length, assume leading zero
-        *out_pos++ = nibble2bits(hex[0]);
+        int8_t low = nibble2bits(hex[0]);
+        if (low < 0) {
+            free_owned_buffer(&buf);
+            return buf;  // Invalid hex character
+        }
+        *out_pos++ = low;
         pos++;
     }
 
@@ -259,32 +292,20 @@ static int hex_string_to_bytes_in_place(char *hex) {
         int8_t high = nibble2bits(hex[pos++]);
         int8_t low = nibble2bits(hex[pos++]);
         if (high < 0 || low < 0) {
-            return -1;  // Invalid hex character
+            free_owned_buffer(&buf);
+            return buf;  // Invalid hex character
         }
         *out_pos++ = (high << 4) | low;
     }
 
-    return out_pos - (uint8_t *)hex;  // Return number of bytes written
+    return buf;
 }
 
-// Helper function to parse hex string into a slice
-static cli_error_t parse_hex_to_slice(n20_slice_t *slice,
-                                      char const *hex_str,
-                                      char const *field_name) {
-    if (hex_str == NULL) {
-        slice->buffer = NULL;
-        slice->size = 0;
-        return cli_error_ok;
-    }
-
-    slice->buffer = (uint8_t *)hex_str;
-    int bytes_written = hex_string_to_bytes_in_place((char *)slice->buffer);
-    if (bytes_written < 0) {
-        fprintf(stderr, "Invalid hex string for %s\n", field_name);
-        return cli_error_invalid_argument;
-    }
-    slice->size = bytes_written;
-    return cli_error_ok;
+static n20_slice_t owned_buffer_to_slice(owned_buffer_t const *buf) {
+    n20_slice_t slice;
+    slice.buffer = buf->data;
+    slice.size = buf->size;
+    return slice;
 }
 
 // Helper function to add parent path element to options
@@ -309,6 +330,15 @@ static void cleanup_parsed_options(parsed_options_t *opts) {
         free((void *)opts->parent_path.elements);
         opts->parent_path.elements = NULL;
     }
+    free_owned_buffer(&opts->cdi_fields.code_hash);
+    free_owned_buffer(&opts->cdi_fields.code_desc);
+    free_owned_buffer(&opts->cdi_fields.conf_hash);
+    free_owned_buffer(&opts->cdi_fields.conf_desc);
+    free_owned_buffer(&opts->cdi_fields.auth_hash);
+    free_owned_buffer(&opts->cdi_fields.auth_desc);
+    free_owned_buffer(&opts->cdi_fields.hidden);
+    free_owned_buffer(&opts->compressed_input);
+    free_owned_buffer(&opts->message);
 }
 
 static bool add_parent_path_decoded(n20_parent_path_t *path, char const *hex_str) {
@@ -417,33 +447,65 @@ static int parse_command_options(int argc, char *argv[], parsed_options_t *opts)
 
             // Promote options
             case 'i':
-                opts->compressed_input = optarg;
+                opts->compressed_input = hex_string_to_bytes(optarg);
+                if (opts->compressed_input.data == NULL) {
+                    fprintf(stderr, "Invalid compressed input hex string\n");
+                    return -1;
+                }
                 break;
 
             // CDI cert options
             case 'c':
-                opts->cdi_fields.code_hash = optarg;
+                opts->cdi_fields.code_hash = hex_string_to_bytes(optarg);
+                if (opts->cdi_fields.code_hash.data == NULL) {
+                    fprintf(stderr, "Invalid code hash hex string\n");
+                    return -1;
+                }
                 break;
             case 'C':
-                opts->cdi_fields.code_desc = optarg;
+                opts->cdi_fields.code_desc = hex_string_to_bytes(optarg);
+                if (opts->cdi_fields.code_desc.data == NULL) {
+                    fprintf(stderr, "Invalid code descriptor hex string\n");
+                    return -1;
+                }
                 break;
             case 'g':
-                opts->cdi_fields.conf_hash = optarg;
+                opts->cdi_fields.conf_hash = hex_string_to_bytes(optarg);
+                if (opts->cdi_fields.conf_hash.data == NULL) {
+                    fprintf(stderr, "Invalid conf hash hex string\n");
+                    return -1;
+                }
                 break;
             case 'G':
-                opts->cdi_fields.conf_desc = optarg;
+                opts->cdi_fields.conf_desc = hex_string_to_bytes(optarg);
+                if (opts->cdi_fields.conf_desc.data == NULL) {
+                    fprintf(stderr, "Invalid configuration descriptor hex string\n");
+                    return -1;
+                }
                 break;
             case 'a':
-                opts->cdi_fields.auth_hash = optarg;
+                opts->cdi_fields.auth_hash = hex_string_to_bytes(optarg);
+                if (opts->cdi_fields.auth_hash.data == NULL) {
+                    fprintf(stderr, "Invalid auth hash hex string\n");
+                    return -1;
+                }
                 break;
             case 'A':
-                opts->cdi_fields.auth_desc = optarg;
+                opts->cdi_fields.auth_desc = hex_string_to_bytes(optarg);
+                if (opts->cdi_fields.auth_desc.data == NULL) {
+                    fprintf(stderr, "Invalid authority descriptor hex string\n");
+                    return -1;
+                }
                 break;
             case 'm':
                 opts->cdi_fields.mode = parse_mode(optarg);
                 break;
             case 'H':
-                opts->cdi_fields.hidden = optarg;
+                opts->cdi_fields.hidden = hex_string_to_bytes(optarg);
+                if (opts->cdi_fields.hidden.data == NULL) {
+                    fprintf(stderr, "Invalid hidden hex string\n");
+                    return -1;
+                }
                 break;
             case 'P':
                 opts->cdi_fields.profile_name = optarg;
@@ -459,7 +521,11 @@ static int parse_command_options(int argc, char *argv[], parsed_options_t *opts)
 
             // ECA EE sign options
             case 'M':
-                opts->message = optarg;
+                opts->message = hex_string_to_bytes(optarg);
+                if (opts->message.data == NULL) {
+                    fprintf(stderr, "Invalid message hex string\n");
+                    return -1;
+                }
                 break;
 
             case '?':
@@ -476,14 +542,14 @@ static int parse_command_options(int argc, char *argv[], parsed_options_t *opts)
 
 // Initialize promote request from parsed options
 static cli_error_t init_promote_request(n20_msg_request_t *request, parsed_options_t const *opts) {
-    if (opts->compressed_input == NULL) {
+    if (opts->compressed_input.data == NULL) {
         fprintf(stderr, "Promote requires --compressed-input\n");
         return cli_error_invalid_argument;
     }
 
     request->request_type = n20_msg_request_type_promote_e;
-    return parse_hex_to_slice(
-        &request->payload.promote.compressed_context, opts->compressed_input, "compressed input");
+    request->payload.promote.compressed_context = owned_buffer_to_slice(&opts->compressed_input);
+    return cli_error_ok;
 }
 
 // Initialize CDI cert request from parsed options
@@ -510,39 +576,20 @@ static cli_error_t init_cdi_cert_request(n20_msg_request_t *request, parsed_opti
     }
 
     // Parse CDI fields
-    err = parse_hex_to_slice(&request->payload.issue_cdi_cert.next_context.code_hash,
-                             opts->cdi_fields.code_hash,
-                             "code hash");
-    if (err != cli_error_ok) return err;
-
-    err = parse_hex_to_slice(&request->payload.issue_cdi_cert.next_context.code_descriptor,
-                             opts->cdi_fields.code_desc,
-                             "code descriptor");
-    if (err != cli_error_ok) return err;
-
-    err = parse_hex_to_slice(&request->payload.issue_cdi_cert.next_context.configuration_hash,
-                             opts->cdi_fields.conf_hash,
-                             "configuration hash");
-    if (err != cli_error_ok) return err;
-
-    err = parse_hex_to_slice(&request->payload.issue_cdi_cert.next_context.configuration_descriptor,
-                             opts->cdi_fields.conf_desc,
-                             "configuration descriptor");
-    if (err != cli_error_ok) return err;
-
-    err = parse_hex_to_slice(&request->payload.issue_cdi_cert.next_context.authority_hash,
-                             opts->cdi_fields.auth_hash,
-                             "authority hash");
-    if (err != cli_error_ok) return err;
-
-    err = parse_hex_to_slice(&request->payload.issue_cdi_cert.next_context.authority_descriptor,
-                             opts->cdi_fields.auth_desc,
-                             "authority descriptor");
-    if (err != cli_error_ok) return err;
-
-    err = parse_hex_to_slice(
-        &request->payload.issue_cdi_cert.next_context.hidden, opts->cdi_fields.hidden, "hidden");
-    if (err != cli_error_ok) return err;
+    request->payload.issue_cdi_cert.next_context.code_hash =
+        owned_buffer_to_slice(&opts->cdi_fields.code_hash);
+    request->payload.issue_cdi_cert.next_context.code_descriptor =
+        owned_buffer_to_slice(&opts->cdi_fields.code_desc);
+    request->payload.issue_cdi_cert.next_context.configuration_hash =
+        owned_buffer_to_slice(&opts->cdi_fields.conf_hash);
+    request->payload.issue_cdi_cert.next_context.configuration_descriptor =
+        owned_buffer_to_slice(&opts->cdi_fields.conf_desc);
+    request->payload.issue_cdi_cert.next_context.authority_hash =
+        owned_buffer_to_slice(&opts->cdi_fields.auth_hash);
+    request->payload.issue_cdi_cert.next_context.authority_descriptor =
+        owned_buffer_to_slice(&opts->cdi_fields.auth_desc);
+    request->payload.issue_cdi_cert.next_context.hidden =
+        owned_buffer_to_slice(&opts->cdi_fields.hidden);
 
     request->payload.issue_cdi_cert.next_context.mode = opts->cdi_fields.mode;
 
@@ -908,6 +955,8 @@ static cli_error_t handle_eca_ee_sign_response(n20_slice_t response_slice,
 }
 
 int main(int argc, char *argv[]) {
+    int err = EXIT_FAILURE;
+    int dice_dev_fd = -1;
     // Stage 1: Parse command options
     parsed_options_t opts = {
         .request_type = n20_msg_request_type_none_e,
@@ -919,24 +968,21 @@ int main(int argc, char *argv[]) {
 
     if (parse_command_options(argc, argv, &opts) != 0) {
         print_usage(argv[0]);
-        cleanup_parsed_options(&opts);
-        exit(EXIT_FAILURE);
+        goto out;
     }
 
     // Stage 2: Determine command
     if (optind >= argc) {
         fprintf(stderr, "No command specified\n");
         print_usage(argv[0]);
-        cleanup_parsed_options(&opts);
-        exit(EXIT_FAILURE);
+        goto out;
     }
 
     int request_type = parse_request_type(argv[optind]);
     if (request_type == n20_msg_request_type_none_e) {
         fprintf(stderr, "Unknown command: %s\n", argv[optind]);
         print_usage(argv[0]);
-        cleanup_parsed_options(&opts);
-        exit(EXIT_FAILURE);
+        goto out;
     }
 
     opts.request_type = request_type;
@@ -965,15 +1011,13 @@ int main(int argc, char *argv[]) {
         default:
             fprintf(stderr, "Unsupported request type: %d\n", request_type);
             print_usage(argv[0]);
-            cleanup_parsed_options(&opts);
-            exit(EXIT_FAILURE);
+            goto out;
     }
 
     if (cli_err != cli_error_ok) {
         fprintf(stderr, "Failed to initialize request. CLI error: %d\n", cli_err);
         print_usage(argv[0]);
-        cleanup_parsed_options(&opts);
-        exit(EXIT_FAILURE);
+        goto out;
     }
 
     uint8_t msg_buffer[1024];
@@ -984,23 +1028,22 @@ int main(int argc, char *argv[]) {
     if (n20_err != n20_error_ok_e) {
         fprintf(stderr, "Failed to write request. libnat20 error: %d (0x%x)\n", n20_err, n20_err);
         print_usage(argv[0]);
-        exit(EXIT_FAILURE);
+        goto out;
     }
 
     clean_up_request(&request);
 
-    int dice_dev_fd = open("/dev/nat200", O_RDWR);
+    dice_dev_fd = open("/dev/nat200", O_RDWR);
     if (dice_dev_fd < 0) {
         perror("open");
-        exit(EXIT_FAILURE);
+        goto out;
     }
 
     ssize_t bytes_written =
         write(dice_dev_fd, msg_buffer + (sizeof(msg_buffer) - msg_size), msg_size);
     if (bytes_written < 0) {
         perror("write");
-        close(dice_dev_fd);
-        exit(EXIT_FAILURE);
+        goto out;
     }
 
     uint8_t response_buffer[1024];
@@ -1008,10 +1051,8 @@ int main(int argc, char *argv[]) {
     ssize_t bytes_received = read(dice_dev_fd, response_buffer, sizeof(response_buffer));
     if (bytes_received < 0) {
         perror("read");
-        close(dice_dev_fd);
-        exit(EXIT_FAILURE);
+        goto out;
     }
-    close(dice_dev_fd);
 
     printf("Bytes written: %zd, Bytes received: %zd\n", bytes_written, bytes_received);
 
@@ -1041,15 +1082,18 @@ int main(int argc, char *argv[]) {
             break;
         default:
             fprintf(stderr, "Unknown request type in response\n");
-            cleanup_parsed_options(&opts);
-            exit(EXIT_FAILURE);
+            goto out;
     }
-
-    cleanup_parsed_options(&opts);
 
     if (cli_err != cli_error_ok) {
-        exit(EXIT_FAILURE);
+        goto out;
     }
 
-    return 0;
+    err = 0;
+out:
+    if (dice_dev_fd >= 0) {
+        close(dice_dev_fd);
+    }
+    cleanup_parsed_options(&opts);
+    return err;
 }
