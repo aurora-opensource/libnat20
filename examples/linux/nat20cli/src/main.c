@@ -763,7 +763,6 @@ static cli_error_t output_binary_data(uint8_t const* data,
             return cli_error_io;
         }
         fclose(file);
-        printf("%s written to %s\n", data_type, output_file);
     } else {
         printf("%s data: ", data_type);
         for (size_t i = 0; i < size; ++i) {
@@ -792,7 +791,6 @@ static cli_error_t handle_promote_response(n20_slice_t response_slice) {
                 response.error_code);
         return cli_error_server;
     }
-    printf("Promote request successful\n");
     return cli_error_ok;
 }
 
@@ -818,9 +816,6 @@ static cli_error_t handle_cert_response(n20_slice_t response_slice,
                 response.error_code);
         return cli_error_server;
     }
-    printf("%s request successful, certificate size: %zu\n",
-           cert_type_name,
-           response.certificate.size);
 
     return output_binary_data(
         response.certificate.buffer, response.certificate.size, output_file, "Certificate");
@@ -900,7 +895,6 @@ static cli_error_t handle_eca_ee_sign_response(n20_slice_t response_slice,
                 response.error_code);
         return cli_error_server;
     }
-    printf("ECA sign request successful, signature size: %zu\n", response.signature.size);
 
     return output_binary_data(
         response.signature.buffer, response.signature.size, output_file, "Signature");
@@ -1005,8 +999,6 @@ int main(int argc, char* argv[]) {
         perror("read");
         goto out;
     }
-
-    printf("Bytes written: %zd, Bytes received: %zd\n", bytes_written, bytes_received);
 
     n20_slice_t response_slice = {
         .buffer = response_buffer,
