@@ -104,19 +104,19 @@ nat20cli eca-cert \
     --parent-key-type p256 \
     --output eca.der \
     --certificate-format x509 \
-    --challenge aabbcc
+    --challenge 4368616c6c656e6765
 nat20cli eca-ee-cert \
     --key-type p256 \
     --parent-key-type p256 \
     --output eca_ee.der \
     --certificate-format x509 \
-    --challenge aabbcc \
+    --challenge 4368616c6c656e6765 \
     --name "Test ECA EE Cert" \
     --key-usage sign
 nat20cli eca-ee-sign \
     --key-type p256 \
     --parent-key-type p256 \
-    --challenge aabbcc \
+    --challenge 4368616c6c656e6765 \
     --name "Test ECA EE Cert" \
     --key-usage sign \
     --message "$(xxd -p message.txt)" \
