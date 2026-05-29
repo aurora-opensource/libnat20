@@ -37,6 +37,7 @@
 
 #include <nat20/cbor.h>
 #include <nat20/error.h>
+#include <nat20/limits.h>
 #include <nat20/service/messages.h>
 #include <nat20/stream.h>
 #include <nat20/types.h>
