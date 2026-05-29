@@ -65,38 +65,34 @@ typedef enum {
     cli_error_server,
 } cli_error_t;
 
-char const *usage_format_str =
+char const* usage_format_str =
     "Usage: %s <command> <options>\n"
     "Commands:\n"
-    "  promote        Instruct the service to promote the caller to the next "
-    "level.\n"
+    "  promote        Instruct the service to promote the caller to the next\n"
+    "                 level.\n"
     "  cdi-cert       Instruct the service to issue a CDI certificate.\n"
     "  eca-cert       Instruct the service to issue an ECA certificate.\n"
-    "  eca-ee-cert    Instruct the service to issue an ECA End-Entity "
-    "certificate.\n"
-    "  eca-ee-sign    Instruct the service to sign a message with an ECA EE "
-    "key.\n"
+    "  eca-ee-cert    Instruct the service to issue an ECA End-Entity\n"
+    "                 certificate.\n"
+    "  eca-ee-sign    Instruct the service to sign a message with an ECA EE\n"
+    "                 key.\n"
     "Options promote:\n"
     "  --compressed-input -i <input>:\n"
-    "                 A hex string. "
-    "H(<code_hash>|<conf_hash>|<auth_hash>|<mode>|<hidden>)\n"
+    "                 A hex string. H(<code_hash>|<conf_hash>|<auth_hash>|<mode>|<hidden>)\n"
     "\n"
     "Options common (all commands except promote):\n"
     "  --key-type -k <ed25519|p256|p384>\n"
     "  --parent-path-element -n <path_element>\n"
-    "                 A parent path element. May be given multiple times. Each "
-    "element\n"
-    "                 is a compressed input. The inputs are used to derive the "
-    "effective\n"
-    "                 parent CDI and thus the key material for the operation.\n"
+    "                 A parent path element. May be given multiple times. Each\n"
+    "                 element is a compressed input. The inputs are used to derive\n"
+    "                 the effective parent CDI and thus the key material for the\n"
+    "                 operation.\n"
     "  --output -o <output_file>\n"
-    "                 The output file to write the resulting certificate or "
-    "signature to.\n"
+    "                 The output file to write the resulting certificate or signature to.\n"
     "\n"
     "Options (*-cert commands):\n"
     "  --parent-key-type -p <ed25519|p256|p384>\n"
-    "                 The key type of the parent key. This is used to identify "
-    "the\n"
+    "                 The key type of the parent key. This is used to identify the\n"
     "                 issuer key algorithm.\n"
     "  --certificate-format -f <x509|cose>\n"
     "                 The format of the certificate to be issued.\n"
@@ -117,47 +113,42 @@ char const *usage_format_str =
     "  --mode -m <not-configured|normal|debug|recovery>\n"
     "                 The mode.\n"
     "  --hidden -H <hidden>\n"
-    "                 The hidden context as hex string. Hidden is part of the "
-    "CDI derivation "
-    "context.\n"
-    "                 But does not appear in the CDI certificate.\n"
+    "                 The hidden context as hex string. Hidden is part of the\n"
+    "                 CDI derivation context, but it does not appear in the CDI\n"
+    "                 certificate.\n"
     "  --profile-name -P <profile_name>\n"
-    "                 The profile name. The DICE profile name is used to "
-    "identify the\n"
-    "                 specific DICE profile being used.\n"
+    "                 The profile name. The DICE profile name is used to identify\n"
+    "                 the specific DICE profile being used.\n"
+    "  --print-next-compressed-input -I\n"
     "\n"
     "Options (eca-ee-cert and eca-ee-sign)\n"
     "  --name -N <name>\n"
-    "                 The application specific name of the end-entity key. It "
-    "is not\n"
-    "                 included in the issued end-entity certificate, but it is "
-    "part of\n"
-    "                 the key derivation context. Thus keys with different "
-    "names are\n"
-    "                 never identical.\n"
+    "                 The application specific name of the end-entity key. It\n"
+    "                 is not included in the issued end-entity certificate, but\n"
+    "                 it is part of the key derivation context. Thus keys with\n"
+    "                 different names are never identical.\n"
     "  --key-usage -u <sign|cert-sign>\n"
     "                 The key usage.\n"
     "\n"
     "Options (eca-cert and eca-ee-cert)\n"
     "  --challenge -l <challenge>\n"
-    "                 The challenge. Will be included in the certificate. "
-    "Using the\n"
+    "                 The challenge. Will be included in the certificate. Using the\n"
     "                 TCG DICE Freshness extension.\n"
     "\n"
     "Options (eca-ee-sign)\n"
     "  --message -M <message>\n"
     "                 The message.\n";
 
-void print_usage(char const *prog) { fprintf(stderr, usage_format_str, prog); }
+void print_usage(char const* prog) { fprintf(stderr, usage_format_str, prog); }
 
-int parse_key_type(char const *str) {
+int parse_key_type(char const* str) {
     if (strcmp(str, "ed25519") == 0) return n20_crypto_key_type_ed25519_e;
     if (strcmp(str, "p256") == 0) return n20_crypto_key_type_secp256r1_e;
     if (strcmp(str, "p384") == 0) return n20_crypto_key_type_secp384r1_e;
     return n20_crypto_key_type_none_e;
 }
 
-int parse_request_type(char const *str) {
+int parse_request_type(char const* str) {
     if (strcmp(str, "promote") == 0) return n20_msg_request_type_promote_e;
     if (strcmp(str, "cdi-cert") == 0) return n20_msg_request_type_issue_cdi_cert_e;
     if (strcmp(str, "eca-cert") == 0) return n20_msg_request_type_issue_eca_cert_e;
@@ -166,7 +157,7 @@ int parse_request_type(char const *str) {
     return n20_msg_request_type_none_e;
 }
 
-int parse_mode(char const *str) {
+int parse_mode(char const* str) {
     if (strcmp(str, "not-configured") == 0) return n20_open_dice_mode_not_configured_e;
     if (strcmp(str, "normal") == 0) return n20_open_dice_mode_normal_e;
     if (strcmp(str, "debug") == 0) return n20_open_dice_mode_debug_e;
@@ -174,13 +165,13 @@ int parse_mode(char const *str) {
     return n20_open_dice_mode_not_configured_e;
 }
 
-int parse_output_format(char const *str) {
+int parse_output_format(char const* str) {
     if (strcmp(str, "x509") == 0) return n20_certificate_format_x509_e;
     if (strcmp(str, "cose") == 0) return n20_certificate_format_cose_e;
     return n20_certificate_format_none_e;
 }
 
-void parse_key_usage(char const *str, uint8_t key_usage[2]) {
+void parse_key_usage(char const* str, uint8_t key_usage[2]) {
     if (strcmp(str, "sign") == 0) {
         N20_OPEN_DICE_KEY_USAGE_SET_DIGITAL_SIGNATURE(key_usage);
     } else if (strcmp(str, "cert-sign") == 0) {
@@ -189,7 +180,7 @@ void parse_key_usage(char const *str, uint8_t key_usage[2]) {
 }
 
 typedef struct owned_buffer {
-    uint8_t *data;
+    uint8_t* data;
     size_t size;
 } owned_buffer_t;
 
@@ -205,7 +196,7 @@ static owned_buffer_t make_owned_buffer(size_t size) {
     return buf;
 }
 
-static void free_owned_buffer(owned_buffer_t *buf) {
+static void free_owned_buffer(owned_buffer_t* buf) {
     if (buf->data != NULL) {
         free(buf->data);
         buf->data = NULL;
@@ -213,7 +204,7 @@ static void free_owned_buffer(owned_buffer_t *buf) {
     }
 }
 
-static n20_slice_t owned_buffer_to_slice(owned_buffer_t const *buf) {
+static n20_slice_t owned_buffer_to_slice(owned_buffer_t const* buf) {
     n20_slice_t slice;
     slice.buffer = buf->data;
     slice.size = buf->size;
@@ -224,7 +215,7 @@ static n20_slice_t owned_buffer_to_slice(owned_buffer_t const *buf) {
 typedef struct {
     // Common fields
     int request_type;
-    char const *output_file;
+    char const* output_file;
 
     // Key-related fields
     int subject_key_type;  // -k
@@ -232,7 +223,7 @@ typedef struct {
 
     // Parent path (used by most commands except promote)
     struct {
-        owned_buffer_t *elements;  // Array of binary buffers representing parent path elements
+        owned_buffer_t* elements;  // Array of binary buffers representing parent path elements
         size_t count;
         size_t capacity;
     } parent_path;
@@ -243,21 +234,22 @@ typedef struct {
 
     // CDI-specific fields
     struct {
-        owned_buffer_t code_hash;  // -c
-        owned_buffer_t code_desc;  // -C
-        owned_buffer_t conf_hash;  // -g
-        owned_buffer_t conf_desc;  // -G
-        owned_buffer_t auth_hash;  // -a
-        owned_buffer_t auth_desc;  // -A
-        owned_buffer_t hidden;     // -H
-        int mode;                  // -m
-        char const *profile_name;  // -P
+        owned_buffer_t code_hash;          // -c
+        owned_buffer_t code_desc;          // -C
+        owned_buffer_t conf_hash;          // -g
+        owned_buffer_t conf_desc;          // -G
+        owned_buffer_t auth_hash;          // -a
+        owned_buffer_t auth_desc;          // -A
+        owned_buffer_t hidden;             // -H
+        int mode;                          // -m
+        char const* profile_name;          // -P
+        bool print_next_compressed_input;  // -I
     } cdi_fields;
 
     // ECA EE-specific fields
     struct {
-        char const *name;           // -N
-        char const *key_usage_str;  // -u
+        char const* name;           // -N
+        char const* key_usage_str;  // -u
     } ee_fields;
 
     // Command-specific fields
@@ -275,14 +267,14 @@ static int8_t nibble2bits(uint8_t nibble) {
     return -1;
 }
 
-static owned_buffer_t hex_string_to_bytes(char const *hex) {
+static owned_buffer_t hex_string_to_bytes(char const* hex) {
     owned_buffer_t buf = {0};
     size_t len = strlen(hex);
     buf = make_owned_buffer((len + 1) / 2);  // Allocate enough memory for bytes
     if (buf.data == NULL) {
         return buf;  // Memory allocation failed
     }
-    uint8_t *out_pos = buf.data;
+    uint8_t* out_pos = buf.data;
     size_t pos = 0;
     if ((len & 1) != 0) {
         // Odd length, assume leading zero
@@ -309,11 +301,11 @@ static owned_buffer_t hex_string_to_bytes(char const *hex) {
 }
 
 // Helper function to add parent path element to options
-static bool add_parent_path_element(parsed_options_t *opts, char const *element) {
+static bool add_parent_path_element(parsed_options_t* opts, char const* element) {
     if (opts->parent_path.count >= opts->parent_path.capacity) {
         size_t new_capacity = opts->parent_path.capacity == 0 ? 4 : opts->parent_path.capacity * 2;
-        owned_buffer_t *new_elements =
-            reallocarray((void *)opts->parent_path.elements, new_capacity, sizeof(owned_buffer_t));
+        owned_buffer_t* new_elements =
+            reallocarray((void*)opts->parent_path.elements, new_capacity, sizeof(owned_buffer_t));
         if (new_elements == NULL) {
             return false;
         }
@@ -328,12 +320,12 @@ static bool add_parent_path_element(parsed_options_t *opts, char const *element)
 }
 
 // Helper function to clean up parsed options
-static void cleanup_parsed_options(parsed_options_t *opts) {
+static void cleanup_parsed_options(parsed_options_t* opts) {
     if (opts->parent_path.elements != NULL) {
         for (size_t i = 0; i < opts->parent_path.count; i++) {
             free_owned_buffer(&opts->parent_path.elements[i]);
         }
-        free((void *)opts->parent_path.elements);
+        free((void*)opts->parent_path.elements);
         opts->parent_path.elements = NULL;
     }
     free_owned_buffer(&opts->challenge);
@@ -348,15 +340,15 @@ static void cleanup_parsed_options(parsed_options_t *opts) {
     free_owned_buffer(&opts->message);
 }
 
-static bool add_parent_path_decoded(n20_parent_path_t *path, owned_buffer_t const *buf) {
+static bool add_parent_path_decoded(n20_parent_path_t* path, owned_buffer_t const* buf) {
     if (path->is_encoded) {
         fprintf(stderr, "Cannot add parent path element to already encoded path\n");
         return false;
     }
-    n20_slice_t *new_slices =
-        reallocarray((void *)path->decoded, path->length + 1, sizeof(n20_slice_t));
+    n20_slice_t* new_slices =
+        reallocarray((void*)path->decoded, path->length + 1, sizeof(n20_slice_t));
     if (new_slices == NULL) {
-        free((void *)path->decoded);
+        free((void*)path->decoded);
         path->decoded = NULL;
         return false;
     }
@@ -366,8 +358,8 @@ static bool add_parent_path_decoded(n20_parent_path_t *path, owned_buffer_t cons
     return true;
 }
 
-static void clean_up_request(n20_msg_request_t *request) {
-    n20_parent_path_t *path = NULL;
+static void clean_up_request(n20_msg_request_t* request) {
+    n20_parent_path_t* path = NULL;
     switch (request->request_type) {
         case n20_msg_request_type_issue_cdi_cert_e:
             path = &request->payload.issue_cdi_cert.parent_path;
@@ -385,12 +377,12 @@ static void clean_up_request(n20_msg_request_t *request) {
             return;  // No parent path to clean up
     }
     if (!path->is_encoded && path->decoded != NULL) {
-        free((void *)path->decoded);
+        free((void*)path->decoded);
         path->decoded = NULL;
     }
 }
 // Unified option parsing function
-static int parse_command_options(int argc, char *argv[], parsed_options_t *opts) {
+static int parse_command_options(int argc, char* argv[], parsed_options_t* opts) {
     // Define all possible long options
     static struct option long_options[] = {// Common options
                                            {"key-type", required_argument, 0, 'k'},
@@ -414,6 +406,7 @@ static int parse_command_options(int argc, char *argv[], parsed_options_t *opts)
                                            {"mode", required_argument, 0, 'm'},
                                            {"hidden", required_argument, 0, 'H'},
                                            {"profile-name", required_argument, 0, 'P'},
+                                           {"print-next-compressed-input", no_argument, 0, 'I'},
 
                                            // ECA EE options
                                            {"name", required_argument, 0, 'N'},
@@ -426,7 +419,8 @@ static int parse_command_options(int argc, char *argv[], parsed_options_t *opts)
 
     int opt;
     while ((opt = getopt_long(
-                argc, argv, "i:k:n:o:p:f:c:C:g:G:a:A:m:H:P:l:N:u:M:?", long_options, NULL)) != -1) {
+                argc, argv, "i:k:n:o:p:f:c:C:g:G:a:A:m:H:P:Il:N:u:M:?", long_options, NULL)) !=
+           -1) {
         switch (opt) {
             // Common options
             case 'k':
@@ -520,6 +514,9 @@ static int parse_command_options(int argc, char *argv[], parsed_options_t *opts)
             case 'P':
                 opts->cdi_fields.profile_name = optarg;
                 break;
+            case 'I':
+                opts->cdi_fields.print_next_compressed_input = true;
+                break;
 
             // ECA EE options
             case 'N':
@@ -551,7 +548,7 @@ static int parse_command_options(int argc, char *argv[], parsed_options_t *opts)
 }
 
 // Initialize promote request from parsed options
-static cli_error_t init_promote_request(n20_msg_request_t *request, parsed_options_t const *opts) {
+static cli_error_t init_promote_request(n20_msg_request_t* request, parsed_options_t const* opts) {
     if (opts->compressed_input.data == NULL) {
         fprintf(stderr, "Promote requires --compressed-input\n");
         return cli_error_invalid_argument;
@@ -563,7 +560,7 @@ static cli_error_t init_promote_request(n20_msg_request_t *request, parsed_optio
 }
 
 // Initialize CDI cert request from parsed options
-static cli_error_t init_cdi_cert_request(n20_msg_request_t *request, parsed_options_t const *opts) {
+static cli_error_t init_cdi_cert_request(n20_msg_request_t* request, parsed_options_t const* opts) {
     request->request_type = n20_msg_request_type_issue_cdi_cert_e;
     request->payload.issue_cdi_cert.subject_key_type = opts->subject_key_type;
     request->payload.issue_cdi_cert.issuer_key_type = opts->issuer_key_type;
@@ -621,7 +618,7 @@ static cli_error_t init_cdi_cert_request(n20_msg_request_t *request, parsed_opti
 }
 
 // Initialize ECA cert request from parsed options
-static cli_error_t init_eca_cert_request(n20_msg_request_t *request, parsed_options_t const *opts) {
+static cli_error_t init_eca_cert_request(n20_msg_request_t* request, parsed_options_t const* opts) {
     request->request_type = n20_msg_request_type_issue_eca_cert_e;
     request->payload.issue_eca_cert.subject_key_type = opts->subject_key_type;
     request->payload.issue_eca_cert.issuer_key_type = opts->issuer_key_type;
@@ -657,8 +654,8 @@ static cli_error_t init_eca_cert_request(n20_msg_request_t *request, parsed_opti
 }
 
 // Initialize ECA EE cert request from parsed options
-static cli_error_t init_eca_ee_cert_request(n20_msg_request_t *request,
-                                            parsed_options_t const *opts,
+static cli_error_t init_eca_ee_cert_request(n20_msg_request_t* request,
+                                            parsed_options_t const* opts,
                                             uint8_t key_usage[2]) {
     request->request_type = n20_msg_request_type_issue_eca_ee_cert_e;
     request->payload.issue_eca_ee_cert.subject_key_type = opts->subject_key_type;
@@ -708,8 +705,8 @@ static cli_error_t init_eca_ee_cert_request(n20_msg_request_t *request,
 }
 
 // Initialize ECA EE sign request from parsed options
-static cli_error_t init_eca_ee_sign_request(n20_msg_request_t *request,
-                                            parsed_options_t const *opts,
+static cli_error_t init_eca_ee_sign_request(n20_msg_request_t* request,
+                                            parsed_options_t const* opts,
                                             uint8_t key_usage[2]) {
     request->request_type = n20_msg_request_type_eca_ee_sign_e;
     request->payload.eca_ee_sign.subject_key_type = opts->subject_key_type;
@@ -749,12 +746,12 @@ static cli_error_t init_eca_ee_sign_request(n20_msg_request_t *request,
 }
 
 // Helper to write binary data to file or print as hex
-static cli_error_t output_binary_data(uint8_t const *data,
+static cli_error_t output_binary_data(uint8_t const* data,
                                       size_t size,
-                                      char const *output_file,
-                                      char const *data_type) {
+                                      char const* output_file,
+                                      char const* data_type) {
     if (output_file) {
-        FILE *file = fopen(output_file, "wb");
+        FILE* file = fopen(output_file, "wb");
         if (!file) {
             perror("fopen");
             return cli_error_io;
@@ -801,19 +798,8 @@ static cli_error_t handle_promote_response(n20_slice_t response_slice) {
 
 // Handle certificate response (common for cdi-cert, eca-cert, eca-ee-cert)
 static cli_error_t handle_cert_response(n20_slice_t response_slice,
-                                        char const *output_file,
-                                        char const *cert_type_name,
-                                        bool print_debug) {
-    if (print_debug) {
-        printf("Raw response (%zu bytes): ", response_slice.size);
-        size_t preview_len = response_slice.size < 32 ? response_slice.size : 32;
-        for (size_t i = 0; i < preview_len; ++i) {
-            printf("%02x", response_slice.buffer[i]);
-        }
-        if (response_slice.size > 32) printf("...");
-        printf("\n");
-    }
-
+                                        char const* output_file,
+                                        char const* cert_type_name) {
     n20_msg_issue_cert_response_t response;
     n20_error_t n20_err = n20_msg_issue_cert_response_read(&response, response_slice);
     if (n20_err != n20_error_ok_e) {
@@ -842,10 +828,15 @@ static cli_error_t handle_cert_response(n20_slice_t response_slice,
 
 // Handle CDI cert response (includes compressed input output)
 static cli_error_t handle_cdi_cert_response(n20_slice_t response_slice,
-                                            char const *output_file,
-                                            n20_open_dice_input_t const *next_context) {
-    cli_error_t err = handle_cert_response(response_slice, output_file, "CDI cert", true);
+                                            char const* output_file,
+                                            n20_open_dice_input_t const* next_context,
+                                            bool print_compressed_input) {
+    cli_error_t err = handle_cert_response(response_slice, output_file, "CDI cert");
     if (err != cli_error_ok) return err;
+
+    if (!print_compressed_input) {
+        return cli_error_ok;
+    }
 
     // Compute and output compressed input
     n20_compressed_input_t next_compressed_input;
@@ -853,7 +844,7 @@ static cli_error_t handle_cdi_cert_response(n20_slice_t response_slice,
     cert_info.cert_type = n20_cert_type_cdi_e;
     cert_info.open_dice_input = *next_context;
 
-    n20_crypto_digest_context_t *digest_ctx = NULL;
+    n20_crypto_digest_context_t* digest_ctx = NULL;
 
     n20_error_t n20_err = n20_crypto_nat20_open(&digest_ctx);
     if (n20_err != n20_error_ok_e) {
@@ -880,7 +871,7 @@ static cli_error_t handle_cdi_cert_response(n20_slice_t response_slice,
 
 // Handle ECA EE sign response
 static cli_error_t handle_eca_ee_sign_response(n20_slice_t response_slice,
-                                               char const *output_file) {
+                                               char const* output_file) {
     // First try to read as an error response
     n20_msg_error_response_t error_response;
     n20_error_t n20_err = n20_msg_error_response_read(&error_response, response_slice);
@@ -915,7 +906,7 @@ static cli_error_t handle_eca_ee_sign_response(n20_slice_t response_slice,
         response.signature.buffer, response.signature.size, output_file, "Signature");
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     int err = EXIT_FAILURE;
     int dice_dev_fd = -1;
     // Stage 1: Parse command options
@@ -1028,15 +1019,16 @@ int main(int argc, char *argv[]) {
             cli_err = handle_promote_response(response_slice);
             break;
         case n20_msg_request_type_issue_cdi_cert_e:
-            cli_err = handle_cdi_cert_response(
-                response_slice, opts.output_file, &request.payload.issue_cdi_cert.next_context);
+            cli_err = handle_cdi_cert_response(response_slice,
+                                               opts.output_file,
+                                               &request.payload.issue_cdi_cert.next_context,
+                                               opts.cdi_fields.print_next_compressed_input);
             break;
         case n20_msg_request_type_issue_eca_cert_e:
-            cli_err = handle_cert_response(response_slice, opts.output_file, "ECA cert", true);
+            cli_err = handle_cert_response(response_slice, opts.output_file, "ECA cert");
             break;
         case n20_msg_request_type_issue_eca_ee_cert_e:
-            cli_err =
-                handle_cert_response(response_slice, opts.output_file, "ECA end-entity cert", true);
+            cli_err = handle_cert_response(response_slice, opts.output_file, "ECA end-entity cert");
             break;
         case n20_msg_request_type_eca_ee_sign_e:
             cli_err = handle_eca_ee_sign_response(response_slice, opts.output_file);
