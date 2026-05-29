@@ -1,4 +1,4 @@
-# Copyright 2024 Aurora Operations, Inc.
+# Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
 #
@@ -33,19 +33,10 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-
-*.a
-.cache
-CMakeCache.txt
-CMakeDoxyfile.in
-CMakeDoxygenDefaults.cmake
-CMakeFiles/
-CTestTestfile.cmake
-Doxyfile.nat20_docs
-Makefile
-Testing/
-_deps/
-build/
-cmake_install.cmake
-compile_commands.json
-html/
+config BR2_PACKAGE_NAT20TEST
+    bool "nat20test"
+    depends on BR2_PACKAGE_LIBNAT20
+    depends on BR2_PACKAGE_OPENSSL
+    select BR2_PACKAGE_NAT20SW
+    help
+        Enable building the nat20test, an integration test for nat20device with nat20sw.

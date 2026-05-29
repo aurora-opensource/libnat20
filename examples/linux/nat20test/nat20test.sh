@@ -1,4 +1,6 @@
-# Copyright 2024 Aurora Operations, Inc.
+#!/bin/sh
+
+# Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
 #
@@ -33,19 +35,12 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
+set -e
 
-*.a
-.cache
-CMakeCache.txt
-CMakeDoxyfile.in
-CMakeDoxygenDefaults.cmake
-CMakeFiles/
-CTestTestfile.cmake
-Doxyfile.nat20_docs
-Makefile
-Testing/
-_deps/
-build/
-cmake_install.cmake
-compile_commands.json
-html/
+SCRIPT_DIR="$(dirname "$0")"
+
+modprobe nat20sw
+mount -t securityfs none /sys/kernel/security
+
+echo "Running integration test suite..."
+"${SCRIPT_DIR}/nat20_integration_test"

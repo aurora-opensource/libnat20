@@ -1,4 +1,4 @@
-# Copyright 2024 Aurora Operations, Inc.
+# Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
 #
@@ -33,19 +33,50 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
+cmake_minimum_required(VERSION 3.22)
 
-*.a
-.cache
-CMakeCache.txt
-CMakeDoxyfile.in
-CMakeDoxygenDefaults.cmake
-CMakeFiles/
-CTestTestfile.cmake
-Doxyfile.nat20_docs
-Makefile
-Testing/
-_deps/
-build/
-cmake_install.cmake
-compile_commands.json
-html/
+project(NAT20TEST VERSION 0.0.1 LANGUAGES C)
+
+# The C standard shall be C11.
+set(CMAKE_C_STANDARD 11)
+
+# CMake shall generate a compile_commands.json file for
+# the benefit of clangd based IDE support.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
+###################################################################################################
+# Integration test binary — exercises the nat20 DICE service via /dev/nat200.
+add_executable(nat20_integration_test)
+
+find_package(LibNat20 REQUIRED)
+find_package(OpenSSL REQUIRED)
+
+target_sources(nat20_integration_test
+PRIVATE test/nat20_integration_test.c
+PRIVATE test/test_helpers.c
+)
+
+target_include_directories(nat20_integration_test
+    PRIVATE test
+)
+
+target_link_libraries(nat20_integration_test
+PRIVATE LibNat20::nat20
+PRIVATE LibNat20::nat20_service
+PRIVATE LibNat20::nat20_crypto_nat20
+PRIVATE OpenSSL::Crypto
+)
+
+target_compile_options(nat20_integration_test
+PRIVATE -pedantic
+PRIVATE -Wall
+PRIVATE -Wextra
+PRIVATE -Werror
+)
+
+install(TARGETS nat20_integration_test RUNTIME DESTINATION bin)
+install(PROGRAMS nat20test.sh DESTINATION bin)
+install(PROGRAMS nat20test_qemu_init.sh DESTINATION bin)
+
+###################################################################################################

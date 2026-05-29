@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
@@ -35,18 +33,19 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-QEMU_BIN=qemu-system-x86_64
+# In CI NAT20TEST_OVERRIDE_SRCDIR is set to the root of the repository,
+# so that the source under test is always the current branch.
+# Integrators who use this configuration should pin the version
+# to a specific commit or branch to avoid breakages when the main branch changes.
+NAT20TEST_VERSION = origin/main
+NAT20TEST_SITE = https://github.com/aurora-opensource/libnat20.git
+NAT20TEST_SITE_METHOD = git
+NAT20TEST_LICENSE = Apache-2.0 OR GPL-2.0
+NAT20TEST_LICENSE_FILES = LICENSE-Apache-2.0.txt LICENSE-GPL-2.0.txt
 
-if [ ! -f ".env" ]; then
-    echo ".env file not found. Please run bootstrap.sh first."
-    exit 1
-fi
+NAT20TEST_SUBDIR = examples/linux/nat20test
 
-source .env
+NAT20TEST_INSTALL_TARGET = YES
+NAT20TEST_DEPENDENCIES += libnat20 openssl
 
-BUILDROOT_DIR="${LIBNAT20_BR_BUILD_DIR}/buildroot"
-KERNEL_IMAGE="${BUILDROOT_DIR}/output/images/bzImage"
-FS_IMAGE="${BUILDROOT_DIR}/output/images/rootfs.ext2"
-
-
-"${QEMU_BIN}" -M pc -kernel "${KERNEL_IMAGE}" -nographic -drive file="${FS_IMAGE}",if=virtio,format=raw -append "rootwait root=/dev/vda console=ttyS0" -serial mon:stdio -net nic,model=virtio -net user
+$(eval $(cmake-package))

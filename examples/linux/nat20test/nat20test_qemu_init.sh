@@ -1,4 +1,6 @@
-# Copyright 2024 Aurora Operations, Inc.
+#!/bin/sh
+
+# Copyright 2026 Aurora Operations, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
 #
@@ -33,19 +35,26 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
+# Init wrapper for running nat20test.sh in a QEMU VM.
+# This script is intended to be used as the init process (PID 1).
+# It mounts the necessary filesystems, runs the test suite, prints
+# a machine-parseable result marker, and powers off the VM.
 
-*.a
-.cache
-CMakeCache.txt
-CMakeDoxyfile.in
-CMakeDoxygenDefaults.cmake
-CMakeFiles/
-CTestTestfile.cmake
-Doxyfile.nat20_docs
-Makefile
-Testing/
-_deps/
-build/
-cmake_install.cmake
-compile_commands.json
-html/
+export PATH="/usr/bin:/bin:/sbin:/usr/sbin"
+
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t tmpfs none /tmp
+
+cd /tmp
+
+nat20test.sh
+rc=$?
+
+if [ $rc -eq 0 ]; then
+    echo "INTEGRATION_TESTS_PASSED"
+else
+    echo "INTEGRATION_TESTS_FAILED (exit code: $rc)"
+fi
+
+poweroff -f
