@@ -33,10 +33,19 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20cli/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20crypto/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20device/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20sw/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20lib/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/libnat20/Config.in"
-source "$BR2_EXTERNAL_NAT20_PATH/package/nat20test/Config.in"
+# In CI NAT20CLI_OVERRIDE_SRCDIR is set to the root of the repository,
+# so that the source under test is always the current branch.
+# Integrators who use this configuration should pin the version
+# to a specific commit or branch to avoid breakages when the main branch changes.
+NAT20CLI_VERSION = origin/main
+NAT20CLI_SITE = https://github.com/aurora-opensource/libnat20.git
+NAT20CLI_SITE_METHOD = git
+NAT20CLI_LICENSE = Apache-2.0 OR GPL-2.0
+NAT20CLI_LICENSE_FILES = LICENSE-Apache-2.0.txt LICENSE-GPL-2.0.txt
+
+NAT20CLI_SUBDIR = examples/linux/nat20cli
+
+NAT20CLI_INSTALL_TARGET = YES
+NAT20CLI_DEPENDENCIES += libnat20
+
+$(eval $(cmake-package))
