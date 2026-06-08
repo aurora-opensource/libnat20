@@ -80,10 +80,12 @@ n20_error_t test_compress_cdi_input(uint8_t const* code_hash,
     cert_info.open_dice_input.hidden = (n20_slice_t){.size = hidden_size, .buffer = hidden};
 
     if (compressed_out_size < N20_FUNC_COMPRESSED_INPUT_SIZE) {
+        n20_crypto_nat20_close(digest_ctx);
         return n20_error_insufficient_buffer_size_e;
     }
 
     err = n20_compress_input(digest_ctx, &cert_info, compressed_out);
+    n20_crypto_nat20_close(digest_ctx);
     return err;
 }
 
@@ -94,14 +96,18 @@ static EVP_PKEY* evp_pkey_from_ec_pubkey(uint8_t const* pubkey,
         (key_type == n20_crypto_key_type_secp256r1_e) ? SN_X9_62_prime256v1 : SN_secp384r1;
 
     OSSL_PARAM_BLD* bld = OSSL_PARAM_BLD_new();
-    if (bld == NULL) return NULL;
+    if (bld == NULL) {
+        return NULL;
+    }
 
     OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_PKEY_PARAM_GROUP_NAME, group_name, 0);
     OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY, pubkey, pubkey_size);
 
     OSSL_PARAM* params = OSSL_PARAM_BLD_to_param(bld);
     OSSL_PARAM_BLD_free(bld);
-    if (params == NULL) return NULL;
+    if (params == NULL) {
+        return NULL;
+    }
 
     EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
     if (pctx == NULL) {
@@ -262,6 +268,10 @@ bool test_verify_raw_signature(uint8_t const* pubkey,
             /* The pubkey is raw x||y — wrap with 0x04 uncompressed prefix */
             uint8_t uncompressed[1 + 96];
             uncompressed[0] = 0x04;
+            if (pubkey_size > sizeof(uncompressed) - 1) {
+                fprintf(stderr, "    Public key size too large for uncompressed format\n");
+                return false;
+            }
             memcpy(uncompressed + 1, pubkey, pubkey_size);
             pkey = evp_pkey_from_ec_pubkey(uncompressed, 1 + pubkey_size, key_type);
             break;
