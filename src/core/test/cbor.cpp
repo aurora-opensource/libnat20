@@ -55,6 +55,8 @@ INSTANTIATE_TEST_CASE_P(
         std::tuple(n20_cbor_type_map_e, UINT64_C(1), std::vector<uint8_t>{0xa1}),
         std::tuple(n20_cbor_type_map_e, UINT64_C(23), std::vector<uint8_t>{0xb7}),
         std::tuple(n20_cbor_type_map_e, UINT64_C(24), std::vector<uint8_t>{0xb8, 0x18}),
+        /* Check that 31 is not treated as indefinite length. */
+        std::tuple(n20_cbor_type_map_e, UINT64_C(31), std::vector<uint8_t>{0xb8, 0x1F}),
         std::tuple(n20_cbor_type_map_e, UINT64_C(255), std::vector<uint8_t>{0xb8, 0xff}),
         std::tuple(n20_cbor_type_map_e, UINT64_C(256), std::vector<uint8_t>{0xb9, 0x01, 0x00}),
         std::tuple(n20_cbor_type_map_e, UINT64_C(0xffff), std::vector<uint8_t>{0xb9, 0xff, 0xff}),
@@ -88,6 +90,77 @@ TEST_P(CborHeaderTestFixture, CborHeaderTest) {
     size_t bytes_written = n20_stream_byte_count(&s);
     auto got_encoding = std::vector(n20_stream_data(&s), n20_stream_data(&s) + bytes_written);
     ASSERT_EQ(got_encoding, encoding);
+}
+
+// Tests for writing indefinite length headers.
+//
+// An indefinite length header is the major type in the top 3 bits ORed with
+// the additional info value 31 (0x1f) in the low 5 bits. The value argument
+// is ignored for these types.
+//   - indefinite byte string -> 0x5f
+//   - indefinite text string -> 0x7f
+//   - indefinite array       -> 0x9f
+//   - indefinite map         -> 0xbf
+//   - break stop code        -> 0xff
+class CborIndefiniteHeaderTestFixture
+    : public testing::TestWithParam<std::tuple<n20_cbor_type_t, std::vector<uint8_t>>> {};
+
+INSTANTIATE_TEST_CASE_P(
+    CborIndefiniteHeaderTestInstance,
+    CborIndefiniteHeaderTestFixture,
+    testing::Values(std::tuple(n20_cbor_type_indefinite_bytes_e, std::vector<uint8_t>{0x5f}),
+                    std::tuple(n20_cbor_type_indefinite_string_e, std::vector<uint8_t>{0x7f}),
+                    std::tuple(n20_cbor_type_indefinite_array_e, std::vector<uint8_t>{0x9f}),
+                    std::tuple(n20_cbor_type_indefinite_map_e, std::vector<uint8_t>{0xbf}),
+                    std::tuple(n20_cbor_type_indefinite_break_e, std::vector<uint8_t>{0xff})));
+
+TEST_P(CborIndefiniteHeaderTestFixture, CborWriteIndefiniteHeader) {
+    auto [type, encoding] = GetParam();
+
+    uint8_t buffer[20];
+
+    n20_stream_t s;
+    n20_stream_init(&s, &buffer[0], sizeof(buffer));
+
+    // The value argument must be ignored for indefinite length headers.
+    n20_cbor_write_header(&s, type, 12345);
+
+    ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+    size_t bytes_written = n20_stream_byte_count(&s);
+    auto got_encoding = std::vector(n20_stream_data(&s), n20_stream_data(&s) + bytes_written);
+    ASSERT_EQ(got_encoding, encoding);
+}
+
+// An indefinite length header written by n20_cbor_write_header must be read
+// back by n20_cbor_read_header as the corresponding indefinite type.
+TEST(CborTests, CborIndefiniteHeaderRoundTrip) {
+    struct {
+        n20_cbor_type_t write_type;
+        n20_cbor_type_t read_type;
+    } const cases[] = {
+        {n20_cbor_type_indefinite_bytes_e, n20_cbor_type_indefinite_bytes_e},
+        {n20_cbor_type_indefinite_string_e, n20_cbor_type_indefinite_string_e},
+        {n20_cbor_type_indefinite_array_e, n20_cbor_type_indefinite_array_e},
+        {n20_cbor_type_indefinite_map_e, n20_cbor_type_indefinite_map_e},
+        {n20_cbor_type_indefinite_break_e, n20_cbor_type_indefinite_break_e},
+    };
+
+    for (auto const& c : cases) {
+        uint8_t buffer[20];
+        n20_stream_t s;
+        n20_stream_init(&s, &buffer[0], sizeof(buffer));
+        n20_cbor_write_header(&s, c.write_type, 0);
+        ASSERT_FALSE(n20_stream_has_buffer_overflow(&s));
+
+        n20_istream_t is;
+        n20_istream_init(&is, n20_stream_data(&s), n20_stream_byte_count(&s));
+
+        n20_cbor_type_t type;
+        uint64_t value;
+        EXPECT_TRUE(n20_cbor_read_header(&is, &type, &value));
+        EXPECT_EQ(type, c.read_type);
+        EXPECT_EQ(value, 0u);
+    }
 }
 
 class CborIntegerTestFixture
@@ -889,6 +962,364 @@ TEST_F(CborReadTest, SkipZeroLengthStrings) {
     EXPECT_EQ(value, 1);
 }
 
+// Tests for indefinite length encoding in n20_cbor_read_header.
+//
+// The header byte for an indefinite length item is the major type shifted
+// left by 5 ORed with the additional info value 31 (0x1f).
+//   - 0x5f: indefinite byte string  (major type 2)
+//   - 0x7f: indefinite text string  (major type 3)
+//   - 0x9f: indefinite array        (major type 4)
+//   - 0xbf: indefinite map          (major type 5)
+//   - 0xff: break stop code         (major type 7)
+// The reported value @c n is always 0 for these headers.
+TEST_F(CborReadTest, ReadHeaderIndefiniteByteString) {
+    WriteCborData({0x5f});
+    CreateStream();
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_indefinite_bytes_e);
+    EXPECT_EQ(value, 0);
+}
+
+TEST_F(CborReadTest, ReadHeaderIndefiniteTextString) {
+    WriteCborData({0x7f});
+    CreateStream();
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_indefinite_string_e);
+    EXPECT_EQ(value, 0);
+}
+
+TEST_F(CborReadTest, ReadHeaderIndefiniteArray) {
+    WriteCborData({0x9f});
+    CreateStream();
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_indefinite_array_e);
+    EXPECT_EQ(value, 0);
+}
+
+TEST_F(CborReadTest, ReadHeaderIndefiniteMap) {
+    WriteCborData({0xbf});
+    CreateStream();
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_indefinite_map_e);
+    EXPECT_EQ(value, 0);
+}
+
+TEST_F(CborReadTest, ReadHeaderIndefiniteBreak) {
+    WriteCborData({0xff});
+    CreateStream();
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_indefinite_break_e);
+    EXPECT_EQ(value, 0);
+}
+
+// Additional info 31 is only valid for byte strings, text strings, arrays,
+// maps, and the simple/float major type (the break code). It must be
+// rejected for unsigned integers, negative integers, and tags.
+TEST_F(CborReadTest, ReadHeaderIndefiniteUintFails) {
+    WriteCborData({0x1f});  // major type 0 (uint) with additional info 31
+    CreateStream();
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_FALSE(n20_cbor_read_header(&stream, &type, &value));
+}
+
+TEST_F(CborReadTest, ReadHeaderIndefiniteNintFails) {
+    WriteCborData({0x3f});  // major type 1 (nint) with additional info 31
+    CreateStream();
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_FALSE(n20_cbor_read_header(&stream, &type, &value));
+}
+
+TEST_F(CborReadTest, ReadHeaderIndefiniteTagFails) {
+    WriteCborData({0xdf});  // major type 6 (tag) with additional info 31
+    CreateStream();
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_FALSE(n20_cbor_read_header(&stream, &type, &value));
+}
+
+// Tests for indefinite length encoding in n20_cbor_read_skip_item.
+TEST_F(CborReadTest, SkipIndefiniteByteString) {
+    // Indefinite byte string with two chunks "hi" and "bye", then uint 1.
+    WriteCborData({0x5f, 0x42, 'h', 'i', 0x43, 'b', 'y', 'e', 0xff, 0x01});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    // Should be positioned at uint 1.
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 1);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteTextString) {
+    // Indefinite text string with two chunks "hi" and "bye", then uint 2.
+    WriteCborData({0x7f, 0x62, 'h', 'i', 0x63, 'b', 'y', 'e', 0xff, 0x02});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    // Should be positioned at uint 2.
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 2);
+}
+
+TEST_F(CborReadTest, SkipEmptyIndefiniteByteString) {
+    // Indefinite byte string with no chunks (immediate break), then uint 1.
+    WriteCborData({0x5f, 0xff, 0x01});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 1);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteByteStringWithZeroLengthChunk) {
+    // Indefinite byte string containing an empty chunk and a non-empty chunk.
+    WriteCborData({0x5f, 0x40, 0x42, 'h', 'i', 0xff, 0x01});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 1);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteArray) {
+    // Indefinite array [1, 2, 3], then uint 4.
+    WriteCborData({0x9f, 0x01, 0x02, 0x03, 0xff, 0x04});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 4);
+}
+
+TEST_F(CborReadTest, SkipEmptyIndefiniteArray) {
+    WriteCborData({0x9f, 0xff, 0x01});  // empty indefinite array, uint 1
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 1);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteMap) {
+    // Indefinite map {1: 2, 3: 4}, then uint 5.
+    WriteCborData({0xbf, 0x01, 0x02, 0x03, 0x04, 0xff, 0x05});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 5);
+}
+
+TEST_F(CborReadTest, SkipEmptyIndefiniteMap) {
+    WriteCborData({0xbf, 0xff, 0x01});  // empty indefinite map, uint 1
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 1);
+}
+
+TEST_F(CborReadTest, SkipNestedIndefiniteArray) {
+    // Indefinite array containing an indefinite array: [[1], 2], then uint 3.
+    // The inner break must not terminate the outer array.
+    WriteCborData({0x9f, 0x9f, 0x01, 0xff, 0x02, 0xff, 0x03});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 3);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteArrayWithEmptyInnerIndefiniteArray) {
+    // Outer indefinite array whose first element is an empty indefinite array.
+    // Verifies the inner break does not prematurely end the outer array.
+    WriteCborData({0x9f, 0x9f, 0xff, 0x01, 0xff, 0x02});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 2);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteMapWithIndefiniteValue) {
+    // Indefinite map {1: [2, 3]} where the value is an indefinite array,
+    // then uint 4.
+    WriteCborData({0xbf, 0x01, 0x9f, 0x02, 0x03, 0xff, 0xff, 0x04});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 4);
+}
+
+TEST_F(CborReadTest, SkipTaggedIndefiniteArray) {
+    // Tag 1 applied to an indefinite array [1], then uint 2.
+    WriteCborData({0xc1, 0x9f, 0x01, 0xff, 0x02});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 2);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteByteStringInsideDefiniteArray) {
+    // Definite array of 2: [indefinite byte string "hi", uint 9], then uint 1.
+    WriteCborData({0x82, 0x5f, 0x42, 'h', 'i', 0xff, 0x09, 0x01});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 1);
+}
+
+// Failure cases for indefinite length encoding.
+
+TEST_F(CborReadTest, SkipBareBreakFails) {
+    // A break stop code on its own is not a valid item to skip.
+    WriteCborData({0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipIndefiniteByteStringUnterminated) {
+    // Indefinite byte string with a chunk but no break stop code.
+    WriteCborData({0x5f, 0x42, 'h', 'i'});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipIndefiniteByteStringWithWrongChunkType) {
+    // The chunks of an indefinite byte string must themselves be definite
+    // byte strings. A uint chunk is invalid.
+    WriteCborData({0x5f, 0x01, 0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipIndefiniteByteStringWithNestedIndefiniteChunk) {
+    // Chunks must be definite byte strings, not nested indefinite ones.
+    WriteCborData({0x5f, 0x5f, 0xff, 0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipIndefiniteTextStringWithByteStringChunk) {
+    // The chunks of an indefinite text string must be definite text strings,
+    // not byte strings.
+    WriteCborData({0x7f, 0x42, 'h', 'i', 0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipIndefiniteByteStringWithTruncatedChunk) {
+    // The chunk claims 5 bytes but only 2 are present.
+    WriteCborData({0x5f, 0x45, 'h', 'i'});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipIndefiniteArrayUnterminated) {
+    // Indefinite array with elements but no break stop code.
+    WriteCborData({0x9f, 0x01, 0x02});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipIndefiniteMapUnterminated) {
+    // Indefinite map with one complete pair but no break stop code.
+    WriteCborData({0xbf, 0x01, 0x02});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipIndefiniteMapWithBreakInValuePosition) {
+    // A break after a key (in the value position) is invalid: a map element
+    // must always have both a key and a value.
+    WriteCborData({0xbf, 0x01, 0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
 class CborInvalidHeaderTestFixture
     : public CborReadTest,
       public testing::WithParamInterface<std::tuple<n20_cbor_type_t, uint8_t>> {};
@@ -904,7 +1335,7 @@ INSTANTIATE_TEST_SUITE_P(
                                      n20_cbor_type_map_e,
                                      n20_cbor_type_tag_e,
                                      n20_cbor_type_simple_float_e),
-                     testing::Values(28, 29, 30, 31)),
+                     testing::Values(28, 29, 30)),
     [](testing::TestParamInfo<CborInvalidHeaderTestFixture::ParamType> const& info) {
         return std::to_string(std::get<0>(info.param)) + "_" +
                std::to_string(std::get<1>(info.param));

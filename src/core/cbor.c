@@ -41,6 +41,11 @@
 #include <nat20/types.h>
 
 void n20_cbor_write_header(n20_stream_t *const s, n20_cbor_type_t cbor_type, uint64_t n) {
+    bool indefinite_length = (cbor_type & 0x100) != 0;
+    if (indefinite_length) {
+        /* Indefinite length encoding is encoded in the ninth bit of the type. */
+        cbor_type = (n20_cbor_type_t)(cbor_type - 0x100);
+    }
     if ((unsigned int)cbor_type > 7) {
         /* 0xf7 is the encoding of the special value "undefined". */
         cbor_type = n20_cbor_type_simple_float_e;
@@ -50,7 +55,12 @@ void n20_cbor_write_header(n20_stream_t *const s, n20_cbor_type_t cbor_type, uin
 
     size_t value_size = 0;
 
-    if (n < 24) {
+    if (indefinite_length) {
+        /* Indefinite length encoding is denoted by additional info value 31. */
+        header |= 31;
+        n20_stream_prepend(s, &header, /*src_len=*/1);
+        return;
+    } else if (n < 24) {
         header |= (uint8_t)n;
         n20_stream_prepend(s, &header, /*src_len=*/1);
         return;
@@ -137,9 +147,28 @@ bool n20_cbor_read_header(n20_istream_t *const s, n20_cbor_type_t *const type, u
     *type = (n20_cbor_type_t)(header >> 5);
     uint8_t additional_info = header & 0x1f;
 
+    if (additional_info == 31) {
+        switch (*type) {
+            case n20_cbor_type_array_e:
+            case n20_cbor_type_map_e:
+            case n20_cbor_type_bytes_e:
+            case n20_cbor_type_string_e:
+            case n20_cbor_type_simple_float_e:
+                /* Indefinite length encoding is encoded in the ninth bit of the type. */
+                *type = (n20_cbor_type_t)(*type + 0x100);
+                *n = 0;
+                return true;
+            default:
+                /* Additional info 31 is only valid for arrays, maps, byte strings, and text
+                 * strings. and in the simple/float type denoting the end of indefinite length
+                 * items. */
+                return false;
+        }
+    }
+
     if (additional_info > 27) {
-        /* Reserved additional info value. And this code does not
-         * support indefinite length encoding (31). */
+        /* Reserved additional info values (28-30). Indefinite length
+         * encoding (31) is handled above. */
         return false;
     }
 
@@ -163,36 +192,81 @@ bool n20_cbor_read_header(n20_istream_t *const s, n20_cbor_type_t *const type, u
     return true;
 }
 
-bool n20_cbor_read_skip_item(n20_istream_t *const s) {
+typedef enum n20_cbor_read_skip_item_result_s {
+    n20_cbor_read_skip_item_ok_e,
+    n20_cbor_read_skip_item_error_e,
+    n20_cbor_read_skip_item_break_e,
+} n20_cbor_read_skip_item_result_t;
+
+static n20_cbor_read_skip_item_result_t n20_cbor_read_skip_item_internal(n20_istream_t *const s);
+
+static n20_cbor_read_skip_item_result_t n20_cbor_read_skip_item_map_element_internal(
+    n20_istream_t *const s) {
+    n20_cbor_read_skip_item_result_t result = n20_cbor_read_skip_item_internal(s);
+    if (result != n20_cbor_read_skip_item_ok_e) {
+        return result;
+    }
+    if (n20_cbor_read_skip_item_internal(s) != n20_cbor_read_skip_item_ok_e) {
+        /* If the second item is a terminator or if we ran out of buffer
+         * we consider it an error. */
+        return n20_cbor_read_skip_item_error_e;
+    }
+    return n20_cbor_read_skip_item_ok_e;
+}
+
+static n20_cbor_read_skip_item_result_t n20_cbor_read_skip_item_stringish_chunk_internal(
+    n20_istream_t *const s, bool string) {
+    n20_cbor_type_t type;
+    uint64_t n;
+    if (!n20_cbor_read_header(s, &type, &n)) {
+        return n20_cbor_read_skip_item_error_e;
+    }
+    if (type == n20_cbor_type_indefinite_break_e) {
+        return n20_cbor_read_skip_item_break_e;
+    }
+    if ((string && type != n20_cbor_type_string_e) || (!string && type != n20_cbor_type_bytes_e)) {
+        return n20_cbor_read_skip_item_error_e; /* Not a valid expected stringish chunk. */
+    }
+    if (n > SIZE_MAX) {
+        /* Prevent uncaught truncation. */
+        return n20_cbor_read_skip_item_error_e;
+    }
+    if (!n20_istream_get_slice(s, NULL, n)) {
+        return n20_cbor_read_skip_item_error_e;
+    }
+    return n20_cbor_read_skip_item_ok_e;
+}
+
+static n20_cbor_read_skip_item_result_t n20_cbor_read_skip_item_internal(n20_istream_t *const s) {
     n20_cbor_type_t type = n20_cbor_type_none_e;
     uint64_t n = 0;
     if (!n20_cbor_read_header(s, &type, &n)) {
-        return false;
+        return n20_cbor_read_skip_item_error_e;
     }
 
     switch (type) {
         case n20_cbor_type_array_e:
             if (n > SIZE_MAX) {
                 /* Prevent overflow in the loop counter. */
-                return false;
+                return n20_cbor_read_skip_item_error_e;
             }
             for (size_t i = 0; i < n; i++) {
-                if (!n20_cbor_read_skip_item(s)) {
-                    return false;
+                if (n20_cbor_read_skip_item_internal(s) != n20_cbor_read_skip_item_ok_e) {
+                    return n20_cbor_read_skip_item_error_e;
                 }
             }
             break;
         case n20_cbor_type_map_e:
             if (n > SIZE_MAX) {
                 /* Prevent overflow in the loop counter. */
-                return false;
+                return n20_cbor_read_skip_item_error_e;
             }
             for (size_t i = 0; i < n; i++) {
-                if (!n20_cbor_read_skip_item(s)) {
-                    return false;
+                if (n20_cbor_read_skip_item_internal(s) != n20_cbor_read_skip_item_ok_e) {
+                    return n20_cbor_read_skip_item_error_e;
                 }
-                if (!n20_cbor_read_skip_item(s)) {
-                    return false;
+                if (n20_cbor_read_skip_item_internal(s) != n20_cbor_read_skip_item_ok_e) {
+                    return n20_cbor_read_skip_item_error_e;
                 }
             }
             break;
@@ -200,20 +274,58 @@ bool n20_cbor_read_skip_item(n20_istream_t *const s) {
         case n20_cbor_type_string_e: {
             if (n > SIZE_MAX) {
                 /* Prevent uncaught truncation. */
-                return false;
+                return n20_cbor_read_skip_item_error_e;
             }
             if (!n20_istream_get_slice(s, NULL, n)) {
-                return false;
+                return n20_cbor_read_skip_item_error_e;
             }
             break;
         }
         case n20_cbor_type_tag_e:
             /* Skip the tag and the item it refers to. */
-            return n20_cbor_read_skip_item(s);
+            return n20_cbor_read_skip_item_internal(s);
+        case n20_cbor_type_indefinite_bytes_e:
+        case n20_cbor_type_indefinite_string_e: {
+            n20_cbor_read_skip_item_result_t result;
+            do {
+                result = n20_cbor_read_skip_item_stringish_chunk_internal(
+                    s, type == n20_cbor_type_indefinite_string_e);
+                if (result == n20_cbor_read_skip_item_error_e) {
+                    return n20_cbor_read_skip_item_error_e;
+                }
+            } while (result != n20_cbor_read_skip_item_break_e);
+            break;
+        }
+        case n20_cbor_type_indefinite_array_e: {
+            n20_cbor_read_skip_item_result_t result;
+            do {
+                result = n20_cbor_read_skip_item_internal(s);
+                if (result == n20_cbor_read_skip_item_error_e) {
+                    return n20_cbor_read_skip_item_error_e;
+                }
+            } while (result != n20_cbor_read_skip_item_break_e);
+            break;
+        }
+        case n20_cbor_type_indefinite_map_e: {
+            n20_cbor_read_skip_item_result_t result;
+            do {
+                result = n20_cbor_read_skip_item_map_element_internal(s);
+                if (result == n20_cbor_read_skip_item_error_e) {
+                    return n20_cbor_read_skip_item_error_e;
+                }
+            } while (result != n20_cbor_read_skip_item_break_e);
+            break;
+        }
+        case n20_cbor_type_indefinite_break_e:
+            return n20_cbor_read_skip_item_break_e;
         default:
             /* Simple values and integers have no additional data to skip. */
             break;
     }
 
-    return true;
+    return n20_cbor_read_skip_item_ok_e;
+}
+
+bool n20_cbor_read_skip_item(n20_istream_t *const s) {
+    return n20_cbor_read_skip_item_internal(s) == n20_cbor_read_skip_item_ok_e;
 }

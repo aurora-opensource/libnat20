@@ -1089,7 +1089,7 @@ TEST_F(MessagesTest, MalformedIssueCertResponseHandling) {
     WriteTestCborMessage(cbor_data);
     EXPECT_EQ(n20_error_ok_e, n20_msg_issue_cert_response_read(&response, test_slice));
 
-    cbor_data = {0xA1, 0x17, 0xFF};
+    cbor_data = {0xA1, 0x17, 0xFE};
     // Unknown field key. Not a valid CBOR item.
     WriteTestCborMessage(cbor_data);
     EXPECT_EQ(n20_error_unexpected_message_structure_e,
@@ -1155,7 +1155,7 @@ TEST_F(MessagesTest, MalformedErrorResponseReadHandling) {
     WriteTestCborMessage(cbor_data);
     EXPECT_EQ(n20_error_ok_e, n20_msg_error_response_read(&response, test_slice));
 
-    cbor_data = {0xA1, 0x17, 0xFF};
+    cbor_data = {0xA1, 0x17, 0xFE};
     // Unknown field key. Not a valid CBOR item.
     WriteTestCborMessage(cbor_data);
     EXPECT_EQ(n20_error_unexpected_message_structure_e,
@@ -1229,7 +1229,7 @@ TEST_F(MessagesTest, MalformedEcaEeSignResponseHandling) {
     WriteTestCborMessage(cbor_data);
     EXPECT_EQ(n20_error_ok_e, n20_msg_eca_ee_sign_response_read(&response, test_slice));
 
-    cbor_data = {0xA1, 0x17, 0xFF};
+    cbor_data = {0xA1, 0x17, 0xFE};
     // Unknown field key. Not a valid CBOR item.
     WriteTestCborMessage(cbor_data);
     EXPECT_EQ(n20_error_unexpected_message_structure_e,
