@@ -41,26 +41,38 @@
 #include <nat20/types.h>
 
 void n20_cbor_write_header(n20_stream_t *const s, n20_cbor_type_t cbor_type, uint64_t n) {
-    bool indefinite_length = (cbor_type & 0x100) != 0;
-    if (indefinite_length) {
-        /* Indefinite length encoding is encoded in the ninth bit of the type. */
-        cbor_type = (n20_cbor_type_t)(cbor_type - 0x100);
+    switch (cbor_type) {
+        case n20_cbor_type_uint_e:
+        case n20_cbor_type_nint_e:
+        case n20_cbor_type_bytes_e:
+        case n20_cbor_type_string_e:
+        case n20_cbor_type_array_e:
+        case n20_cbor_type_map_e:
+        case n20_cbor_type_tag_e:
+        case n20_cbor_type_simple_float_e:
+            break;
+        case n20_cbor_type_indefinite_bytes_e:
+        case n20_cbor_type_indefinite_string_e:
+        case n20_cbor_type_indefinite_array_e:
+        case n20_cbor_type_indefinite_map_e:
+        case n20_cbor_type_indefinite_break_e: {
+            cbor_type = (n20_cbor_type_t)(cbor_type - 0x100);
+            uint8_t header = (uint8_t)(cbor_type << 5) | 31;
+            n20_stream_prepend(s, &header, /*src_len=*/1);
+            return;
+        }
+        default:
+            /* Invalid types are encoded as "undefined". */
+            cbor_type = n20_cbor_type_simple_float_e;
+            n = N20_SIMPLE_UNDEFINED;
+            break;
     }
-    if ((unsigned int)cbor_type > 7) {
-        /* 0xf7 is the encoding of the special value "undefined". */
-        cbor_type = n20_cbor_type_simple_float_e;
-        n = N20_SIMPLE_UNDEFINED;
-    }
+
     uint8_t header = (uint8_t)(cbor_type << 5);
 
     size_t value_size = 0;
 
-    if (indefinite_length) {
-        /* Indefinite length encoding is denoted by additional info value 31. */
-        header |= 31;
-        n20_stream_prepend(s, &header, /*src_len=*/1);
-        return;
-    } else if (n < 24) {
+    if (n < 24) {
         header |= (uint8_t)n;
         n20_stream_prepend(s, &header, /*src_len=*/1);
         return;

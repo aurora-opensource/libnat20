@@ -74,7 +74,15 @@ INSTANTIATE_TEST_CASE_P(
                    std::vector<uint8_t>{0xbb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}),
         /* Invalid types map to "undefined" CBOR type (0xf7). */
         std::tuple(n20_cbor_type_none_e, UINT64_C(0), std::vector<uint8_t>{0xf7}),
-        std::tuple((n20_cbor_type_t)8, UINT64_C(0), std::vector<uint8_t>{0xf7})));
+        std::tuple((n20_cbor_type_t)8, UINT64_C(0), std::vector<uint8_t>{0xf7}),
+        /* An invalid type that has the indefinite length bit set must also be mapped to "undefined"
+           CBOR type (0xf7). */
+        std::tuple((n20_cbor_type_t)0xFFF, UINT64_C(0), std::vector<uint8_t>{0xf7}),
+        /* Int, nint, and tag with the indefinite flag set must also be mapped to "undefined"
+           CBOR type (0xf7). */
+        std::tuple((n20_cbor_type_t)0x100, UINT64_C(0), std::vector<uint8_t>{0xf7}),
+        std::tuple((n20_cbor_type_t)0x101, UINT64_C(0), std::vector<uint8_t>{0xf7}),
+        std::tuple((n20_cbor_type_t)0x106, UINT64_C(0), std::vector<uint8_t>{0xf7})));
 
 TEST_P(CborHeaderTestFixture, CborHeaderTest) {
     auto [type, integer, encoding] = GetParam();
