@@ -182,9 +182,9 @@ out:
  * nat20device_read - Read file operation
  *
  * Returns the current response buffer to userspace. Once the entire
- * response has been read, read returns 0 to indicate end of response,
- * and the buffer is freed. Subsequent reads return -EAGAIN until a new
- * request is dispatched via write.
+ * response has been read, the first subsequent read returns 0 (EOF)
+ * and frees the response buffer. Subsequent reads return -EAGAIN until
+ * a new request is dispatched via write.
  */
 static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t count, loff_t* f_pos) {
     struct nat20device_file_private* file_priv = filp->private_data;
