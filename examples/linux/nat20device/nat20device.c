@@ -83,11 +83,13 @@ struct nat20device_driver_instance {
  * @instance: Back-pointer to the owning driver instance
  * @lock: Protects @response against concurrent read/write
  * @response: Response buffer from the most recent dispatch, or empty
+ * @eof: Whether the response has been fully consumed (i.e. read returned 0)
  */
 struct nat20device_file_private {
     struct nat20device_driver_instance* instance;
     struct mutex lock;
     struct nat20device_buffer response;
+    bool eof;
 };
 
 static dev_t nat20device_dev_number;
@@ -162,6 +164,7 @@ static ssize_t nat20device_write(struct file* filp,
     kfree(file_priv->response.data);
     file_priv->response.data = NULL;
     file_priv->response.size = 0;
+    file_priv->eof = false;
 
     /* Dispatch the request */
     ret = instance->ops->dispatch(instance->ctx, request_buf, count, &file_priv->response);
@@ -195,8 +198,16 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
 
     mutex_lock(&file_priv->lock);
 
+    if (file_priv->eof) {
+        /* EOF has been reached, return 0 to indicate end of response. */
+        file_priv->eof = false;
+        ret = 0;
+        goto out;
+    }
+
     /* Check if we have a response buffer */
     if (!file_priv->response.data) {
+        /* No response available, return -EAGAIN to indicate try again later. */
         ret = -EAGAIN;
         goto out;
     }
@@ -226,6 +237,7 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
         kfree(file_priv->response.data);
         file_priv->response.data = NULL;
         file_priv->response.size = 0;
+        file_priv->eof = true;
     }
 
     ret = bytes_to_read;
