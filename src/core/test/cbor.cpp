@@ -1328,6 +1328,178 @@ TEST_F(CborReadTest, SkipIndefiniteMapWithBreakInValuePosition) {
     EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
 }
 
+// Indefinite length items nested as the keys and values of an indefinite
+// length map.
+TEST_F(CborReadTest, SkipIndefiniteMapWithIndefiniteKeyAndValue) {
+    // Indefinite map { (indefinite text "hi"): (indefinite array [1]) },
+    // then uint 7.
+    WriteCborData({0xbf,  // indefinite map
+                   0x7f,
+                   0x62,
+                   'h',
+                   'i',
+                   0xff,  // key: indefinite text string "hi"
+                   0x9f,
+                   0x01,
+                   0xff,  // value: indefinite array [1]
+                   0xff,  // map break
+                   0x07});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 7);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteMapWithIndefiniteByteStringKey) {
+    // Indefinite map { (indefinite byte string "ab"): 9 }, then uint 1.
+    WriteCborData({0xbf,  // indefinite map
+                   0x5f,
+                   0x42,
+                   'a',
+                   'b',
+                   0xff,  // key: indefinite byte string "ab"
+                   0x09,  // value: uint 9
+                   0xff,  // map break
+                   0x01});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 1);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteMapWithIndefiniteMapValue) {
+    // Indefinite map { 1: { 2: 3 } } where the value is itself an indefinite
+    // map, then uint 8.
+    WriteCborData({0xbf,  // outer indefinite map
+                   0x01,  // key: uint 1
+                   0xbf,
+                   0x02,
+                   0x03,
+                   0xff,  // value: indefinite map { 2: 3 }
+                   0xff,  // outer map break
+                   0x08});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 8);
+}
+
+// Indefinite length items nested as the elements of an indefinite length
+// array.
+TEST_F(CborReadTest, SkipIndefiniteArrayOfIndefiniteItems) {
+    // Indefinite array [ (indefinite text "x"), (indefinite map {1: 2}),
+    // (indefinite byte string {0x00}) ], then uint 4.
+    WriteCborData({0x9f,  // indefinite array
+                   0x7f,
+                   0x61,
+                   'x',
+                   0xff,  // indefinite text string "x"
+                   0xbf,
+                   0x01,
+                   0x02,
+                   0xff,  // indefinite map {1: 2}
+                   0x5f,
+                   0x41,
+                   0x00,
+                   0xff,  // indefinite byte string {0x00}
+                   0xff,  // array break
+                   0x04});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 4);
+}
+
+TEST_F(CborReadTest, SkipDeeplyNestedIndefiniteArrays) {
+    // Three levels of empty indefinite arrays: [[[]]], then uint 5. Verifies
+    // that each break terminates exactly one level.
+    WriteCborData({0x9f, 0x9f, 0x9f, 0xff, 0xff, 0xff, 0x05});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 5);
+}
+
+TEST_F(CborReadTest, SkipIndefiniteArrayWithTaggedElements) {
+    // Indefinite array [ tag1(1), 2 ], then uint 3. Confirms that a tag inside
+    // an indefinite array consumes its tagged item without disturbing the
+    // recognition of the array's break stop code.
+    WriteCborData({0x9f, 0xc1, 0x01, 0x02, 0xff, 0x03});
+    CreateStream();
+
+    EXPECT_TRUE(n20_cbor_read_skip_item(&stream));
+
+    n20_cbor_type_t type;
+    uint64_t value;
+    EXPECT_TRUE(n20_cbor_read_header(&stream, &type, &value));
+    EXPECT_EQ(type, n20_cbor_type_uint_e);
+    EXPECT_EQ(value, 3);
+}
+
+// A break stop code may only terminate an indefinite length item. A tag must
+// be followed by a data item, and a break is not a data item. A "tagged break"
+// must therefore be reported as an error rather than being mistaken for the
+// break of an enclosing indefinite length item.
+TEST_F(CborReadTest, SkipTaggedBreakFails) {
+    // Tag 1 followed by a bare break stop code.
+    WriteCborData({0xc1, 0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipTaggedBreakInIndefiniteArrayFails) {
+    // Indefinite array whose first element is a tag followed by a break.
+    // The tagged break must error, not prematurely terminate the array (which
+    // would leave the trailing break unconsumed and wrongly report success).
+    WriteCborData({0x9f, 0xc1, 0xff, 0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipTaggedBreakInIndefiniteMapFails) {
+    // Indefinite map whose first key is a tag followed by a break. The tagged
+    // break must error, not be mistaken for the map's break stop code.
+    WriteCborData({0xbf, 0xc1, 0xff, 0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
+TEST_F(CborReadTest, SkipTaggedBreakInDefiniteArrayFails) {
+    // Definite array of one element that is a tag followed by a break.
+    WriteCborData({0x81, 0xc1, 0xff});
+    CreateStream();
+
+    EXPECT_FALSE(n20_cbor_read_skip_item(&stream));
+}
+
 class CborInvalidHeaderTestFixture
     : public CborReadTest,
       public testing::WithParamInterface<std::tuple<n20_cbor_type_t, uint8_t>> {};
