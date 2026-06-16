@@ -172,7 +172,7 @@ bool n20_cbor_read_header(n20_istream_t *const s, n20_cbor_type_t *const type, u
                 return true;
             default:
                 /* Additional info 31 is only valid for arrays, maps, byte strings, and text
-                 * strings. and in the simple/float type denoting the end of indefinite length
+                 * strings, and in the simple/float type denoting the end of indefinite length
                  * items. */
                 return false;
         }
@@ -295,7 +295,8 @@ static n20_cbor_read_skip_item_result_t n20_cbor_read_skip_item_internal(n20_ist
         }
         case n20_cbor_type_tag_e:
             /* Skip the tag and the item it refers to. */
-            return n20_cbor_read_skip_item_internal(s);
+            return n20_cbor_read_skip_item(s) ? n20_cbor_read_skip_item_ok_e
+                                              : n20_cbor_read_skip_item_error_e;
         case n20_cbor_type_indefinite_bytes_e:
         case n20_cbor_type_indefinite_string_e: {
             n20_cbor_read_skip_item_result_t result;
