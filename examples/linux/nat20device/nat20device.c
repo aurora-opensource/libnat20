@@ -83,13 +83,11 @@ struct nat20device_driver_instance {
  * @instance: Back-pointer to the owning driver instance
  * @lock: Protects @response against concurrent read/write
  * @response: Response buffer from the most recent dispatch, or empty
- * @eof: Whether the response has been fully consumed (i.e. read returned 0)
  */
 struct nat20device_file_private {
     struct nat20device_driver_instance* instance;
     struct mutex lock;
     struct nat20device_buffer response;
-    bool eof;
 };
 
 static dev_t nat20device_dev_number;
@@ -164,7 +162,6 @@ static ssize_t nat20device_write(struct file* filp,
     kfree(file_priv->response.data);
     file_priv->response.data = NULL;
     file_priv->response.size = 0;
-    file_priv->eof = false;
 
     /* Dispatch the request */
     ret = instance->ops->dispatch(instance->ctx, request_buf, count, &file_priv->response);
@@ -185,8 +182,9 @@ out:
  * nat20device_read - Read file operation
  *
  * Returns the current response buffer to userspace. Once the entire
- * response has been read, the buffer is freed and subsequent reads
- * return -EAGAIN until a new request is dispatched via write.
+ * response has been read, read returns 0 to indicate end of response,
+ * and the buffer is freed. Subsequent reads return -EAGAIN until a new
+ * request is dispatched via write.
  */
 static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t count, loff_t* f_pos) {
     struct nat20device_file_private* file_priv = filp->private_data;
@@ -198,13 +196,6 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
 
     mutex_lock(&file_priv->lock);
 
-    if (file_priv->eof) {
-        /* EOF has been reached, return 0 to indicate end of response. */
-        file_priv->eof = false;
-        ret = 0;
-        goto out;
-    }
-
     /* Check if we have a response buffer */
     if (!file_priv->response.data) {
         /* No response available, return -EAGAIN to indicate try again later. */
@@ -214,6 +205,10 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
 
     /* Calculate bytes remaining from current offset */
     if (file_priv->response.size <= *f_pos) {
+        /* Entire response has been consumed, free buffer and return EOF. */
+        kfree(file_priv->response.data);
+        file_priv->response.data = NULL;
+        file_priv->response.size = 0;
         ret = 0;
         goto out;
     }
@@ -231,17 +226,7 @@ static ssize_t nat20device_read(struct file* filp, char __user* buf, size_t coun
     /* Update offset */
     *f_pos += bytes_to_read;
 
-    /* Response fully consumed — free it so subsequent reads
-     * return -EAGAIN until the next write/dispatch cycle. */
-    if (*f_pos >= file_priv->response.size) {
-        kfree(file_priv->response.data);
-        file_priv->response.data = NULL;
-        file_priv->response.size = 0;
-        file_priv->eof = true;
-    }
-
     ret = bytes_to_read;
-
 out:
     mutex_unlock(&file_priv->lock);
     return ret;
