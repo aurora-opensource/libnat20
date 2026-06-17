@@ -53,6 +53,15 @@ extern "C" {
  * data items as specified in RFC 8949. Each type corresponds to a specific kind of data
  * that can be encoded in CBOR.
  *
+ * In addition to the CBOR major types, this enumeration defines a set of
+ * synthetic types that represent indefinite length items. These are not CBOR
+ * major types. They encode the indefinite length variant of a major type by
+ * setting the 0x100 bit, i.e. their value is `(major_type | 0x100)`. The read
+ * and write functions use this bit to convert between the synthetic type and
+ * its wire encoding, which uses the additional info value 31. The break stop
+ * code that terminates indefinite length items is likewise represented as a
+ * synthetic type (@ref n20_cbor_type_indefinite_break_e).
+ *
  * @sa https://tools.ietf.org/html/rfc8949
  */
 typedef enum n20_cbor_type_s {
@@ -112,6 +121,41 @@ typedef enum n20_cbor_type_s {
      * Represents simple values (e.g., true, false, null) or floating-point numbers.
      */
     n20_cbor_type_simple_float_e = 7,
+    /**
+     * @brief Indefinite length byte string.
+     *
+     * Synthetic type for the byte string major type with the indefinite
+     * length bit (0x100) set.
+     */
+    n20_cbor_type_indefinite_bytes_e = 0x102,
+    /**
+     * @brief Indefinite length text string.
+     *
+     * Synthetic type for the text string major type with the indefinite
+     * length bit (0x100) set.
+     */
+    n20_cbor_type_indefinite_string_e = 0x103,
+    /**
+     * @brief Indefinite length array.
+     *
+     * Synthetic type for the array major type with the indefinite length
+     * bit (0x100) set.
+     */
+    n20_cbor_type_indefinite_array_e = 0x104,
+    /**
+     * @brief Indefinite length map.
+     *
+     * Synthetic type for the map major type with the indefinite length
+     * bit (0x100) set.
+     */
+    n20_cbor_type_indefinite_map_e = 0x105,
+    /**
+     * @brief Break stop code for indefinite length items.
+     *
+     * Synthetic type for the simple/float major type with the indefinite
+     * length bit (0x100) set. It marks the end of an indefinite length item.
+     */
+    n20_cbor_type_indefinite_break_e = 0x107,
 } n20_cbor_type_t;
 
 /**
@@ -141,6 +185,12 @@ typedef enum n20_cbor_type_s {
  * If @p type is @ref n20_cbor_type_none_e or another undefined value,
  * it writes the special value 0xf7 to the stream, and @p value is ignored.
  * 0xf7 is the encoding of the special value "undefined" in CBOR.
+ *
+ * If @p type is one of the indefinite length types
+ * (@ref n20_cbor_type_indefinite_bytes_e, @ref n20_cbor_type_indefinite_string_e,
+ * @ref n20_cbor_type_indefinite_array_e, @ref n20_cbor_type_indefinite_map_e)
+ * or @ref n20_cbor_type_indefinite_break_e, an indefinite length header
+ * (additional info value 31) is written and @p value is ignored.
  *
  * @param s The stream to write to.
  * @param type The CBOR type (see @ref n20_cbor_type_t).
@@ -249,6 +299,16 @@ extern void n20_cbor_write_map_header(n20_stream_t *s, size_t size);
  *
  * This function reads the CBOR header for a given type and value from the stream.
  *
+ * Indefinite length headers (additional info value 31) for byte strings, text
+ * strings, arrays, and maps are reported via the corresponding synthetic types
+ * (@ref n20_cbor_type_indefinite_bytes_e, @ref n20_cbor_type_indefinite_string_e,
+ * @ref n20_cbor_type_indefinite_array_e, @ref n20_cbor_type_indefinite_map_e)
+ * with @p n set to 0. The break stop code is reported as
+ * @ref n20_cbor_type_indefinite_break_e. Additional info value 31 with any
+ * other major type (unsigned integer, negative integer, or tag) is rejected
+ * and the function returns false, as are the reserved additional info values
+ * 28 to 30.
+ *
  * @param s The stream to read from.
  * @param type The CBOR type (see @ref n20_cbor_type_t).
  * @param n The value associated with the CBOR type.
@@ -263,8 +323,17 @@ extern bool n20_cbor_read_header(n20_istream_t *s, n20_cbor_type_t *type, uint64
  * past the item. If the item has tags or has a nested structure, like
  * an array or map, it will also advance past those structures.
  *
- * This function will skip past any CBOR structure, however, it does not
- * support indefinite length items.
+ * This function will skip past any CBOR structure, including indefinite length
+ * byte strings, text strings, arrays, and maps. For indefinite length items it
+ * consumes the contained chunks or elements up to and including the break stop
+ * code.
+ *
+ * A break stop code encountered where a data item is expected (for example as
+ * the top-level item, in the value position of a map, or in place of a chunk
+ * of an indefinite length string) is treated as an error and the function
+ * returns false. The chunks of an indefinite length byte or text string must
+ * be definite length byte or text strings respectively; anything else is an
+ * error.
  *
  * @param s The stream to read from.
  * @return true if the item was skipped successfully, false otherwise.
