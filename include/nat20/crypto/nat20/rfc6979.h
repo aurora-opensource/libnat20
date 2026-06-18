@@ -54,7 +54,13 @@ extern "C" {
  * index always has the lowest significance.
  */
 struct n20_bn_s {
+    /**
+     * @brief The number of words in the big number.
+     */
     size_t word_count;
+    /**
+     * @brief The array of words representing the big number.
+     */
     uint32_t* words;
 };
 
