@@ -485,6 +485,62 @@ pub unsafe extern "C" fn n20r_device_id_public_key(
     })())
 }
 
+/// Validates a DICE handover left by an earlier stage, and reports how many
+/// bytes of it are in use.
+///
+/// Checks the header and that the content is a CBOR indefinite-length array
+/// closed at the terminator offset (see `HANDOVER.md`); entries are not
+/// parsed. On success `*used` is the number of bytes in use: header, entries
+/// and terminator. A malformed structure, including a region too small for
+/// the header or misaligned for it, returns `InvalidArgument` with `*used`
+/// unchanged. The region is not modified.
+///
+/// # Safety
+/// `handover` must be null (rejected) or point to `handover_size` readable
+/// bytes that nothing writes during the call. `used` must be null (rejected)
+/// or point to a writable `usize`.
+#[no_mangle]
+pub unsafe extern "C" fn n20r_handover_validate(
+    handover: *const u8,
+    handover_size: usize,
+    used: *mut usize,
+) -> N20rError {
+    status((|| {
+        if used.is_null() {
+            return Err(Error::InvalidArgument);
+        }
+        // SAFETY: the caller guarantees `handover`/`handover_size` describe a
+        // readable region that nothing writes during the call, which is what
+        // `handover_ref_arg` requires; the view does not outlive it.
+        let n = handover_ref_arg(handover, handover_size)?.used_size()?;
+        // SAFETY: non-null, and the caller guarantees it is writable.
+        *used = n;
+        Ok(())
+    })())
+}
+
+/// Splits a caller-supplied region into a read-only [`HandoverHeader`] and
+/// the content that follows it, as [`handover_arg`] does.
+///
+/// # Safety
+/// `raw` must be null (rejected) or valid for reads of `raw_size` bytes that
+/// nothing writes for as long as the returned view lives.
+unsafe fn handover_ref_arg<'b>(
+    raw: *const u8,
+    raw_size: usize,
+) -> Result<nat20::handover::HandoverRef<'b>, Error> {
+    check_handover_region(raw, raw_size)?;
+    // SAFETY: null was rejected above; the rest is exactly this function's
+    // own contract, which its caller guarantees.
+    let raw = slice::from_raw_parts(raw, raw_size);
+    let (header, content) = raw.split_at(size_of::<HandoverHeader>());
+    // SAFETY: as in `handover_arg`: one header long, aligned for it, and
+    // every bit pattern is a valid `HandoverHeader`.
+    let header = &*header.as_ptr().cast::<HandoverHeader>();
+    // One slice was split, so header and content are contiguous.
+    nat20::handover::HandoverRef::new(header, content)
+}
+
 // Compile-time locks on the C-visible ABI (checked on every build, including
 // cross builds, so they guard the actual target layout).
 const _: () = {
@@ -504,5 +560,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
 #[cfg(test)]
 mod ctx_tests;
+#[cfg(test)]
+mod handover_tests;
 #[cfg(test)]
 mod tests;
