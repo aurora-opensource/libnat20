@@ -68,6 +68,7 @@ pub mod crypto;
 pub mod cwt;
 pub mod derive;
 pub mod error;
+pub mod handover;
 pub mod open_dice;
 pub mod stream;
 
