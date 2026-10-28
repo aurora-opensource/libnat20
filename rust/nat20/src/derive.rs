@@ -35,7 +35,7 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-//! Deterministic DICE derivations.
+//! Deterministic DICE derivations and certificate issuance.
 //! Port of the COSE path of `src/core/functionality.c`.
 //!
 //! All derivations are HKDF-Expand-SHA512 from a 32-byte CDI secret with the
@@ -44,12 +44,16 @@
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::cose::{self, SIG_SIZE_ED25519};
 // The Zeroize impls below are written by hand instead of derived: the
 // zeroize_derive proc macro would drag syn/quote/proc-macro2 into the
 // build, which direct-rustc environments (build systems that invoke rustc
 // without cargo) cannot host-compile.
-use crate::crypto::{hkdf_expand_sha512, hkdf_sha512, CryptoError, Digest, Seed32};
+use crate::crypto::{hkdf_expand_sha512, hkdf_sha512, Crypto, CryptoError, Digest, Seed32};
+use crate::cwt::{self, CwtParams};
+use crate::error::Error;
 use crate::open_dice::OpenDiceInput;
+use crate::stream::WStream;
 
 /// KDF tag for deriving the next-level attestation CDI (`CDI_ATTEST_STR`).
 pub const CDI_ATTEST: &[u8] = b"CDI_Attest";
@@ -181,4 +185,168 @@ pub fn cdi_id<D: Digest>(d: &mut D, public_key: &[u8; 32]) -> Result<CdiId, Cryp
     hkdf_sha512(d, public_key, &ID_SALT, &[ID_INFO], &mut id)?;
     id[0] &= 0x7f;
     Ok(id)
+}
+
+/// Computes the exact certificate size for `params` without any crypto,
+/// mirroring the C NULL-buffer size query.
+fn size_query(params: &CwtParams) -> Error {
+    let mut s = WStream::counting();
+    cose::render_sign1(&mut s, &[0; SIG_SIZE_ED25519], |s| {
+        cwt::write_cwt_payload(s, params)
+    });
+    Error::InsufficientBuffer {
+        required: s.written(),
+    }
+}
+
+/// Renders the signed COSE_Sign1 into the tail of `buf`.
+///
+/// Ed25519 needs the signed message in one piece, so `buf` stages it: the
+/// Sig_structure is rendered into it and signed, then the COSE_Sign1, which
+/// is longer, is rendered over it. The payload is rendered twice; no other
+/// buffer is needed, so the certificate size is bounded only by `buf`.
+fn render_and_sign<C: Crypto>(
+    c: &mut C,
+    signing_seed: &Seed32,
+    params: &CwtParams,
+    buf: &mut [u8],
+) -> Result<usize, Error> {
+    let tbs_len = {
+        let mut s = WStream::new(buf);
+        cose::render_sig_structure(&mut s, |s| cwt::write_cwt_payload(s, params));
+        if s.overflowed() {
+            return Err(size_query(params));
+        }
+        s.written()
+    };
+    let mut signature = [0u8; SIG_SIZE_ED25519];
+    c.sign(signing_seed, &buf[buf.len() - tbs_len..], &mut signature)?;
+
+    let mut s = WStream::new(buf);
+    cose::render_sign1(&mut s, &signature, |s| cwt::write_cwt_payload(s, params));
+    if s.overflowed() {
+        return Err(Error::InsufficientBuffer {
+            required: s.written(),
+        });
+    }
+    Ok(s.written())
+}
+
+/// Dummy CDI_ID used in size-query mode (`0x7f` filler, like the C library;
+/// the hex rendering is fixed-width so any value yields the exact size).
+const SIZE_QUERY_ID: CdiId = [0x7f; 20];
+
+/// Issues the self-signed device-identity CWT from the root CDI.
+///
+/// Derives the device-identity key (`attest_key_seed`), uses its CDI_ID as
+/// both issuer and subject, and signs the certificate with the key it
+/// certifies. This extends the C library, which does not currently support
+/// COSE for self-signed certificates.
+///
+/// With `buf = None` this is an exact-size query: no crypto runs and the
+/// result is `Err(Error::InsufficientBuffer { required })`. On success the
+/// encoded certificate occupies `buf[buf.len() - n ..]` where `n` is the
+/// returned byte count.
+pub fn issue_device_id_cwt<C: Crypto>(
+    c: &mut C,
+    cdi: &CdiSecret,
+    profile_name: Option<&[u8]>,
+    buf: Option<&mut [u8]>,
+) -> Result<usize, Error> {
+    let Some(buf) = buf else {
+        return Err(size_query(&CwtParams {
+            issuer_id: &SIZE_QUERY_ID,
+            subject_id: &SIZE_QUERY_ID,
+            input: None,
+            subject_public_key: &[0; 32],
+            profile_name,
+        }));
+    };
+
+    let mut seed = Seed32::default();
+    attest_key_seed(c, cdi, &mut seed)?;
+    let mut public_key = [0u8; 32];
+    c.public_key(&seed, &mut public_key)?;
+    let id = cdi_id(c, &public_key)?;
+
+    let params = CwtParams {
+        issuer_id: &id,
+        subject_id: &id,
+        input: None,
+        subject_public_key: &public_key,
+        profile_name,
+    };
+    render_and_sign(c, &seed, &params, buf)
+}
+
+/// Derives the next-stage CDI and key pair from `cdi` and the open-DICE
+/// `input`, and issues the next-stage CWT signed by the device-identity key.
+///
+/// Writes the next-stage CDI (to be handed to the next boot stage) to
+/// `next_cdi` and returns the certificate size. The certificate certifies
+/// the next-stage public key and carries the open-DICE claims; the
+/// profile-name claim is taken from `input.profile_name`.
+///
+/// With `buf = None` this is an exact-size query: no crypto runs, no CDI is
+/// derived, and the result is `Err(Error::InsufficientBuffer { required })`.
+/// On success the encoded certificate occupies `buf[buf.len() - n ..]`. On
+/// any error `next_cdi` is left zeroed.
+pub fn issue_next_stage_cwt<C: Crypto>(
+    c: &mut C,
+    cdi: &CdiSecret,
+    input: &OpenDiceInput,
+    next_cdi: &mut CdiSecret,
+    buf: Option<&mut [u8]>,
+) -> Result<usize, Error> {
+    let result = issue_next_stage_cwt_into(c, cdi, input, next_cdi, buf);
+    if result.is_err() {
+        next_cdi.zeroize();
+    }
+    result
+}
+
+fn issue_next_stage_cwt_into<C: Crypto>(
+    c: &mut C,
+    cdi: &CdiSecret,
+    input: &OpenDiceInput,
+    next_cdi: &mut CdiSecret,
+    buf: Option<&mut [u8]>,
+) -> Result<usize, Error> {
+    let profile_name = (!input.profile_name.is_empty()).then_some(input.profile_name);
+
+    let Some(buf) = buf else {
+        return Err(size_query(&CwtParams {
+            issuer_id: &SIZE_QUERY_ID,
+            subject_id: &SIZE_QUERY_ID,
+            input: Some(input),
+            subject_public_key: &[0; 32],
+            profile_name,
+        }));
+    };
+
+    let input_digest = compress_input(c, input)?;
+    next_cdi_attest(c, cdi, &input_digest, next_cdi)?;
+
+    // One seed container serves both keys, so the subject seed is
+    // overwritten rather than left behind.
+    let mut seed = Seed32::default();
+    attest_key_seed(c, next_cdi, &mut seed)?;
+    let mut subject_public_key = [0u8; 32];
+    c.public_key(&seed, &mut subject_public_key)?;
+    let subject_id = cdi_id(c, &subject_public_key)?;
+
+    attest_key_seed(c, cdi, &mut seed)?;
+    let issuer_seed = &seed;
+    let mut issuer_public_key = [0u8; 32];
+    c.public_key(issuer_seed, &mut issuer_public_key)?;
+    let issuer_id = cdi_id(c, &issuer_public_key)?;
+
+    let params = CwtParams {
+        issuer_id: &issuer_id,
+        subject_id: &subject_id,
+        input: Some(input),
+        subject_public_key: &subject_public_key,
+        profile_name,
+    };
+    render_and_sign(c, issuer_seed, &params, buf)
 }
