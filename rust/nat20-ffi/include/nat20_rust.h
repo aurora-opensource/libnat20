@@ -224,6 +224,22 @@ n20r_error_t n20r_issue_next_stage_cwt(uint8_t *ctx,
                                        size_t handover_size);
 
 /**
+ * Validates a DICE handover left by an earlier stage, as a stage taking it
+ * over must before relying on or extending it.
+ *
+ * Checks the header and that the content is a CBOR indefinite-length array
+ * closed at the terminator offset (HANDOVER.md, "Rules"); entries are not
+ * parsed. The region is not modified.
+ *
+ * @param handover The handover region, 4-byte aligned.
+ * @param handover_size Size of the region in bytes.
+ * @param used On success, the number of bytes in use (header, entries and
+ *        terminator); unchanged on error.
+ * @return N20R_ERR_INVALID_ARGUMENT for any malformed structure.
+ */
+n20r_error_t n20r_handover_validate(uint8_t const *handover, size_t handover_size, size_t *used);
+
+/**
  * Writes the 32-byte device-identity Ed25519 public key for the given root
  * CDI (e.g. for provisioning or out-of-band trust establishment).
  */
