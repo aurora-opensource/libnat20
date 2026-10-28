@@ -240,6 +240,46 @@ n20r_error_t n20r_issue_next_stage_cwt(uint8_t *ctx,
 n20r_error_t n20r_handover_validate(uint8_t const *handover, size_t handover_size, size_t *used);
 
 /**
+ * CBOR maps with unsigned integer keys
+ * ====================================
+ *
+ * Encodes open-DICE code and configuration descriptors (or any other map
+ * with unsigned integer keys) with the library's own CBOR encoder, so
+ * callers need no encoder of their own. Each entry's kind is the CBOR major
+ * type of its value.
+ */
+#define N20R_CBOR_UINT 0
+#define N20R_CBOR_BYTES 2
+#define N20R_CBOR_TEXT 3
+
+typedef struct n20r_cbor_map_entry {
+    uint64_t key;
+    /** The value when kind is N20R_CBOR_UINT. */
+    uint64_t uint_value;
+    /** The value when kind is N20R_CBOR_BYTES or N20R_CBOR_TEXT (UTF-8,
+     *  written verbatim, not validated). */
+    uint8_t const *data;
+    size_t size;
+    uint32_t kind;
+} n20r_cbor_map_entry_t;
+
+/**
+ * Encodes a CBOR map of count entries into out.
+ *
+ * Keys must be strictly ascending, which makes the encoding deterministic
+ * (RFC 8949 section 4.2.1). On input *size is the capacity of out; on
+ * success it is the encoded length and the map starts at out[0]. If out is
+ * NULL or too small, *size is set to the exact length needed and
+ * N20R_ERR_INSUFFICIENT_BUFFER is returned with nothing written. Unordered
+ * keys or an unknown kind return N20R_ERR_INVALID_ARGUMENT with *size
+ * unchanged. NULL data is an empty string, whatever its size.
+ */
+n20r_error_t n20r_encode_cbor_map(n20r_cbor_map_entry_t const *entries,
+                                  size_t count,
+                                  uint8_t *out,
+                                  size_t *size);
+
+/**
  * Writes the 32-byte device-identity Ed25519 public key for the given root
  * CDI (e.g. for provisioning or out-of-band trust establishment).
  */
