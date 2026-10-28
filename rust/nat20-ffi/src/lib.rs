@@ -142,6 +142,44 @@ fn status<T>(res: Result<T, Error>) -> N20rError {
     res.map_or_else(into_n20r_error, |_| N20rError::Ok)
 }
 
+/// Bytes of stack each secret-handling entry point zeroes before it
+/// returns: the deepest use `tools/stack-probe.sh` measures for the backend
+/// on armv7 Thumb-2 (2224 bytes on Monocypher, 6576 on the soft backend,
+/// both in `n20r_issue_next_stage_cwt`), plus margin. The probe fails if a
+/// call ever outgrows it.
+#[cfg(feature = "mono-crypto")]
+pub const N20R_STACK_SCRUB_SIZE: usize = 3072;
+/// See the `mono-crypto` variant.
+#[cfg(not(feature = "mono-crypto"))]
+pub const N20R_STACK_SCRUB_SIZE: usize = 8192;
+
+/// Runs `f`, an entry point's body that handles secrets, then zeroes the
+/// stack it used, on success and on error alike.
+///
+/// The secret containers wipe themselves on drop, but moves, register spills
+/// and the crypto backends' own locals leave copies in dead stack frames that
+/// no destructor sees. `f` runs in a frame of its own below this one
+/// ([`run_unscrubbed`] is never inlined), so whatever it leaves lies within
+/// [`N20R_STACK_SCRUB_SIZE`] bytes below this frame, which `zeroize_stack`
+/// then overwrites. This is best effort: it relies on `inline(never)` being
+/// honoured and on the size covering the real depth, both of which the stack
+/// probe checks on the target. Registers are not cleared.
+///
+/// The `nat20_no_stack_scrub` cfg exists only so the probe can show what is
+/// left without the scrub; never set it in a real build.
+fn scrubbed(f: impl FnOnce() -> Result<(), Error>) -> N20rError {
+    let rc = run_unscrubbed(f);
+    #[cfg(not(nat20_no_stack_scrub))]
+    zeroize::zeroize_stack::<N20R_STACK_SCRUB_SIZE>();
+    rc
+}
+
+/// See [`scrubbed`].
+#[inline(never)]
+fn run_unscrubbed(f: impl FnOnce() -> Result<(), Error>) -> N20rError {
+    status(f())
+}
+
 /// Prepares a caller-provided buffer for use as a DICE context.
 ///
 /// Must be called before any `n20r_set_*` or [`n20r_issue_next_stage_cwt`]
@@ -369,7 +407,7 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
     handover: *mut u8,
     handover_size: usize,
 ) -> N20rError {
-    status((|| {
+    scrubbed(|| {
         // Every argument is checked before `init()` discards the region's
         // contents, so a bad call leaves an existing chain intact. After
         // that the region is this call's: the device identity always starts
@@ -394,7 +432,7 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
         issue_into(&mut handover, |buf| {
             issue_device_id_cwt(&mut crypto, &root_cdi, profile, buf)
         })
-    })())
+    })
 }
 
 /// Derives the next-stage CDI and issues the next-stage CWT, signed by the
@@ -417,7 +455,7 @@ pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
     handover: *mut u8,
     handover_size: usize,
 ) -> N20rError {
-    status((|| {
+    scrubbed(|| {
         if next_cdi_out.is_null() {
             return Err(Error::InvalidArgument);
         }
@@ -453,7 +491,7 @@ pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
         // writable bytes that no other argument overlaps.
         slice::from_raw_parts_mut(next_cdi_out, 32).copy_from_slice(next_cdi.as_bytes());
         Ok(())
-    })())
+    })
 }
 
 /// Writes the 32-byte device-identity public key for the given root CDI
@@ -467,7 +505,7 @@ pub unsafe extern "C" fn n20r_device_id_public_key(
     cdi: *const u8,
     public_key_out: *mut u8,
 ) -> N20rError {
-    status((|| {
+    scrubbed(|| {
         if public_key_out.is_null() {
             return Err(Error::InvalidArgument);
         }
@@ -484,7 +522,7 @@ pub unsafe extern "C" fn n20r_device_id_public_key(
         // writable bytes.
         slice::from_raw_parts_mut(public_key_out, 32).copy_from_slice(&pk);
         Ok(())
-    })())
+    })
 }
 
 /// Validates a DICE handover left by an earlier stage, and reports how many

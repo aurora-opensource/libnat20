@@ -58,3 +58,9 @@ panic-putc-hang = []
 
 [dependencies]
 nat20 = { path = "../nat20" }
+# zeroize_stack, for the stack scrub after the secret-handling entry points.
+zeroize = { version = "1.9", default-features = false }
+
+[lints.rust]
+# Set only by tools/stack-probe.sh, to measure what the scrub removes.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(nat20_no_stack_scrub)"] }
