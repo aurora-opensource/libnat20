@@ -6,6 +6,8 @@
       "**/*.cmake.in",
       "**/*.mk",
       "**/*.sh",
+      "**/*.toml",
+      "**/*.py",
       "**/Config.in",
       "**/Kbuild",
       "examples/linux/br_external/external.desc",
@@ -20,7 +22,13 @@
     "include": [
       "**/*.c",
       "**/*.h",
-      "**/*.cpp"
+      "**/*.cpp",
+      "**/*.rs",
+      "**/*.S",
+      "**/*.ld"
+    ],
+    "exclude": [
+      "rust/third_party/**"
     ],
     "license": "./.github/license-check/header-apache2-or-gpl2-slash-star.txt"
   },
@@ -34,7 +42,9 @@
     "include": [
       "**/*.md",
       "**/*.txt",
-      "examples/linux/br_external/configs/*"
+      "examples/linux/br_external/configs/*",
+      "rust/Cargo.lock",
+      "rust/third_party/**"
     ],
     "exclude": [
       "**/CMakeLists.txt"
