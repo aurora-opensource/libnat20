@@ -56,6 +56,16 @@
  * A NULL pointer with a size is an empty buffer, whatever the size.
  *
  * A handover region must be 4-byte aligned.
+ *
+ * Secrets on the stack: n20r_issue_device_id_cwt(),
+ * n20r_issue_next_stage_cwt() and n20r_device_id_public_key() zero the
+ * stack they used before returning, on success and on error, so no CDI,
+ * seed, key or hash state derived during the call survives it. This costs
+ * stack: each of them needs about 3 KiB (Monocypher backend) or 8 KiB
+ * (soft backend) below the caller's frame, which covers the depth the
+ * calls themselves reach. Registers are not cleared, and the caller's own
+ * buffers are the caller's to wipe: the root CDI passed in, and the next
+ * CDI passed out. tools/stack-probe.sh checks all of this on the target.
  */
 
 #ifndef NAT20_RUST_H
@@ -187,7 +197,7 @@ n20r_error_t n20r_set_mode(uint8_t *ctx, uint8_t mode);
  * This initialises the handover, discarding anything it held, so call it
  * first. All arguments are checked before the region is touched; once they
  * pass, the region is initialised even if issuing then fails, which leaves
- * an empty handover.
+ * an empty handover. Zeroes the stack it used (see above).
  *
  * @param cdi 32-byte root CDI secret.
  * @param profile_name Optional profile-name claim (UTF-8, not validated);
@@ -206,7 +216,8 @@ n20r_error_t n20r_issue_device_id_cwt(uint8_t const cdi[32],
  * issues the next-stage CWT: it contains the open-DICE claims and the
  * next-stage public key, and is signed by the device-identity key. The
  * certificate is appended to the handover, which must already hold the
- * chain up to this stage (see n20r_issue_device_id_cwt()).
+ * chain up to this stage (see n20r_issue_device_id_cwt()). Zeroes the stack
+ * it used (see above).
  *
  * @param ctx DICE context holding the open-DICE input, prepared by
  *        n20r_ctx_init(). Fields never set are empty.
@@ -281,7 +292,8 @@ n20r_error_t n20r_encode_cbor_map(n20r_cbor_map_entry_t const *entries,
 
 /**
  * Writes the 32-byte device-identity Ed25519 public key for the given root
- * CDI (e.g. for provisioning or out-of-band trust establishment).
+ * CDI (e.g. for provisioning or out-of-band trust establishment). Zeroes
+ * the stack it used (see above).
  */
 n20r_error_t n20r_device_id_public_key(uint8_t const cdi[32], uint8_t public_key_out[32]);
 
