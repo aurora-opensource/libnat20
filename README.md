@@ -16,6 +16,9 @@ means of an interface that users are expected to provide. A reference
 implementation of this interface based on boring ssl is provided
 and can be compiled optionally.
 
+A `no_std` Rust port of the CWT certificate path, wire-compatible with the C
+library and with a C ABI for boot firmware, lives in [rust/](rust/README.md).
+
 ## Contributing
 
 The project is licensed under Apache 2 license and contributers are expected
