@@ -667,11 +667,50 @@ const _: () = {
 
 /// Panic handler: this crate produces a final staticlib artifact, so it must
 /// supply one (there is no std). `panic-loop` spins forever (and prints
-/// nothing — it must not depend on any environment symbols).
-#[cfg(feature = "panic-loop")]
+/// nothing — it must not depend on any environment symbols);
+/// `panic-putc-hang` prints the panic message and location through the
+/// environment's `putc()` and then calls its `hang()`, as U-Boot provides
+/// them.
+///
+/// Note: in artifacts built with `-Cpanic=immediate-abort` (the size-
+/// constrained variant, `SLIM=1` with `tools/build-firmware-lib.sh`), panic
+/// sites compile to a trap instruction (`udf`) and this handler is never
+/// invoked; the message only appears in plain `abort` builds. Rendering
+/// the message costs a few KiB of `core::fmt` machinery.
+#[cfg(all(feature = "panic-loop", not(feature = "panic-putc-hang")))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
+}
+
+#[cfg(feature = "panic-putc-hang")]
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    use core::fmt::Write as _;
+
+    extern "C" {
+        fn putc(c: core::ffi::c_char);
+        fn hang() -> !;
+    }
+
+    struct Console;
+    impl core::fmt::Write for Console {
+        fn write_str(&mut self, s: &str) -> core::fmt::Result {
+            for byte in s.bytes() {
+                // SAFETY: the feature's contract: the environment's putc
+                // takes any byte value and has no preconditions.
+                unsafe { putc(byte as core::ffi::c_char) };
+            }
+            Ok(())
+        }
+    }
+
+    // PanicInfo's Display prints "panicked at <file>:<line>:<col>: <msg>".
+    let _ = writeln!(Console, "rust: {}", info);
+    // SAFETY: the feature's contract: the environment's hang() takes no
+    // arguments, never returns, and may be called at any point. Diverging
+    // here is what makes this a valid `-> !` panic handler.
+    unsafe { hang() }
 }
 
 #[cfg(test)]

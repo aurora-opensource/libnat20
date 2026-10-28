@@ -51,7 +51,10 @@ soft-crypto = ["nat20/soft-crypto"]
 mono-crypto = ["nat20/mono-crypto"]
 # Exactly one panic strategy must be selected for bare-metal builds.
 # Host unit tests build without either: --no-default-features --features soft-crypto.
+# panic-loop spins and needs nothing from the environment; panic-putc-hang
+# prints through putc() and stops in hang(), which U-Boot provides.
 panic-loop = []
+panic-putc-hang = []
 
 [dependencies]
 nat20 = { path = "../nat20" }

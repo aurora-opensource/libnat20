@@ -33,6 +33,12 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 
+# Defaults for each bare-metal target, independent of the firmware the
+# library is linked into. What a particular firmware environment needs on
+# top (reserved registers, C ABI details, rebuilt core) is in
+# firmware/<environment>-<arch>.toml, passed with cargo --config; see
+# tools/build-firmware-lib.sh.
+
 [target.armv7a-none-eabi]
 rustflags = [
     "--cfg", "curve25519_dalek_bits=\"32\"",
