@@ -38,9 +38,17 @@
 //! Minimal `no_std` port of libnat20: deterministic DICE key derivation and
 //! CWT (COSE_Sign1) certificate issuance with Ed25519.
 //!
-//! The derivations are those of the C libnat20 library, with full
-//! compatibility: HKDF-Expand-SHA512 with the same salts and tags
-//! (`"CDI_Attest"`, `"Key Pair Attest"`, `ASYM_SALT`, `ID_SALT`, `"ID"`).
+//! This crate reimplements the CWT/COSE subset of the C libnat20 library with
+//! full derivation and wire compatibility:
+//!
+//! * The KDF is HKDF-Expand-SHA512 with the same salts and tags
+//!   (`"CDI_Attest"`, `"Key Pair Attest"`, `ASYM_SALT`, `ID_SALT`, `"ID"`).
+//! * Certificates are CWTs wrapped in COSE_Sign1 with byte-identical CBOR
+//!   layout to `n20_issue_certificate` with `n20_certificate_format_cose_e`.
+//!
+//! It extends the C library in one way: self-signed device-identity
+//! certificates can be issued as CWTs (the C library currently rejects COSE
+//! for `n20_cert_type_self_signed_e`).
 //!
 //! No allocation, no floating point, no panicking paths on correct usage.
 //! Cryptographic primitives are pluggable through the traits in [`crypto`];
@@ -52,11 +60,15 @@
 #![deny(missing_docs)]
 
 pub mod cbor;
+pub mod cose;
 pub mod crypto;
+pub mod cwt;
 pub mod derive;
+pub mod error;
 pub mod open_dice;
 pub mod stream;
 
-pub use crypto::{CryptoError, Digest, Ed25519Signer, Seed32};
-pub use derive::{CdiId, CdiSecret};
+pub use crypto::{Crypto, CryptoError, Digest, Ed25519Signer, Seed32};
+pub use derive::{issue_device_id_cwt, issue_next_stage_cwt, CdiId, CdiSecret};
+pub use error::Error;
 pub use open_dice::{Mode, OpenDiceInput};
