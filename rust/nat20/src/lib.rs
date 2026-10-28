@@ -56,7 +56,10 @@
 //! available behind the `soft-crypto` feature.
 
 #![no_std]
-#![forbid(unsafe_code)]
+// unsafe is forbidden everywhere except the FFI bindings of the optional
+// Monocypher backend (crypto/mono.rs), which carries its own allow.
+#![cfg_attr(not(feature = "mono-crypto"), forbid(unsafe_code))]
+#![cfg_attr(feature = "mono-crypto", deny(unsafe_code))]
 #![deny(missing_docs)]
 
 pub mod cbor;

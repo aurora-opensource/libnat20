@@ -51,6 +51,8 @@ jobs:
     - uses: DoozyX/clang-format-lint-action@c71d0bf4e21876ebec3e5647491186f8797fde31 #v0.18.2
       with:
         source: '.'
+        # Vendored third-party sources keep their upstream formatting.
+        exclude: './rust/third_party/monocypher'
         extensions: 'h,c,cpp'
         clangFormatVersion: 14.0.0
         style: file

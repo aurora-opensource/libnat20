@@ -54,6 +54,8 @@
 //! The software implementation ([`soft::SoftCrypto`]) lives behind the
 //! `soft-crypto` feature.
 
+#[cfg(feature = "mono-crypto")]
+pub mod mono;
 #[cfg(feature = "soft-crypto")]
 pub mod soft;
 
