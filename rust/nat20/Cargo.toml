@@ -39,3 +39,24 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0 OR GPL-2.0"
 description = "Minimal no_std port of libnat20: DICE key derivation and CWT (COSE_Sign1) certificate issuance with Ed25519."
+
+[features]
+default = []
+# Software crypto backend (sha2/hmac/ed25519-dalek). Disable to bring your own
+# Digest/Ed25519Signer implementations.
+soft-crypto = ["dep:sha2", "dep:hmac", "dep:ed25519-dalek"]
+# Fault-injection hardening: verify each signature after creation.
+# Costs code size (pulls in verification) and ~2x signing time.
+verify-after-sign = []
+
+[dependencies]
+# No zeroize_derive: the proc-macro stack (syn/quote/proc-macro2) must stay
+# out of the graph so direct-rustc builds (build systems that invoke rustc
+# without cargo) need no host-compiled crates. The Zeroize impls are written
+# by hand.
+zeroize = { version = "1.8", default-features = false }
+# force-soft-compact selects the loop-based compression function: ~15 KB
+# smaller than the default unrolled one on 32-bit ARM, at some speed cost.
+sha2 = { version = "0.10", default-features = false, features = ["force-soft-compact"], optional = true }
+hmac = { version = "0.12", default-features = false, optional = true }
+ed25519-dalek = { version = "2", default-features = false, features = ["zeroize"], optional = true }
