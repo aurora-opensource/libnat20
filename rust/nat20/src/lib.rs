@@ -38,13 +38,20 @@
 //! Minimal `no_std` port of libnat20: deterministic DICE key derivation and
 //! CWT (COSE_Sign1) certificate issuance with Ed25519.
 //!
-//! This first part provides the encoding layer: a backward-writing output
-//! stream ([`stream`]) and the CBOR encoders built on it ([`cbor`]).
+//! The derivations are those of the C libnat20 library, with full
+//! compatibility: HKDF-Expand-SHA512 with the same salts and tags
+//! (`"CDI_Attest"`, `"Key Pair Attest"`, `ASYM_SALT`, `ID_SALT`, `"ID"`).
 //!
-//! No allocation, no floating point, and no panics.
+//! No allocation, no floating point, and no panics: a panic would cut short
+//! the wiping of secrets (see [`crypto`]).
+//! Cryptographic primitives are pluggable through the traits in [`crypto`];
+//! a software implementation backed by `sha2`/`hmac`/`ed25519-dalek` is
+//! available behind the `soft-crypto` feature.
 
 #![no_std]
-#![forbid(unsafe_code)]
+// unsafe is denied everywhere except the register clearing of the crypto
+// scrub (crypto/scrub.rs), which carries its own allow.
+#![deny(unsafe_code)]
 #![deny(missing_docs)]
 // A panic would cut short the wiping of secrets (see nat20::crypto), so
 // none may be written; these lints catch the obvious ones.
@@ -59,4 +66,11 @@
 )]
 
 pub mod cbor;
+pub mod crypto;
+pub mod derive;
+pub mod open_dice;
 pub mod stream;
+
+pub use crypto::{CryptoError, Digest, Ed25519Signer, Seed32};
+pub use derive::{CdiId, CdiSecret};
+pub use open_dice::{Mode, OpenDiceInput};
