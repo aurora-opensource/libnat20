@@ -36,12 +36,14 @@ What the numbers rest on:
   feature set (libnat20's encoders plus Monocypher) measured within about
   1.1 KB of the Rust build with Monocypher, so the footprint is the crypto
   backend, not the language.
-- **Panic formatting**: `SLIM=1 tools/build-firmware-lib.sh <profile>`
-  builds with `-Cpanic=immediate-abort`, which drops the panic-message
-  machinery (several KiB) at the cost of silent traps.
+- **Panic formatting**: with `mono-crypto` no panic is reachable, so the
+  panic handler and its message formatting are not linked at all. With
+  `soft-crypto`, `SLIM=1 tools/build-firmware-lib.sh <profile>` builds with
+  `-Cpanic=immediate-abort`, which drops that machinery (several KiB) at
+  the cost of silent traps.
 - **Firmware profiles**: the numbers are for the target defaults. A
   profile's flags cost a little on top: reserving r9 for U-Boot
-  (`firmware/u-boot-armv7.toml`) adds 48 B (soft) and 40 B (Monocypher).
+  (`firmware/u-boot-armv7.toml`) adds 44 B (soft) and 24 B (Monocypher).
 
 Experiments that did **not** pay off (don't re-try without new evidence):
 `#[inline(never)]` on the CBOR writers (±0 — they were already outlined);
