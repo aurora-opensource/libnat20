@@ -710,13 +710,8 @@ const _: () = {
 /// nothing — it must not depend on any environment symbols);
 /// `panic-putc-hang` prints the panic message and location through the
 /// environment's `putc()` and then calls its `hang()`, as U-Boot provides
-/// them.
-///
-/// Note: in artifacts built with `-Cpanic=immediate-abort` (the size-
-/// constrained variant, `SLIM=1` with `tools/build-firmware-lib.sh`), panic
-/// sites compile to a trap instruction (`udf`) and this handler is never
-/// invoked; the message only appears in plain `abort` builds. Rendering
-/// the message costs a few KiB of `core::fmt` machinery.
+/// them. With the Monocypher backend no panic is reachable, so no handler,
+/// and none of its message formatting, ends up in a program.
 #[cfg(all(feature = "panic-loop", not(feature = "panic-putc-hang")))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {

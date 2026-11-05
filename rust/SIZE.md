@@ -37,10 +37,11 @@ What the numbers rest on:
   1.1 KB of the Rust build with Monocypher, so the footprint is the crypto
   backend, not the language.
 - **Panic formatting**: with `mono-crypto` no panic is reachable, so the
-  panic handler and its message formatting are not linked at all. With
-  `soft-crypto`, `SLIM=1 tools/build-firmware-lib.sh <profile>` builds with
-  `-Cpanic=immediate-abort`, which drops that machinery (several KiB) at
-  the cost of silent traps.
+  panic handler and its message formatting (several KiB) are not linked
+  at all. `-Cpanic=immediate-abort`, which would drop them with the soft
+  backend, is deliberately not offered: panics then become trap
+  instructions, and a firmware's exception handler (U-Boot's) dumps the
+  registers, which can hold secrets, on its console.
 - **Firmware profiles**: the numbers are for the target defaults. A
   profile's flags cost a little on top: reserving r9 for U-Boot
   (`firmware/u-boot-armv7.toml`) adds 44 B (soft) and 24 B (Monocypher).

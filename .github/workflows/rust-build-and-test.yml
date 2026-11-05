@@ -112,6 +112,12 @@ jobs:
           cargo build --release --target armv7a-none-eabi -p nat20-ffi
           cargo build --release --target armv7a-none-eabi -p nat20-ffi \
             --no-default-features --features mono-crypto,panic-loop
+      - name: Build the static library for each firmware profile
+        run: |
+          for config in firmware/*.toml; do
+            profile=$(basename "$config" .toml)
+            tools/build-firmware-lib.sh "$profile"
+          done
       - name: Check the code size budget (SIZE.md)
         run: |
           for features in "" "--no-default-features --features mono-crypto" \

@@ -58,18 +58,22 @@
 # size measurement and the constant-time disassembly spot-check, see
 # SIZE.md and README.md).
 #
-# Default build: plain `abort` panic strategy.
-#
-# SLIM=1 build: additionally strips the panic-message formatting
-# machinery (several KiB) via -Cpanic=immediate-abort. Panic sites then
-# compile to a trap instruction (udf) and nothing is printed — use only
-# if the size budget forces it.
+# cargo ignores the target rustflags of configuration files, and with them
+# the profile's (+reserve-r9 for U-Boot), when RUSTFLAGS or
+# CARGO_ENCODED_RUSTFLAGS is set, as build systems such as Yocto do. The
+# script refuses to run then rather than build without them.
 #
 # Requires: rustup (for the pinned toolchain + rust-src), and the target's
 # C cross compiler for the vendored Monocypher sources (arm-none-eabi-gcc
 # for armv7).
 
 set -eu
+
+if [ -n "${RUSTFLAGS:-}${CARGO_ENCODED_RUSTFLAGS:-}" ]; then
+	echo "$0: RUSTFLAGS or CARGO_ENCODED_RUSTFLAGS is set, which would make" \
+		"cargo drop the profile's rustflags; unset them" >&2
+	exit 2
+fi
 
 profile=${1:-}
 case "$profile" in
@@ -91,12 +95,6 @@ rustup component add rust-src >/dev/null 2>&1 || true
 config="firmware/$profile.toml"
 target=$(sed -n 's/^target = "\(.*\)"$/\1/p' "$config")
 
-set -- --config "$config"
-if [ "${SLIM:-0}" = "1" ]; then
-	# Added to the target's rustflags from the configuration files.
-	set -- "$@" --config "target.$target.rustflags = [\"-Zunstable-options\", \"-Cpanic=immediate-abort\"]"
-fi
-
-RUSTC_BOOTSTRAP=1 exec cargo build "$@" -Zbuild-std=core --release \
+RUSTC_BOOTSTRAP=1 exec cargo build --config "$config" -Zbuild-std=core --release \
 	--target "$target" -p nat20-ffi \
 	--no-default-features --features "$features"
