@@ -64,19 +64,38 @@
 //! entry to the certificate before writing it in place, so there is no
 //! size-negotiation call and nothing is moved afterwards. The wire bytes are
 //! identical to those C libnat20 produces.
+//!
+//! # Secrets
+//!
+//! The CDIs are used in place, in the caller's buffers: the root CDI is read
+//! through a reference to the caller's 32 bytes, and the next CDI is derived
+//! straight into `next_cdi_out`. Every other secret lives and dies inside
+//! the library under the invariants of `nat20::crypto`, so when a call
+//! returns, the caller's two CDI buffers are the only copies left.
 
 // Unit tests link std on the host; every other build is no_std.
 #![cfg_attr(not(test), no_std)]
 #![deny(missing_docs)]
+// A panic would cut short the wiping of secrets (see nat20::crypto), so
+// none may be written; these lints catch the obvious ones.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::indexing_slicing,
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic
+    )
+)]
 
 use core::mem::{align_of, size_of};
 use core::slice;
 
-use nat20::crypto::Seed32;
-use nat20::derive::{attest_key_seed, issue_device_id_cwt, issue_next_stage_cwt, CdiSecret};
+use zeroize::Zeroize as _;
+
+use nat20::derive::{attest_public_key, issue_device_id_cwt, issue_next_stage_cwt, CdiSecret};
 use nat20::handover::{HandoverHeader, HandoverStruct, TAG_COSE_SIGN1};
 use nat20::open_dice::OpenDiceInput;
-use nat20::Ed25519Signer as _;
 use nat20::Error;
 
 mod cbuf;
@@ -272,20 +291,33 @@ unsafe fn slice_arg<'a>(ptr: *const u8, size: usize) -> &'a [u8] {
     }
 }
 
-/// Copies the 32-byte root CDI out of caller memory into `cdi`, a zeroizing
-/// container, directly rather than through a temporary.
+/// The 32-byte root CDI in caller memory, used in place rather than copied.
 ///
 /// # Safety
-/// `ptr` must be null (rejected) or point to 32 readable bytes.
-unsafe fn cdi_arg(ptr: *const u8, cdi: &mut CdiSecret) -> Result<(), Error> {
+/// `ptr` must be null (rejected) or point to 32 readable bytes that nothing
+/// writes for `'a`.
+unsafe fn cdi_ref<'a>(ptr: *const u8) -> Result<&'a CdiSecret, Error> {
     if ptr.is_null() {
         return Err(Error::InvalidArgument);
     }
-    // SAFETY: null was rejected above, and the caller guarantees 32 readable
-    // bytes. The slice is only read, and is dropped before returning.
-    cdi.as_mut_bytes()
-        .copy_from_slice(slice::from_raw_parts(ptr, 32));
-    Ok(())
+    // SAFETY: non-null, and the caller guarantees 32 readable bytes that
+    // nothing writes for `'a`. `CdiSecret` is `repr(transparent)` over
+    // `[u8; 32]`, so it has the layout and alignment (1) of those bytes.
+    Ok(&*ptr.cast::<CdiSecret>())
+}
+
+/// The caller's 32-byte buffer for the next CDI, derived into in place.
+///
+/// # Safety
+/// `ptr` must be null (rejected) or point to 32 writable bytes that nothing
+/// else accesses for `'a`.
+unsafe fn cdi_out<'a>(ptr: *mut u8) -> Result<&'a mut CdiSecret, Error> {
+    if ptr.is_null() {
+        return Err(Error::InvalidArgument);
+    }
+    // SAFETY: as in `cdi_ref`, for writes, and nothing else accesses the
+    // bytes for `'a`.
+    Ok(&mut *ptr.cast::<CdiSecret>())
 }
 
 /// Rejects a handover region that is null, too small for the header, or
@@ -312,7 +344,9 @@ unsafe fn handover_arg<'b>(raw: *mut u8, raw_size: usize) -> Result<HandoverStru
     // SAFETY: null was rejected above; the rest is exactly this function's
     // own contract, which its caller guarantees.
     let raw = slice::from_raw_parts_mut(raw, raw_size);
-    let (header, content) = raw.split_at_mut(size_of::<HandoverHeader>());
+    let (header, content) = raw
+        .split_at_mut_checked(size_of::<HandoverHeader>())
+        .ok_or(Error::InvalidArgument)?;
     // SAFETY: `header` is exactly one header long and aligned for it (checked
     // above). `HandoverHeader` is `repr(C)` over `[u8; 4]` and three `u32`,
     // so every bit pattern is a valid value; whether the contents are
@@ -373,10 +407,9 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
         // that the region is this call's: the device identity always starts
         // the chain.
 
-        let mut root_cdi = CdiSecret::default();
         // SAFETY: the caller guarantees `cdi` is null or points to 32
-        // readable bytes.
-        cdi_arg(cdi, &mut root_cdi)?;
+        // readable bytes that nothing writes during the call.
+        let root_cdi = cdi_ref(cdi)?;
         // SAFETY: the caller guarantees `profile_name` is null or points to
         // `profile_name_size` readable bytes for the duration of the call.
         // Empty omits the claim.
@@ -390,7 +423,7 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
 
         handover.init()?;
         issue_into(&mut handover, |buf| {
-            issue_device_id_cwt(&mut crypto, &root_cdi, profile, buf)
+            issue_device_id_cwt(&mut crypto, root_cdi, profile, buf)
         })
     })())
 }
@@ -400,7 +433,8 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
 ///
 /// The certificate carries the open-DICE claims held in `ctx`. The handover
 /// must already hold the chain (see [`n20r_issue_device_id_cwt`]).
-/// `next_cdi_out` is written only on success.
+/// The next CDI is derived straight into `next_cdi_out`, which holds zeros
+/// after any error, and must not overlap `cdi` (`InvalidArgument`).
 ///
 /// # Safety
 /// `ctx` must be a context prepared by [`n20r_ctx_init`], and every buffer
@@ -416,15 +450,22 @@ pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
     handover_size: usize,
 ) -> N20rError {
     status((|| {
-        if next_cdi_out.is_null() {
+        // The two CDIs are references into the caller's memory, which must
+        // not overlap: one is read while the other is written.
+        let (out, root) = (next_cdi_out as usize, cdi as usize);
+        if out < root.wrapping_add(32) && root < out.wrapping_add(32) {
             return Err(Error::InvalidArgument);
         }
+        // SAFETY: the caller guarantees `next_cdi_out` is null or points to
+        // 32 writable bytes that no other argument overlaps.
+        let next_cdi = cdi_out(next_cdi_out)?;
+        // Zeros until the derivation succeeds, whatever fails first.
+        next_cdi.zeroize();
         // SAFETY: the caller guarantees `ctx` is a context prepared by
         // `n20r_ctx_init`.
         let ctx = DiceCtx::from_raw(ctx)?;
-        let mut root_cdi = CdiSecret::default();
         // SAFETY: as in `n20r_issue_device_id_cwt`.
-        cdi_arg(cdi, &mut root_cdi)?;
+        let root_cdi = cdi_ref(cdi)?;
         // SAFETY: as in `n20r_issue_device_id_cwt`.
         let mut handover = handover_arg(handover, handover_size)?;
         // SAFETY: every buffer registered in the context must still be valid
@@ -443,14 +484,13 @@ pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
         };
         let mut crypto = crypto_backend()?;
 
-        let mut next_cdi = CdiSecret::default();
-        issue_into(&mut handover, |buf| {
-            issue_next_stage_cwt(&mut crypto, &root_cdi, &dice_input, &mut next_cdi, buf)
-        })?;
-        // SAFETY: null was rejected at the top, and the caller guarantees 32
-        // writable bytes that no other argument overlaps.
-        slice::from_raw_parts_mut(next_cdi_out, 32).copy_from_slice(next_cdi.as_bytes());
-        Ok(())
+        let result = issue_into(&mut handover, |buf| {
+            issue_next_stage_cwt(&mut crypto, root_cdi, &dice_input, next_cdi, buf)
+        });
+        if result.is_err() {
+            next_cdi.zeroize();
+        }
+        result
     })())
 }
 
@@ -469,18 +509,14 @@ pub unsafe extern "C" fn n20r_device_id_public_key(
         if public_key_out.is_null() {
             return Err(Error::InvalidArgument);
         }
-        let mut root_cdi = CdiSecret::default();
         // SAFETY: the caller guarantees `cdi` is null or points to 32
-        // readable bytes.
-        cdi_arg(cdi, &mut root_cdi)?;
-        let mut crypto = crypto_backend()?;
-        let mut seed = Seed32::default();
-        attest_key_seed(&mut crypto, &root_cdi, &mut seed)?;
-        let mut pk = [0u8; 32];
-        crypto.public_key(&seed, &mut pk)?;
+        // readable bytes that nothing writes during the call.
+        let root_cdi = cdi_ref(cdi)?;
         // SAFETY: null was rejected above, and the caller guarantees 32
-        // writable bytes.
-        slice::from_raw_parts_mut(public_key_out, 32).copy_from_slice(&pk);
+        // writable bytes; `[u8; 32]` has alignment 1.
+        let public_key = &mut *public_key_out.cast::<[u8; 32]>();
+        let mut crypto = crypto_backend()?;
+        attest_public_key(&mut crypto, root_cdi, public_key)?;
         Ok(())
     })())
 }
