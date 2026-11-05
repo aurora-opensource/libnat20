@@ -34,21 +34,22 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 #
-# Checks on the target that the secret-handling entry points leave no
-# secrets on the stack, and measures how deep they go (to size
-# N20R_STACK_SCRUB_SIZE in nat20-ffi).
+# Checks on the target the secret invariants of nat20::crypto: that each
+# crypto backend operation leaves nothing below its own frame, and that the
+# secret-handling entry points leave no secret on the stack. Also measures
+# how deep each goes (to size the backends' scrubs).
 #
 #     tools/stack-probe.sh [profile]
 #
-# For each crypto backend, builds the static library for armv7 (Thumb-2,
-# opt-level z, fat LTO), with the flags of the firmware profile from
-# firmware/ if one is given, as tools/build-firmware-lib.sh does. Links it
-# into tools/stack-probe/probe.c and runs that under qemu-system-arm. It runs
-# twice: with the stack scrub, where nothing may survive below the entry
-# point's own frame, and without it (--cfg nat20_no_stack_scrub), where
-# something must -- otherwise the probe could not see a leak and its pass
-# would mean nothing. The depths the second run prints are what the scrub
-# has to cover.
+# For each crypto backend, with and without verify-after-sign, builds the
+# static library for armv7 (Thumb-2, opt-level z, fat LTO), with the flags
+# of the firmware profile from firmware/ if one is given, as
+# tools/build-firmware-lib.sh does. Links it into tools/stack-probe/probe.c
+# and runs that under qemu-system-arm. It runs twice: with the backends'
+# stack scrub, where the checks must pass, and without it (--cfg
+# nat20_no_stack_scrub), where they must fail -- otherwise the probe could
+# not see a leak and its pass would mean nothing. The operation depths the
+# second run prints are what each scrub has to cover.
 #
 # Needs qemu-system-arm, arm-none-eabi-gcc and python3.
 
@@ -73,7 +74,7 @@ CFLAGS='-mcpu=cortex-a7 -mthumb -mfloat-abi=soft -mno-unaligned-access -Os
 	-ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns -Wall'
 
 status=0
-for backend in mono-crypto soft-crypto; do
+for backend in mono-crypto mono-crypto,verify-after-sign soft-crypto soft-crypto,verify-after-sign; do
 	for scrub in on off; do
 		variant="$backend-scrub-$scrub"
 		noscrub=
@@ -84,7 +85,7 @@ for backend in mono-crypto soft-crypto; do
 		RUSTC_BOOTSTRAP=1 CARGO_TARGET_DIR="$out/$variant" \
 			cargo build -q "$@" ${noscrub:+--config "$noscrub"} --release \
 			--target armv7a-none-eabi -p nat20-ffi \
-			--no-default-features --features "$backend,panic-loop"
+			--no-default-features --features "$backend,panic-loop,stack-probe"
 
 		# shellcheck disable=SC2086
 		arm-none-eabi-gcc $CFLAGS -nostdlib -ffunction-sections -Wl,--gc-sections \
