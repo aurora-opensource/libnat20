@@ -143,9 +143,16 @@ impl Drop for ReservedRegionProxy<'_, '_> {
             // Clear the region including the terminator reserve_entry wrote
             // right after it, then put the terminator back where the
             // reservation started.
-            let end = self.offset + self.size;
-            self.handover.content[self.reset_offset..=end].fill(0);
-            self.handover.content[self.reset_offset] = CBOR_BREAK;
+            // `reserve_entry` made all of these indices valid; the checked
+            // forms keep that from being a panic path anyway.
+            let end = self.offset.saturating_add(self.size);
+            let content = &mut *self.handover.content;
+            if let Some(region) = content.get_mut(self.reset_offset..=end) {
+                region.fill(0);
+            }
+            if let Some(byte) = content.get_mut(self.reset_offset) {
+                *byte = CBOR_BREAK;
+            }
             // `new` bounded the content so that every index fits in u32.
             self.handover
                 .header
@@ -158,13 +165,23 @@ impl Deref for ReservedRegionProxy<'_, '_> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        &self.handover.content[self.offset..self.offset + self.size]
+        // In bounds by construction (`reserve_entry`); empty otherwise.
+        let end = self.offset.saturating_add(self.size);
+        self.handover
+            .content
+            .get(self.offset..end)
+            .unwrap_or_default()
     }
 }
 
 impl DerefMut for ReservedRegionProxy<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.handover.content[self.offset..self.offset + self.size]
+        // As in `deref`.
+        let end = self.offset.saturating_add(self.size);
+        self.handover
+            .content
+            .get_mut(self.offset..end)
+            .unwrap_or_default()
     }
 }
 
@@ -214,7 +231,9 @@ impl<'a> HandoverRef<'a> {
             .checked_sub(HDR)
             .filter(|&t| t > 0 && t < self.content.len())
             .ok_or(Error::InvalidHandoverHeader)?;
-        if self.content[0] != CBOR_ARRAY_INDEFINITE || self.content[terminator] != CBOR_BREAK {
+        if self.content.first() != Some(&CBOR_ARRAY_INDEFINITE)
+            || self.content.get(terminator) != Some(&CBOR_BREAK)
+        {
             return Err(Error::InvalidHandoverHeader);
         }
         Ok(terminator)
@@ -268,15 +287,15 @@ impl<'a> HandoverStruct<'a> {
     /// `InvalidHandoverHeader` if the content cannot hold the array opener
     /// and terminator (2 bytes).
     pub fn init(&mut self) -> Result<(), Error> {
-        if self.content.len() < 2 {
+        let [first, second, ..] = &mut *self.content else {
             return Err(Error::InvalidHandoverHeader);
-        }
+        };
+        *first = CBOR_ARRAY_INDEFINITE;
+        *second = CBOR_BREAK;
         self.header.magic = *b"DICE";
         self.header.set_version(1);
         self.header.set_header_size(HDR as u32);
         self.header.set_terminator_offset(HDR as u32 + 1);
-        self.content[0] = CBOR_ARRAY_INDEFINITE;
-        self.content[1] = CBOR_BREAK;
         Ok(())
     }
 
@@ -292,16 +311,28 @@ impl<'a> HandoverStruct<'a> {
         let start = self.view().validate()?;
         // The new terminator lands at `start + size`, which must still be
         // inside the content.
+        let required = start.saturating_add(size).saturating_add(1);
         let end = start
             .checked_add(size)
-            .filter(|&end| end < self.content.len())
-            .ok_or(Error::InsufficientBuffer {
-                required: start.saturating_add(size).saturating_add(1),
-            })?;
-        self.content[end] = CBOR_BREAK;
+            .ok_or(Error::InsufficientBuffer { required })?;
+        let terminator = self
+            .content
+            .get_mut(end)
+            .ok_or(Error::InsufficientBuffer { required })?;
+        *terminator = CBOR_BREAK;
         // `new` bounded the content so that every index fits in u32.
         self.header.set_terminator_offset((end + HDR) as u32);
         Ok(start)
+    }
+
+    /// The `len` bytes of content from `start`, which [`grow`](Self::grow)
+    /// made room for. A range outside the content, which `grow` rules out,
+    /// is reported as a malformed structure rather than a panic.
+    fn room(&mut self, start: usize, len: usize) -> Result<&mut [u8], Error> {
+        self.content
+            .get_mut(start..)
+            .and_then(|tail| tail.get_mut(..len))
+            .ok_or(Error::InvalidHandoverHeader)
     }
 
     /// Appends `entry`, which must be one complete CBOR item (typically a
@@ -314,7 +345,7 @@ impl<'a> HandoverStruct<'a> {
     ///   `required` is the content size that would be needed.
     pub fn append_entry(&mut self, entry: &[u8]) -> Result<(), Error> {
         let start = self.grow(entry.len())?;
-        self.content[start..start + entry.len()].copy_from_slice(entry);
+        self.room(start, entry.len())?.copy_from_slice(entry);
         Ok(())
     }
 
@@ -344,7 +375,7 @@ impl<'a> HandoverStruct<'a> {
             .checked_add(tag.len())
             .ok_or(Error::InvalidArgument)?;
         let start = self.grow(total)?;
-        self.content[start..start + tag.len()].copy_from_slice(tag);
+        self.room(start, tag.len())?.copy_from_slice(tag);
         Ok(ReservedRegionProxy {
             handover: self,
             reset_offset: start,

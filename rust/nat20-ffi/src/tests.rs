@@ -40,6 +40,9 @@
 use super::*;
 use core::ptr;
 use nat20::crypto::soft::SoftCrypto;
+use nat20::crypto::Seed32;
+use nat20::derive::attest_key_seed;
+use nat20::Ed25519Signer as _;
 
 pub(crate) const CDI: [u8; 32] = [0x11; 32];
 

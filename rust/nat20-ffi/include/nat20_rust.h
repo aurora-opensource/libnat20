@@ -56,6 +56,19 @@
  * A NULL pointer with a size is an empty buffer, whatever the size.
  *
  * A handover region must be 4-byte aligned.
+ *
+ * Secrets: the CDIs are used in place, in the caller's buffers; nothing
+ * copies them. Every other secret a call derives (seeds, keys, HMAC state)
+ * is wiped before the call returns, on success and on error, from the stack
+ * and from the registers a call may clobber: each crypto operation wipes
+ * what it used as it returns. So once a call returns, the only copies of a
+ * secret are the root CDI passed in and the next CDI passed out, which are
+ * the caller's to wipe. The library contains no panic that could cut this
+ * short.
+ *
+ * Stack: the deepest call, n20r_issue_next_stage_cwt(), reaches about
+ * 3 KiB below the caller's frame with the Monocypher backend (3.5 KiB with
+ * verify-after-sign), 8 KiB with the soft backend.
  */
 
 #ifndef NAT20_RUST_H
@@ -212,8 +225,9 @@ n20r_error_t n20r_issue_device_id_cwt(uint8_t const cdi[32],
  *        n20r_ctx_init(). Fields never set are empty.
  * @param cdi 32-byte root CDI secret.
  * @param next_cdi_out Receives the 32-byte next-stage CDI (hand this to the
- *        next boot stage); written only on success. Must be non-NULL.
- *        Treat as secret.
+ *        next boot stage), derived into it in place; holds zeros after any
+ *        error. Must be non-NULL and must not overlap cdi. Treat as
+ *        secret.
  * @param handover The handover region, 4-byte aligned.
  * @param handover_size Size of the handover region in bytes.
  */
