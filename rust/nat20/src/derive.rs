@@ -79,7 +79,13 @@ pub const ID_SALT: [u8; 64] = [
 /// Moving a value leaves a copy behind that drop never sees, so the
 /// derivations write into a `CdiSecret` the caller owns instead of
 /// returning one; [`Default`] (all zeros) gives the container to fill.
+///
+/// The layout is guaranteed to be that of `[u8; 32]` (`repr(transparent)`),
+/// so a reference to 32 bytes the caller owns, such as a buffer handed in
+/// over a C ABI, can be used as a `&CdiSecret` or `&mut CdiSecret` in place
+/// without copying the secret.
 #[derive(Default)]
+#[repr(transparent)]
 pub struct CdiSecret([u8; 32]);
 
 impl Zeroize for CdiSecret {
