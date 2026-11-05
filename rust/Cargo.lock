@@ -211,6 +211,7 @@ name = "nat20-ffi"
 version = "0.1.0"
 dependencies = [
  "nat20",
+ "zeroize",
 ]
 
 [[package]]
