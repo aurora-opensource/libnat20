@@ -16,10 +16,11 @@ llvm-size target/armv7a-none-eabi/release/size-probe
 
 Budget: **40 KB .text**.
 
-| backend                 | .text   |
-|-------------------------|---------|
-| `soft-crypto` (default) | 28152 B |
-| `mono-crypto`           | 19436 B |
+| backend                                   | .text   |
+|-------------------------------------------|---------|
+| `soft-crypto` (default)                   | 28800 B |
+| `mono-crypto`                             | 19834 B |
+| `mono-crypto`, `verify-after-sign`        | 22630 B |
 
 What the numbers rest on:
 
