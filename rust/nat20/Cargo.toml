@@ -58,7 +58,8 @@ verify-after-sign = []
 # out of the graph so direct-rustc builds (build systems that invoke rustc
 # without cargo) need no host-compiled crates. The Zeroize impls are written
 # by hand.
-zeroize = { version = "1.8", default-features = false }
+# 1.9 for zeroize_stack, which the backends' scrub uses.
+zeroize = { version = "1.9", default-features = false }
 # force-soft-compact selects the loop-based compression function: ~15 KB
 # smaller than the default unrolled one on 32-bit ARM, at some speed cost.
 sha2 = { version = "0.10", default-features = false, features = ["force-soft-compact"], optional = true }
@@ -71,3 +72,7 @@ cc = { version = "1", optional = true }
 [dev-dependencies]
 hex = "0.4"
 ciborium = "0.2"
+
+[lints.rust]
+# Set only by tools/stack-probe.sh, to measure what the scrub removes.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(nat20_no_stack_scrub)"] }
