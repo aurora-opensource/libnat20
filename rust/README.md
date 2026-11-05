@@ -8,5 +8,5 @@ The port is added in steps; this file grows into the full documentation as
 the pieces land. Run the tests from this directory:
 
 ```
-cargo test -p nat20
+cargo test -p nat20 --features soft-crypto
 ```
