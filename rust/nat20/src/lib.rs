@@ -50,17 +50,29 @@
 //! certificates can be issued as CWTs (the C library currently rejects COSE
 //! for `n20_cert_type_self_signed_e`).
 //!
-//! No allocation, no floating point, no panicking paths on correct usage.
+//! No allocation, no floating point, and no panics: a panic would cut short
+//! the wiping of secrets (see [`crypto`]).
 //! Cryptographic primitives are pluggable through the traits in [`crypto`];
 //! a software implementation backed by `sha2`/`hmac`/`ed25519-dalek` is
 //! available behind the `soft-crypto` feature.
 
 #![no_std]
-// unsafe is forbidden everywhere except the FFI bindings of the optional
-// Monocypher backend (crypto/mono.rs), which carries its own allow.
-#![cfg_attr(not(feature = "mono-crypto"), forbid(unsafe_code))]
-#![cfg_attr(feature = "mono-crypto", deny(unsafe_code))]
+// unsafe is denied everywhere except the register clearing of the crypto
+// scrub (crypto/scrub.rs) and the FFI bindings of the optional Monocypher
+// backend (crypto/mono.rs), which carry their own allows.
+#![deny(unsafe_code)]
 #![deny(missing_docs)]
+// A panic would cut short the wiping of secrets (see nat20::crypto), so
+// none may be written; these lints catch the obvious ones.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::indexing_slicing,
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic
+    )
+)]
 
 pub mod cbor;
 pub mod cose;
