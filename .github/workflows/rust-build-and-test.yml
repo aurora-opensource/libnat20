@@ -85,6 +85,7 @@ jobs:
             { name: "nat20, mono-crypto", args: "-p nat20 --features soft-crypto,mono-crypto" },
             { name: "nat20-ffi, soft-crypto", args: "-p nat20-ffi --lib --no-default-features --features soft-crypto" },
             { name: "nat20-ffi, mono-crypto", args: "-p nat20-ffi --lib --no-default-features --features mono-crypto,soft-crypto" },
+            { name: "nat20, verify-after-sign", args: "-p nat20 --features soft-crypto,mono-crypto,verify-after-sign" },
           ]
     runs-on: ubuntu-24.04
     steps:
@@ -117,9 +118,20 @@ jobs:
             tools/build-firmware-lib.sh "$profile"
             SLIM=1 tools/build-firmware-lib.sh "$profile"
           done
+      - name: Check that no panic is reachable (SIZE.md)
+        run: |
+          for features in mono-crypto mono-crypto,verify-after-sign; do
+            cargo build --release --target armv7a-none-eabi -p size-probe \
+              --no-default-features --features "$features,panic-never"
+          done
+          for config in firmware/*.toml; do
+            RUSTC_BOOTSTRAP=1 cargo build --release -p size-probe --config "$config" \
+              --no-default-features --features mono-crypto,panic-never
+          done
       - name: Check the code size budget (SIZE.md)
         run: |
-          for features in "" "--no-default-features --features mono-crypto"; do
+          for features in "" "--no-default-features --features mono-crypto" \
+              "--no-default-features --features mono-crypto,verify-after-sign"; do
             cargo build --release --target armv7a-none-eabi -p size-probe $features
             text=$(arm-none-eabi-size target/armv7a-none-eabi/release/size-probe | awk 'NR == 2 { print $1 }')
             echo "size-probe ${features:-(soft-crypto)}: ${text} B .text"
@@ -127,7 +139,7 @@ jobs:
           done
 
   rust-stack-probe:
-    name: Rust stack scrub check (QEMU, ${{ matrix.profile || 'target defaults' }})
+    name: Rust secret invariants check (QEMU, ${{ matrix.profile || 'target defaults' }})
     runs-on: ubuntu-24.04
     strategy:
       matrix:
