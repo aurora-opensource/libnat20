@@ -47,8 +47,20 @@
 
 #![allow(unsafe_code)]
 
-use super::{CryptoError, Digest, Ed25519Signer, Seed32};
+use super::{scrubbed, truncate_into, CryptoError, Digest, Ed25519Signer, Seed32};
 use zeroize::Zeroize;
+
+/// Stack the digest operations reach below the method's frame, with margin;
+/// what [`scrubbed`] wipes after each. `tools/stack-probe.sh` measures the
+/// depths (on armv7, about 850 bytes) and checks the sizes cover them.
+const DIGEST_STACK: usize = 1280;
+/// As [`DIGEST_STACK`], for the Ed25519 operations (about 1.5 KiB; 2 KiB
+/// when the signature is verified as well).
+#[cfg(not(feature = "verify-after-sign"))]
+const ED25519_STACK: usize = 2048;
+/// See the other variant.
+#[cfg(feature = "verify-after-sign")]
+const ED25519_STACK: usize = 2560;
 
 // Incremental-hash contexts are opaque buffers sized and aligned to hold
 // Monocypher's structs (crypto_sha512_ctx is 200 bytes, the HMAC context
@@ -73,6 +85,13 @@ extern "C" {
         message: *const u8,
         message_size: usize,
     );
+    #[cfg(feature = "verify-after-sign")]
+    fn crypto_ed25519_check(
+        signature: *const u8,
+        public_key: *const u8,
+        message: *const u8,
+        message_size: usize,
+    ) -> i32;
     fn crypto_wipe(secret: *mut u8, size: usize);
     /// Size-lock helper from the build-script glue; returns nonzero when the
     /// opaque context buffers above are large enough.
@@ -80,12 +99,16 @@ extern "C" {
 }
 
 /// Crypto backend backed by Monocypher (feature `mono-crypto`).
+///
+/// Every operation runs [`scrubbed`]. Monocypher is C and the glue here has
+/// no panicking paths, so nothing can stop the scrub from running.
 pub struct MonoCrypto;
 
 impl MonoCrypto {
     /// Creates the backend after checking the opaque context buffer sizes
     /// against the actual Monocypher struct sizes.
     pub fn new() -> Result<Self, CryptoError> {
+        // SAFETY: takes two sizes and reads no memory.
         let ok = unsafe {
             nat20_mono_ctx_sizes_ok(
                 core::mem::size_of::<Sha512Ctx>(),
@@ -106,52 +129,70 @@ impl Digest for MonoCrypto {
         parts: &mut dyn Iterator<Item = &[u8]>,
         out: &mut [u8; 64],
     ) -> Result<(), CryptoError> {
-        let mut ctx = Sha512Ctx([0; 256]);
-        unsafe {
-            crypto_sha512_init(&mut ctx);
-            for p in parts {
-                crypto_sha512_update(&mut ctx, p.as_ptr(), p.len());
+        scrubbed::<DIGEST_STACK, _>(|| {
+            let mut ctx = Sha512Ctx([0; 256]);
+            // SAFETY: `ctx` is large and aligned enough for the C context
+            // (checked in `new`); every pointer/length pair comes from a
+            // live slice, and `out` holds the 64 bytes final writes.
+            unsafe {
+                crypto_sha512_init(&mut ctx);
+                for p in parts {
+                    crypto_sha512_update(&mut ctx, p.as_ptr(), p.len());
+                }
+                crypto_sha512_final(&mut ctx, out.as_mut_ptr());
             }
-            crypto_sha512_final(&mut ctx, out.as_mut_ptr());
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
     fn hmac_sha512(
         &mut self,
         key: &[u8],
         parts: &mut dyn Iterator<Item = &[u8]>,
-        out: &mut [u8; 64],
+        out: &mut [u8],
     ) -> Result<(), CryptoError> {
-        let mut ctx = HmacCtx([0; 416]);
-        unsafe {
-            crypto_sha512_hmac_init(&mut ctx, key.as_ptr(), key.len());
-            for p in parts {
-                crypto_sha512_hmac_update(&mut ctx, p.as_ptr(), p.len());
+        scrubbed::<DIGEST_STACK, _>(|| {
+            if out.len() > 64 {
+                return Err(CryptoError::InvalidInput);
             }
-            crypto_sha512_hmac_final(&mut ctx, out.as_mut_ptr());
-            // The context holds key material.
-            crypto_wipe(ctx.0.as_mut_ptr(), ctx.0.len());
-        }
-        Ok(())
+            let mut ctx = HmacCtx([0; 416]);
+            let mut mac = [0u8; 64];
+            // SAFETY: as in `sha512`; `mac` holds the 64 bytes final writes.
+            unsafe {
+                crypto_sha512_hmac_init(&mut ctx, key.as_ptr(), key.len());
+                for p in parts {
+                    crypto_sha512_hmac_update(&mut ctx, p.as_ptr(), p.len());
+                }
+                crypto_sha512_hmac_final(&mut ctx, mac.as_mut_ptr());
+                // The context holds key material.
+                crypto_wipe(ctx.0.as_mut_ptr(), ctx.0.len());
+            }
+            truncate_into(out, &mac);
+            mac.zeroize();
+            Ok(())
+        })
     }
 }
 
 impl Ed25519Signer for MonoCrypto {
     fn public_key(&mut self, seed: &Seed32, public_key: &mut [u8; 32]) -> Result<(), CryptoError> {
-        // crypto_ed25519_key_pair wipes the seed input; give it a copy.
-        let mut seed_copy = *seed.as_bytes();
-        let mut secret_key = [0u8; 64];
-        unsafe {
-            crypto_ed25519_key_pair(
-                secret_key.as_mut_ptr(),
-                public_key.as_mut_ptr(),
-                seed_copy.as_mut_ptr(),
-            );
-        }
-        secret_key.zeroize();
-        seed_copy.zeroize();
-        Ok(())
+        scrubbed::<ED25519_STACK, _>(|| {
+            // crypto_ed25519_key_pair wipes the seed input; give it a copy.
+            let mut seed_copy = *seed.as_bytes();
+            let mut secret_key = [0u8; 64];
+            // SAFETY: fixed-size arrays of exactly the sizes the C function
+            // takes.
+            unsafe {
+                crypto_ed25519_key_pair(
+                    secret_key.as_mut_ptr(),
+                    public_key.as_mut_ptr(),
+                    seed_copy.as_mut_ptr(),
+                );
+            }
+            secret_key.zeroize();
+            seed_copy.zeroize();
+            Ok(())
+        })
     }
 
     fn sign(
@@ -160,24 +201,51 @@ impl Ed25519Signer for MonoCrypto {
         message: &[u8],
         signature: &mut [u8; 64],
     ) -> Result<(), CryptoError> {
-        let mut seed_copy = *seed.as_bytes();
-        let mut secret_key = [0u8; 64];
-        let mut public_key = [0u8; 32];
-        unsafe {
-            crypto_ed25519_key_pair(
-                secret_key.as_mut_ptr(),
-                public_key.as_mut_ptr(),
-                seed_copy.as_mut_ptr(),
-            );
-            crypto_ed25519_sign(
-                signature.as_mut_ptr(),
-                secret_key.as_ptr(),
-                message.as_ptr(),
-                message.len(),
-            );
-        }
-        secret_key.zeroize();
-        seed_copy.zeroize();
-        Ok(())
+        scrubbed::<ED25519_STACK, _>(|| {
+            let mut seed_copy = *seed.as_bytes();
+            let mut secret_key = [0u8; 64];
+            let mut public_key = [0u8; 32];
+            let mut sig = [0u8; 64];
+            // SAFETY: fixed-size arrays of exactly the sizes the C functions
+            // take, and `message` is a live slice.
+            unsafe {
+                crypto_ed25519_key_pair(
+                    secret_key.as_mut_ptr(),
+                    public_key.as_mut_ptr(),
+                    seed_copy.as_mut_ptr(),
+                );
+                crypto_ed25519_sign(
+                    sig.as_mut_ptr(),
+                    secret_key.as_ptr(),
+                    message.as_ptr(),
+                    message.len(),
+                );
+            }
+            secret_key.zeroize();
+            seed_copy.zeroize();
+
+            // Checked before it is released: a faulty signature over a
+            // message also signed correctly can give the key away.
+            #[cfg(feature = "verify-after-sign")]
+            {
+                // SAFETY: as above.
+                let rc = unsafe {
+                    crypto_ed25519_check(
+                        sig.as_ptr(),
+                        public_key.as_ptr(),
+                        message.as_ptr(),
+                        message.len(),
+                    )
+                };
+                if rc != 0 {
+                    sig.zeroize();
+                    return Err(CryptoError::SignatureVerification);
+                }
+            }
+
+            // Array to array: a memcpy with no length check left.
+            signature.copy_from_slice(&sig);
+            Ok(())
+        })
     }
 }
