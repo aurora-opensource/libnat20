@@ -569,7 +569,9 @@ unsafe fn handover_ref_arg<'b>(
     // SAFETY: null was rejected above; the rest is exactly this function's
     // own contract, which its caller guarantees.
     let raw = slice::from_raw_parts(raw, raw_size);
-    let (header, content) = raw.split_at(size_of::<HandoverHeader>());
+    let (header, content) = raw
+        .split_at_checked(size_of::<HandoverHeader>())
+        .ok_or(Error::InvalidArgument)?;
     // SAFETY: as in `handover_arg`: one header long, aligned for it, and
     // every bit pattern is a valid `HandoverHeader`.
     let header = &*header.as_ptr().cast::<HandoverHeader>();
