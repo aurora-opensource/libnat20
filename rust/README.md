@@ -142,10 +142,11 @@ configuration file `firmware/<environment>-<arch>.toml` that names the
 target and adds the environment's flags. `tools/build-firmware-lib.sh
 <profile>` builds the library with it, adds the crate features the
 environment calls for, and rebuilds `core` from source (`-Zbuild-std=core`
-via `RUSTC_BOOTSTRAP=1` on the pinned *stable* toolchain); `SLIM=1` also
-strips the panic-formatting machinery if the size budget demands it. A
-build system that invokes rustc and the C compiler itself applies the
-profile's flags the same way. `tools/stack-probe.sh <profile>` checks the
+via `RUSTC_BOOTSTRAP=1` on the pinned *stable* toolchain). It refuses to
+run with `RUSTFLAGS` set: cargo would then ignore the profile's rustflags,
+`+reserve-r9` among them, without a word. A build system that sets
+`RUSTFLAGS` (Yocto does), or that invokes rustc and the C compiler
+itself, applies the profile's flags itself. `tools/stack-probe.sh <profile>` checks the
 secret invariants with them.
 
 **U-Boot on 32-bit Arm** (`u-boot-armv7`), for SPL or U-Boot proper:
