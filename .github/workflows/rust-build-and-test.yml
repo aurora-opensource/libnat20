@@ -66,11 +66,14 @@ jobs:
         run: |
           cargo clippy -p nat20 --features soft-crypto --all-targets -- -D warnings
           cargo clippy -p nat20 --features soft-crypto,mono-crypto --all-targets -- -D warnings
+          cargo clippy -p nat20-ffi --tests --no-default-features --features soft-crypto -- -D warnings
+          cargo clippy -p nat20-ffi --tests --no-default-features --features mono-crypto,soft-crypto -- -D warnings
       - name: Docs
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
           cargo doc --no-deps -p nat20 --features soft-crypto,mono-crypto
+          cargo doc --no-deps -p nat20-ffi --no-default-features --features mono-crypto,soft-crypto
 
   rust-test:
     name: Rust test (${{ matrix.options.name }})
@@ -81,6 +84,8 @@ jobs:
             { name: "nat20, no backend", args: "-p nat20" },
             { name: "nat20, soft-crypto", args: "-p nat20 --features soft-crypto" },
             { name: "nat20, mono-crypto", args: "-p nat20 --features soft-crypto,mono-crypto" },
+            { name: "nat20-ffi, soft-crypto", args: "-p nat20-ffi --lib --no-default-features --features soft-crypto" },
+            { name: "nat20-ffi, mono-crypto", args: "-p nat20-ffi --lib --no-default-features --features mono-crypto,soft-crypto" },
             { name: "nat20, verify-after-sign", args: "-p nat20 --features soft-crypto,mono-crypto,verify-after-sign" },
           ]
     runs-on: ubuntu-24.04
