@@ -41,11 +41,22 @@
 //! This first part provides the encoding layer: a backward-writing output
 //! stream ([`stream`]) and the CBOR encoders built on it ([`cbor`]).
 //!
-//! No allocation, no floating point, no panicking paths on correct usage.
+//! No allocation, no floating point, and no panics.
 
 #![no_std]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+// A panic would cut short the wiping of secrets (see nat20::crypto), so
+// none may be written; these lints catch the obvious ones.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::indexing_slicing,
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic
+    )
+)]
 
 pub mod cbor;
 pub mod stream;
