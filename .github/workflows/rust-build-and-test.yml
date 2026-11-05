@@ -81,6 +81,7 @@ jobs:
       matrix:
         options:
           [
+            { name: "nat20, no backend", args: "-p nat20" },
             { name: "nat20, soft-crypto", args: "-p nat20 --features soft-crypto" },
             { name: "nat20, mono-crypto", args: "-p nat20 --features soft-crypto,mono-crypto" },
             { name: "nat20-ffi, soft-crypto", args: "-p nat20-ffi --lib --no-default-features --features soft-crypto" },
@@ -116,7 +117,6 @@ jobs:
           for config in firmware/*.toml; do
             profile=$(basename "$config" .toml)
             tools/build-firmware-lib.sh "$profile"
-            SLIM=1 tools/build-firmware-lib.sh "$profile"
           done
       - name: Check that no panic is reachable (SIZE.md)
         run: |
