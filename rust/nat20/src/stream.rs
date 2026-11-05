@@ -104,8 +104,17 @@ impl<'a> WStream<'a> {
             return;
         }
         if let Some(b) = &mut self.buf {
-            let end = b.len() - (self.written - src.len());
-            b[end - src.len()..end].copy_from_slice(src);
+            // Not overflowed, so `written <= b.len()` and the slot exists;
+            // the checked forms keep that from being a panic path anyway.
+            let slot = b
+                .len()
+                .checked_sub(self.written)
+                .and_then(|start| b.get_mut(start..));
+            // Not `copy_from_slice`: at opt-level z its length check is
+            // outlined and stays a panic path, while zip has none.
+            for (dst, byte) in slot.into_iter().flatten().zip(src) {
+                *dst = *byte;
+            }
         }
     }
 
@@ -132,6 +141,7 @@ impl<'a> WStream<'a> {
         if self.overflowed() {
             return None;
         }
-        self.buf.as_ref().map(|b| &b[b.len() - self.written..])
+        let b = self.buf.as_ref()?;
+        b.get(b.len().checked_sub(self.written)?..)
     }
 }
