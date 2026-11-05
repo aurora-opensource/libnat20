@@ -81,7 +81,6 @@ impl<'a> WStream<'a> {
 
     /// Advances the write position by `n` bytes without writing.
     ///
-    /// Used to reserve the signature slot at the very end of the buffer.
     /// Like the C `n20_stream_skip`, the position advances even on overflow
     /// so the required size remains available; it saturates rather than
     /// wraps (see the module documentation).
