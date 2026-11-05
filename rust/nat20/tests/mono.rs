@@ -39,7 +39,8 @@
 //! the same certificates as the soft (dalek/sha2) backend and the C
 //! implementations. Run with `cargo test --features mono-crypto,soft-crypto`.
 
-#![cfg(feature = "mono-crypto")]
+// Compares against the software backend, so it needs both.
+#![cfg(all(feature = "mono-crypto", feature = "soft-crypto"))]
 
 use nat20::crypto::mono::MonoCrypto;
 use nat20::derive::CdiSecret;
