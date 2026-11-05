@@ -1,0 +1,98 @@
+# Copyright 2026 Aurora Operations, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
+#
+# This work is dual licensed.
+# You may use it under Apache-2.0 or GPL-2.0 at your option.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# OR
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see
+# <https://www.gnu.org/licenses/>.
+
+
+name: rust-build-and-test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: rust
+
+jobs:
+  rust-lint:
+    name: Rust format, lint and docs
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b #v4.1.5
+      # The toolchain is pinned by rust/rust-toolchain.toml.
+      - name: Install the pinned toolchain
+        run: |
+          rustup toolchain install
+          rustup component add rustfmt clippy
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: |
+          cargo clippy -p nat20 --features soft-crypto --all-targets -- -D warnings
+          cargo clippy -p nat20 --features soft-crypto,mono-crypto --all-targets -- -D warnings
+          cargo clippy -p nat20-ffi --tests --no-default-features --features soft-crypto -- -D warnings
+          cargo clippy -p nat20-ffi --tests --no-default-features --features mono-crypto,soft-crypto -- -D warnings
+      - name: Docs
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo doc --no-deps -p nat20 --features soft-crypto,mono-crypto
+          cargo doc --no-deps -p nat20-ffi --no-default-features --features mono-crypto,soft-crypto
+
+  rust-test:
+    name: Rust test (${{ matrix.options.name }})
+    strategy:
+      matrix:
+        options:
+          [
+            { name: "nat20, no backend", args: "-p nat20" },
+            { name: "nat20, soft-crypto", args: "-p nat20 --features soft-crypto" },
+            { name: "nat20, mono-crypto", args: "-p nat20 --features soft-crypto,mono-crypto" },
+            { name: "nat20-ffi, soft-crypto", args: "-p nat20-ffi --lib --no-default-features --features soft-crypto" },
+            { name: "nat20-ffi, mono-crypto", args: "-p nat20-ffi --lib --no-default-features --features mono-crypto,soft-crypto" },
+            { name: "nat20, verify-after-sign", args: "-p nat20 --features soft-crypto,mono-crypto,verify-after-sign" },
+          ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b #v4.1.5
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - name: Test
+        run: cargo test ${{ matrix.options.args }}
+

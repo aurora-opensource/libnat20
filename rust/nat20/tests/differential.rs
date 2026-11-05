@@ -45,6 +45,10 @@
 //! deterministic, so the Rust port must reproduce the certificate
 //! byte for byte. See the harness source for how to regenerate.
 
+// Needs the software backend: plain `cargo test -p nat20`, with no
+// backend, still builds and runs the other tests.
+#![cfg(feature = "soft-crypto")]
+
 use nat20::crypto::soft::SoftCrypto;
 use nat20::derive::CdiSecret;
 use nat20::{issue_next_stage_cwt, Error, Mode, OpenDiceInput};
