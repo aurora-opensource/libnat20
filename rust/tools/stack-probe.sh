@@ -51,9 +51,17 @@
 # not see a leak and its pass would mean nothing. The operation depths the
 # second run prints are what each scrub has to cover.
 #
-# Needs qemu-system-arm, arm-none-eabi-gcc and python3.
+# Needs qemu-system-arm, arm-none-eabi-gcc and python3. Refuses to run with
+# RUSTFLAGS or CARGO_ENCODED_RUSTFLAGS set, as tools/build-firmware-lib.sh
+# does: cargo would then drop the rustflags the probe and the profiles add.
 
 set -eu
+
+if [ -n "${RUSTFLAGS:-}${CARGO_ENCODED_RUSTFLAGS:-}" ]; then
+	echo "$0: RUSTFLAGS or CARGO_ENCODED_RUSTFLAGS is set, which would make" \
+		"cargo drop the profile's rustflags; unset them" >&2
+	exit 2
+fi
 
 profile=${1:-}
 
