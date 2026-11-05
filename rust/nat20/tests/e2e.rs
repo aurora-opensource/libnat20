@@ -39,6 +39,10 @@
 //! with an independent CBOR decoder (ciborium), and verify the Ed25519
 //! signatures with ed25519-dalek's strict verifier.
 
+// Needs the software backend: plain `cargo test -p nat20`, with no
+// backend, still builds and runs the other tests.
+#![cfg(feature = "soft-crypto")]
+
 use ciborium::value::Value;
 use ed25519_dalek::{Signature, VerifyingKey};
 use nat20::crypto::soft::SoftCrypto;
