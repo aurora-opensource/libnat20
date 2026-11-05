@@ -16,10 +16,33 @@ llvm-size target/armv7a-none-eabi/release/size-probe
 
 Budget: **40 KB .text**.
 
-| backend                 | .text   |
-|-------------------------|---------|
-| `soft-crypto` (default) | 28152 B |
-| `mono-crypto`           | 19436 B |
+| backend                                   | .text   |
+|-------------------------------------------|---------|
+| `soft-crypto` (default)                   | 28800 B |
+| `mono-crypto`                             | 19834 B |
+| `mono-crypto`, `verify-after-sign`        | 22630 B |
+
+## No reachable panic
+
+The same build with the `panic-never` feature checks that the library
+contains no panic the optimizer could not remove:
+
+```
+cargo build --release --target armv7a-none-eabi -p size-probe \
+    --no-default-features --features mono-crypto,panic-never
+```
+
+`panic-never` installs a panic handler that calls a symbol nothing defines,
+so the link fails if any panic is still reachable once fat LTO is done. It
+succeeds for `mono-crypto` (with and without `verify-after-sign`, and with
+the firmware profiles), which is what the secret invariants of
+`nat20::crypto` rely on: a panic would never come back to wipe anything.
+With `soft-crypto` it fails on bounds checks inside curve25519-dalek's
+scalar arithmetic, which the compiler cannot prove away. The check depends
+on the build (optimization level, LTO), so it is made on the build that
+ships. A failing link names no culprit; looking for calls into
+`core::panicking` and `core::slice::index` in the disassembly of the
+ordinary build finds them.
 
 What the numbers rest on:
 
@@ -35,12 +58,14 @@ What the numbers rest on:
   feature set (libnat20's encoders plus Monocypher) measured within about
   1.1 KB of the Rust build with Monocypher, so the footprint is the crypto
   backend, not the language.
-- **Panic formatting**: `SLIM=1 tools/build-firmware-lib.sh <profile>`
-  builds with `-Cpanic=immediate-abort`, which drops the panic-message
-  machinery (several KiB) at the cost of silent traps.
+- **Panic formatting**: with `mono-crypto` no panic is reachable, so the
+  panic handler and its message formatting are not linked at all. With
+  `soft-crypto`, `SLIM=1 tools/build-firmware-lib.sh <profile>` builds with
+  `-Cpanic=immediate-abort`, which drops that machinery (several KiB) at
+  the cost of silent traps.
 - **Firmware profiles**: the numbers are for the target defaults. A
   profile's flags cost a little on top: reserving r9 for U-Boot
-  (`firmware/u-boot-armv7.toml`) adds 48 B (soft) and 40 B (Monocypher).
+  (`firmware/u-boot-armv7.toml`) adds 44 B (soft) and 24 B (Monocypher).
 
 Experiments that did **not** pay off (don't re-try without new evidence):
 `#[inline(never)]` on the CBOR writers (±0 — they were already outlined);

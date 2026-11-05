@@ -36,19 +36,27 @@
  */
 
 /*
- * Stack probe: runs each secret-handling entry point of nat20_rust.h on a
- * stack of its own, painted beforehand, and reports for each
+ * Stack probe: runs calls on a stack of their own, painted beforehand, and
+ * reports for each
  *
  *   depth    bytes of stack the call touched (deepest byte not paint),
  *   residue  depth of the deepest byte left neither paint nor zero, and
- *   leaks    derived secrets (probe_secrets.h) still on the stack, as any
- *            8 contiguous bytes of one.
+ *   leaks    secrets (probe_secrets.h) still on the stack, as any 8
+ *            contiguous bytes of one.
  *
- * Residue is the real check: it also catches what no list of secrets can,
- * such as SHA-512 compression state left from an HMAC keyed with a CDI.
- * Only the frames of the probe and of the entry point itself, above the
- * scrubbed region, may hold anything (RESIDUE_LIMIT). Exits 0 if every call
- * stays within it and leaks nothing.
+ * It checks the two invariants of nat20::crypto separately:
+ *
+ *  - The backend invariant, operation by operation, through
+ *    n20r_probe_backend_op (feature stack-probe): after each operation only
+ *    the frames of the probe thunk, the entry point and the backend method
+ *    may hold anything (RESIDUE_LIMIT). Residue catches what no list of
+ *    secrets can, such as hash state left from an HMAC keyed with a CDI.
+ *  - End to end, each secret-handling entry point of nat20_rust.h: the code
+ *    between the backend operations may leave non-secret residue (pointers,
+ *    lengths), so here the check is that no secret is left, including the
+ *    key-equivalent HMAC midstates.
+ *
+ * Exits 0 if every check passes.
  */
 
 #include <stddef.h>
@@ -60,8 +68,12 @@
 #define PAINT 0xa5
 /* Leak search granularity: shorter windows would hit by chance. */
 #define WINDOW 8
-/* The thunk's and the entry point's own frames: arguments, saved registers. */
+/* The thunk's, the entry point's and the backend method's own frames:
+ * arguments, saved registers, references. */
 #define RESIDUE_LIMIT 256
+
+/* Defined by nat20-ffi with the stack-probe feature; not in nat20_rust.h. */
+n20r_error_t n20r_probe_backend_op(uint32_t op, uint8_t const *secret, uint8_t *out);
 
 void probe_puts(char const *s);
 void probe_exit(int status) __attribute__((noreturn));
@@ -134,6 +146,10 @@ static uint8_t ctx[N20R_DICE_CTX_SIZE] __attribute__((aligned(8)));
 static uint8_t handover[2048] __attribute__((aligned(8)));
 static uint8_t next_cdi[32];
 static uint8_t public_key[32];
+static uint8_t op_out[64];
+static uint32_t op;
+
+static int call_backend_op(void) { return n20r_probe_backend_op(op, cdi, op_out); }
 
 static int call_public_key(void) { return n20r_device_id_public_key(cdi, public_key); }
 
@@ -170,7 +186,8 @@ static int leaks(void) {
     return found;
 }
 
-static int run(char const *name, int (*fn)(void)) {
+/* limit_residue: whether residue beyond RESIDUE_LIMIT fails the call. */
+static int run(char const *name, int (*fn)(void), int limit_residue) {
     uint8_t *bottom = __probe_stack_bottom;
     size_t span = __probe_stack_top - bottom;
     size_t depth = 0, residue = 0;
@@ -194,8 +211,9 @@ static int run(char const *name, int (*fn)(void)) {
     probe_puts(", residue ");
     put_dec(residue);
     probe_puts("\n");
-    if (residue > RESIDUE_LIMIT) probe_puts("    residue beyond the entry point's own frame\n");
-    return leaks() || rc != N20R_OK || residue > RESIDUE_LIMIT;
+    if (limit_residue && residue > RESIDUE_LIMIT)
+        probe_puts("    residue below the backend operation's own frame\n");
+    return leaks() || rc != N20R_OK || (limit_residue && residue > RESIDUE_LIMIT);
 }
 
 int main(void) {
@@ -215,9 +233,12 @@ int main(void) {
         probe_exit(1);
     }
 
-    failed |= run("n20r_device_id_public_key", call_public_key);
-    failed |= run("n20r_issue_device_id_cwt", call_device_id);
-    failed |= run("n20r_issue_next_stage_cwt", call_next_stage);
+    static char const *const ops[] = {"sha512", "hmac_sha512", "public_key", "sign"};
+    for (op = 0; op < sizeof(ops) / sizeof(ops[0]); op++)
+        failed |= run(ops[op], call_backend_op, 1);
+    failed |= run("n20r_device_id_public_key", call_public_key, 0);
+    failed |= run("n20r_issue_device_id_cwt", call_device_id, 0);
+    failed |= run("n20r_issue_next_stage_cwt", call_next_stage, 0);
     /* Searching for the wrong secrets would find nothing, and pass. */
     if (memcmp(next_cdi, secrets[1].bytes, sizeof(next_cdi))) {
         probe_puts("stack-probe: next CDI differs from probe_secrets.h\n");

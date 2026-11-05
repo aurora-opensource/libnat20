@@ -57,15 +57,19 @@
  *
  * A handover region must be 4-byte aligned.
  *
- * Secrets on the stack: n20r_issue_device_id_cwt(),
- * n20r_issue_next_stage_cwt() and n20r_device_id_public_key() zero the
- * stack they used before returning, on success and on error, so no CDI,
- * seed, key or hash state derived during the call survives it. This costs
- * stack: each of them needs about 3 KiB (Monocypher backend) or 8 KiB
- * (soft backend) below the caller's frame, which covers the depth the
- * calls themselves reach. Registers are not cleared, and the caller's own
- * buffers are the caller's to wipe: the root CDI passed in, and the next
- * CDI passed out. tools/stack-probe.sh checks all of this on the target.
+ * Secrets: the CDIs are used in place, in the caller's buffers; nothing
+ * copies them. Every other secret a call derives (seeds, keys, HMAC state)
+ * is wiped before the call returns, on success and on error, from the stack
+ * and from the registers a call may clobber: each crypto operation wipes
+ * what it used as it returns. So once a call returns, the only copies of a
+ * secret are the root CDI passed in and the next CDI passed out, which are
+ * the caller's to wipe. The library contains no panic that could cut this
+ * short (checked at link time for the Monocypher backend), and
+ * tools/stack-probe.sh checks the rest on the target.
+ *
+ * Stack: the deepest call, n20r_issue_next_stage_cwt(), reaches about
+ * 3 KiB below the caller's frame with the Monocypher backend (3.5 KiB with
+ * verify-after-sign), 8 KiB with the soft backend.
  */
 
 #ifndef NAT20_RUST_H
@@ -197,7 +201,7 @@ n20r_error_t n20r_set_mode(uint8_t *ctx, uint8_t mode);
  * This initialises the handover, discarding anything it held, so call it
  * first. All arguments are checked before the region is touched; once they
  * pass, the region is initialised even if issuing then fails, which leaves
- * an empty handover. Zeroes the stack it used (see above).
+ * an empty handover.
  *
  * @param cdi 32-byte root CDI secret.
  * @param profile_name Optional profile-name claim (UTF-8, not validated);
@@ -216,15 +220,15 @@ n20r_error_t n20r_issue_device_id_cwt(uint8_t const cdi[32],
  * issues the next-stage CWT: it contains the open-DICE claims and the
  * next-stage public key, and is signed by the device-identity key. The
  * certificate is appended to the handover, which must already hold the
- * chain up to this stage (see n20r_issue_device_id_cwt()). Zeroes the stack
- * it used (see above).
+ * chain up to this stage (see n20r_issue_device_id_cwt()).
  *
  * @param ctx DICE context holding the open-DICE input, prepared by
  *        n20r_ctx_init(). Fields never set are empty.
  * @param cdi 32-byte root CDI secret.
  * @param next_cdi_out Receives the 32-byte next-stage CDI (hand this to the
- *        next boot stage); written only on success. Must be non-NULL.
- *        Treat as secret.
+ *        next boot stage), derived into it in place; holds zeros after any
+ *        error. Must be non-NULL and must not overlap cdi. Treat as
+ *        secret.
  * @param handover The handover region, 4-byte aligned.
  * @param handover_size Size of the handover region in bytes.
  */
@@ -292,8 +296,7 @@ n20r_error_t n20r_encode_cbor_map(n20r_cbor_map_entry_t const *entries,
 
 /**
  * Writes the 32-byte device-identity Ed25519 public key for the given root
- * CDI (e.g. for provisioning or out-of-band trust establishment). Zeroes
- * the stack it used (see above).
+ * CDI (e.g. for provisioning or out-of-band trust establishment).
  */
 n20r_error_t n20r_device_id_public_key(uint8_t const cdi[32], uint8_t public_key_out[32]);
 

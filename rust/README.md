@@ -62,8 +62,8 @@ requires 64 bytes; other profiles relax that).
   `c_diff_harness.c` (regenerates the C-library golden certificate),
   `build-firmware-lib.sh` (builds the static library for a firmware
   profile),
-  `stack-probe.sh` (checks under QEMU that no secret survives on the stack,
-  and measures stack depth; see Security notes).
+  `stack-probe.sh` (checks under QEMU that no secret survives a call, and
+  measures stack depth; see Security notes).
 
 ## Building
 
@@ -112,22 +112,23 @@ Thumb-2 code on armv7; they apply whatever firmware the library goes into.
 - The library needs no libc beyond `memcpy`/`memset`/`memmove` (provided by
   compiler-builtins inside the archive; the environment's own copies also
   satisfy them).
-- Panic behavior: the default `panic-loop` feature spins forever;
+- Panic behavior: with the Monocypher backend the library contains no
+  reachable panic (see Security notes), but a staticlib must still name a
+  handler. The default `panic-loop` feature spins forever;
   `panic-putc-hang` prints the message through `putc()` and calls `hang()`,
   both of which the environment must provide (U-Boot does).
-- Stack: budget 3 KiB (Monocypher) or 8 KiB (soft backend) below the
-  caller of each issue call. That is `N20R_STACK_SCRUB_SIZE`, the region
-  the call zeroes before returning; the calls themselves reach 2.2 KiB and
-  6.4 KiB.
+- Stack: the deepest call, `n20r_issue_next_stage_cwt`, reaches 2.9 KiB
+  below its caller with Monocypher (3.4 KiB with `verify-after-sign`) and
+  7.9 KiB with the soft backend (10.9 KiB), wipes included.
 - Calling sequence per boot:
   1. `n20r_issue_device_id_cwt(cdi, ...)` — self-signed device identity;
      starts the handover.
   2. `n20r_ctx_init(ctx, ...)`, then `n20r_set_*` as the measurements of
      the next stage become known.
   3. `n20r_issue_next_stage_cwt(ctx, cdi, next_cdi, ...)` — next-stage
-     certificate, appended to the handover; hand `next_cdi` to the next
-     boot stage, then scrub the root CDI. `n20r_ctx_cleanup(ctx)` releases
-     adopted buffers.
+     certificate, appended to the handover; the next CDI is derived
+     straight into `next_cdi`. Hand it to the next boot stage, then wipe
+     the root CDI. `n20r_ctx_cleanup(ctx)` releases adopted buffers.
 
   A stage that inherits a handover checks it with `n20r_handover_validate`
   before extending it. `n20r_encode_cbor_map` encodes open-DICE code and
@@ -145,7 +146,7 @@ via `RUSTC_BOOTSTRAP=1` on the pinned *stable* toolchain); `SLIM=1` also
 strips the panic-formatting machinery if the size budget demands it. A
 build system that invokes rustc and the C compiler itself applies the
 profile's flags the same way. `tools/stack-probe.sh <profile>` checks the
-stack scrub with them.
+secret invariants with them.
 
 **U-Boot on 32-bit Arm** (`u-boot-armv7`), for SPL or U-Boot proper:
 
@@ -180,28 +181,44 @@ defaults in `.cargo/config.toml`, the C compiler for Monocypher in
   proof: re-check when bumping the toolchain (which is why
   `rust-toolchain.toml` pins it), and consider on-target trace testing
   (e.g. dudect-style) as future work.
-- **Zeroization**: `CdiSecret` and `Seed32` are zeroized on drop, as are
-  HKDF intermediates and ed25519-dalek's key material (its `zeroize`
-  feature). The derivations fill caller-owned containers instead of
-  returning secrets by value, since every move leaves a copy no destructor
-  sees. That still leaves what the crypto backends' locals and spilled
-  registers leave in dead frames: Monocypher's SHA-512 compression state
-  (key-equivalent for an HMAC keyed with a CDI), dalek's expanded scalar.
-  So each secret-handling FFI entry point runs its body in a frame of its
-  own and then zeroes `N20R_STACK_SCRUB_SIZE` bytes of stack below its
-  frame, on success and on error. `tools/stack-probe.sh` runs those entry
-  points under `qemu-system-arm`, built as for firmware, on a painted
-  stack: it fails if anything but the entry point's own frame (arguments,
-  saved registers) is left, or if any derived secret is found, and it
-  checks it can see a leak by also running without the scrub. Registers
-  are not cleared, and the caller still owns wiping the root CDI it passed
-  in and the next CDI it got back.
+- **Secrets in memory**: two invariants, stated in `nat20::crypto`, keep
+  secrets out of memory nobody wipes, for Rust callers and C callers
+  alike:
+  1. *Backends*: when a crypto operation returns, on success or on error,
+     nothing it derived is left in the stack below its caller or in the
+     registers a call may clobber. The backends' own locals and spills
+     would otherwise leave key-equivalent state there: SHA-512 midstates
+     of an HMAC keyed with a CDI, the expanded Ed25519 scalar. So each
+     operation runs in a frame of its own, and then zeroes the stack it
+     reached (a size per backend and operation) and r0-r3 and r12.
+  2. *Everything else*: a secret only lives in a container that is filled
+     in place through `&mut`, read through `&`, never moved or copied, and
+     wiped on drop: `CdiSecret`, `Seed32`, HKDF's PRK. HKDF writes its
+     blocks straight into the output and reads T(i-1) back from there; a
+     seed is derived just before its one use and wiped right after, never
+     while a certificate is rendered. The C ABI uses the CDIs in place in
+     the caller's buffers.
+
+  So once a call returns, the caller's containers hold the only copies.
+  Neither invariant survives a panic (the wipe would never run), so the
+  library has none: with the Monocypher backend, the firmware build links
+  against a panic handler that cannot be linked (`panic-never`, see
+  `SIZE.md`), which only succeeds if the optimizer proved every panic
+  unreachable. With the soft backend that proof fails inside
+  curve25519-dalek's bounds-checked scalar indexing, so there the
+  guarantee rests on dalek not panicking.
+  `tools/stack-probe.sh` checks both invariants under `qemu-system-arm`,
+  built as for firmware, on a painted stack: after each backend operation
+  nothing below its own frame may be left, and after each FFI entry point
+  no secret, from a list that includes the HMAC midstates. It checks it can
+  see a leak by also running without the backend scrub.
 - **Fault injection**: signing is deterministic (RFC 8032; early boot
   firmware usually has no RNG), so a fault attacker who can obtain two
   different signatures over the same message could recover the key. The
-  `verify-after-sign` feature of `nat20` re-verifies every signature before
-  release (~+10 KB, ~2x signing time); enable it if the threat model
-  includes physical glitching.
+  `verify-after-sign` feature (of `nat20`, forwarded by `nat20-ffi`)
+  re-verifies every signature before it is released, on either backend
+  (about +2.8 KB with Monocypher, ~+10 KB with dalek, ~2x signing time);
+  enable it if the threat model includes physical glitching.
 
 ## Verifying certificates off-target
 

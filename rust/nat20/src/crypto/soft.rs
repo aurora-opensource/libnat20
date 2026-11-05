@@ -42,13 +42,29 @@ use hmac::digest::generic_array::GenericArray;
 use hmac::digest::FixedOutput;
 use hmac::{Hmac, Mac as _};
 use sha2::{Digest as _, Sha512};
+use zeroize::Zeroize;
 
-use super::{CryptoError, Digest, Ed25519Signer, Seed32};
+use super::{scrubbed, truncate_into, CryptoError, Digest, Ed25519Signer, Seed32};
+
+/// Stack the digest operations reach below the method's frame, with margin;
+/// what [`scrubbed`] wipes after each. `tools/stack-probe.sh` measures the
+/// depths (on armv7, about 2.2 KiB) and checks the sizes cover them.
+const DIGEST_STACK: usize = 3072;
+/// As [`DIGEST_STACK`], for the Ed25519 operations (about 5.7 KiB; 9 KiB
+/// when the signature is verified as well).
+#[cfg(not(feature = "verify-after-sign"))]
+const ED25519_STACK: usize = 7168;
+/// See the other variant.
+#[cfg(feature = "verify-after-sign")]
+const ED25519_STACK: usize = 10240;
 
 /// Zero-sized software crypto implementation.
 ///
 /// Monomorphized use of this type compiles to direct calls into `sha2`,
-/// `hmac`, and `ed25519-dalek` with no indirection.
+/// `hmac`, and `ed25519-dalek` with no indirection. Every operation runs
+/// [`scrubbed`]. The invariant then also rests on those crates not
+/// panicking, which their bounds checks do not let the compiler prove; the
+/// Monocypher backend has no such gap.
 pub struct SoftCrypto;
 
 impl Digest for SoftCrypto {
@@ -57,39 +73,49 @@ impl Digest for SoftCrypto {
         parts: &mut dyn Iterator<Item = &[u8]>,
         out: &mut [u8; 64],
     ) -> Result<(), CryptoError> {
-        let mut h = Sha512::new();
-        for p in parts {
-            h.update(p);
-        }
-        // Hash straight into `out`: a returned array would be a stack copy
-        // nobody wipes.
-        FixedOutput::finalize_into(h, GenericArray::from_mut_slice(out));
-        Ok(())
+        scrubbed::<DIGEST_STACK, _>(|| {
+            let mut h = Sha512::new();
+            for p in parts {
+                h.update(p);
+            }
+            // Hash straight into `out`: a returned array would be a copy.
+            FixedOutput::finalize_into(h, GenericArray::from_mut_slice(out));
+            Ok(())
+        })
     }
 
     fn hmac_sha512(
         &mut self,
         key: &[u8],
         parts: &mut dyn Iterator<Item = &[u8]>,
-        out: &mut [u8; 64],
+        out: &mut [u8],
     ) -> Result<(), CryptoError> {
-        // HMAC accepts keys of any length.
-        let mut m = Hmac::<Sha512>::new_from_slice(key).map_err(|_| CryptoError::InvalidInput)?;
-        for p in parts {
-            m.update(p);
-        }
-        // As in `sha512`; HMAC outputs here are HKDF blocks, i.e. key
-        // material.
-        FixedOutput::finalize_into(m, GenericArray::from_mut_slice(out));
-        Ok(())
+        scrubbed::<DIGEST_STACK, _>(|| {
+            if out.len() > 64 {
+                return Err(CryptoError::InvalidInput);
+            }
+            // HMAC accepts keys of any length.
+            let mut m =
+                Hmac::<Sha512>::new_from_slice(key).map_err(|_| CryptoError::InvalidInput)?;
+            for p in parts {
+                m.update(p);
+            }
+            let mut mac = [0u8; 64];
+            FixedOutput::finalize_into(m, GenericArray::from_mut_slice(&mut mac));
+            truncate_into(out, &mac);
+            mac.zeroize();
+            Ok(())
+        })
     }
 }
 
 impl Ed25519Signer for SoftCrypto {
     fn public_key(&mut self, seed: &Seed32, public_key: &mut [u8; 32]) -> Result<(), CryptoError> {
-        let key = SigningKey::from_bytes(seed.as_bytes());
-        public_key.copy_from_slice(key.verifying_key().as_bytes());
-        Ok(())
+        scrubbed::<ED25519_STACK, _>(|| {
+            let key = SigningKey::from_bytes(seed.as_bytes());
+            public_key.copy_from_slice(key.verifying_key().as_bytes());
+            Ok(())
+        })
     }
 
     fn sign(
@@ -98,15 +124,19 @@ impl Ed25519Signer for SoftCrypto {
         message: &[u8],
         signature: &mut [u8; 64],
     ) -> Result<(), CryptoError> {
-        let key = SigningKey::from_bytes(seed.as_bytes());
-        let sig = key.sign(message);
-        signature.copy_from_slice(&sig.to_bytes());
+        scrubbed::<ED25519_STACK, _>(|| {
+            let key = SigningKey::from_bytes(seed.as_bytes());
+            let sig = key.sign(message);
 
-        #[cfg(feature = "verify-after-sign")]
-        key.verifying_key()
-            .verify_strict(message, &sig)
-            .map_err(|_| CryptoError::SignatureVerification)?;
+            // Checked before it is released: a faulty signature over a
+            // message also signed correctly can give the key away.
+            #[cfg(feature = "verify-after-sign")]
+            key.verifying_key()
+                .verify_strict(message, &sig)
+                .map_err(|_| CryptoError::SignatureVerification)?;
 
-        Ok(())
+            signature.copy_from_slice(&sig.to_bytes());
+            Ok(())
+        })
     }
 }

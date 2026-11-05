@@ -295,3 +295,42 @@ fn adopted_buffers_are_released_exactly_once() {
         assert_eq!(DROPS.load(Ordering::SeqCst), 2);
     }
 }
+
+/// The two CDIs are used in place, one read while the other is written, so
+/// overlapping buffers are rejected rather than silently aliased.
+#[test]
+fn overlapping_cdi_buffers_are_rejected() {
+    let mut s = Storage::new();
+    let ctx = s.init();
+    let mut r = Region::new();
+    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
+    let mut cdis = [0x11u8; 64];
+    for offset in [0, 1, 31] {
+        let base = cdis.as_mut_ptr();
+        let rc =
+            unsafe { n20r_issue_next_stage_cwt(ctx, base, base.add(offset), r.ptr(), r.0.len()) };
+        assert_eq!(rc, N20rError::InvalidArgument, "offset {offset}");
+    }
+    let base = cdis.as_mut_ptr();
+    let rc = unsafe { n20r_issue_next_stage_cwt(ctx, base, base.add(32), r.ptr(), r.0.len()) };
+    assert_eq!(rc, N20rError::Ok, "adjacent buffers do not overlap");
+}
+
+/// The next CDI is derived straight into the caller's buffer, which holds
+/// zeros after an error, whether it fails before or after the derivation.
+#[test]
+fn the_next_cdi_buffer_holds_zeros_after_an_error() {
+    let mut s = Storage::new();
+    let ctx = s.init();
+    let mut r = Region::new();
+    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
+    let used = r.used().len();
+    for size in [0, used + 8] {
+        let mut next_cdi = [0xaau8; 32];
+        let rc = unsafe {
+            n20r_issue_next_stage_cwt(ctx, CDI.as_ptr(), next_cdi.as_mut_ptr(), r.ptr(), size)
+        };
+        assert_ne!(rc, N20rError::Ok, "size {size}");
+        assert_eq!(next_cdi, [0; 32], "size {size}");
+    }
+}
