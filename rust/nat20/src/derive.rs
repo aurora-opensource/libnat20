@@ -205,15 +205,18 @@ fn size_query(params: &CwtParams) -> Error {
     }
 }
 
-/// Renders the signed COSE_Sign1 into the tail of `buf`.
+/// Renders the signed COSE_Sign1 into the tail of `buf`, signing with
+/// `sign`.
 ///
 /// Ed25519 needs the signed message in one piece, so `buf` stages it: the
 /// Sig_structure is rendered into it and signed, then the COSE_Sign1, which
 /// is longer, is rendered over it. The payload is rendered twice; no other
 /// buffer is needed, so the certificate size is bounded only by `buf`.
+/// `sign` derives the signing key itself, so no key exists while anything
+/// is rendered.
 fn render_and_sign<C: Crypto>(
     c: &mut C,
-    signing_seed: &Seed32,
+    sign: impl FnOnce(&mut C, &[u8], &mut [u8; SIG_SIZE_ED25519]) -> Result<(), Error>,
     params: &CwtParams,
     buf: &mut [u8],
 ) -> Result<usize, Error> {
@@ -226,7 +229,10 @@ fn render_and_sign<C: Crypto>(
         s.written()
     };
     let mut signature = [0u8; SIG_SIZE_ED25519];
-    c.sign(signing_seed, &buf[buf.len() - tbs_len..], &mut signature)?;
+    let tbs = buf
+        .get(buf.len().saturating_sub(tbs_len)..)
+        .unwrap_or_default();
+    sign(c, tbs, &mut signature)?;
 
     let mut s = WStream::new(buf);
     cose::render_sign1(&mut s, &signature, |s| cwt::write_cwt_payload(s, params));
@@ -236,6 +242,32 @@ fn render_and_sign<C: Crypto>(
         });
     }
     Ok(s.written())
+}
+
+/// Derives the attestation public key of `cdi` into `public_key`. The seed
+/// exists only during this call, in a container wiped on every path out.
+pub fn attest_public_key<C: Crypto>(
+    c: &mut C,
+    cdi: &CdiSecret,
+    public_key: &mut [u8; 32],
+) -> Result<(), CryptoError> {
+    let mut seed = Seed32::default();
+    attest_key_seed(c, cdi, &mut seed)?;
+    c.public_key(&seed, public_key)
+}
+
+/// Signs `message` with the attestation key of `cdi`. As in
+/// [`attest_public_key`], the seed exists only during this call.
+fn attest_sign<C: Crypto>(
+    c: &mut C,
+    cdi: &CdiSecret,
+    message: &[u8],
+    signature: &mut [u8; SIG_SIZE_ED25519],
+) -> Result<(), Error> {
+    let mut seed = Seed32::default();
+    attest_key_seed(c, cdi, &mut seed)?;
+    c.sign(&seed, message, signature)?;
+    Ok(())
 }
 
 /// Dummy CDI_ID used in size-query mode (`0x7f` filler, like the C library;
@@ -269,10 +301,8 @@ pub fn issue_device_id_cwt<C: Crypto>(
         }));
     };
 
-    let mut seed = Seed32::default();
-    attest_key_seed(c, cdi, &mut seed)?;
     let mut public_key = [0u8; 32];
-    c.public_key(&seed, &mut public_key)?;
+    attest_public_key(c, cdi, &mut public_key)?;
     let id = cdi_id(c, &public_key)?;
 
     let params = CwtParams {
@@ -282,7 +312,9 @@ pub fn issue_device_id_cwt<C: Crypto>(
         subject_public_key: &public_key,
         profile_name,
     };
-    render_and_sign(c, &seed, &params, buf)
+    // The seed is derived a second time to sign: it then exists only around
+    // the signature, not while the certificate is rendered.
+    render_and_sign(c, |c, m, sig| attest_sign(c, cdi, m, sig), &params, buf)
 }
 
 /// Derives the next-stage CDI and key pair from `cdi` and the open-DICE
@@ -333,18 +365,12 @@ fn issue_next_stage_cwt_into<C: Crypto>(
     let input_digest = compress_input(c, input)?;
     next_cdi_attest(c, cdi, &input_digest, next_cdi)?;
 
-    // One seed container serves both keys, so the subject seed is
-    // overwritten rather than left behind.
-    let mut seed = Seed32::default();
-    attest_key_seed(c, next_cdi, &mut seed)?;
     let mut subject_public_key = [0u8; 32];
-    c.public_key(&seed, &mut subject_public_key)?;
+    attest_public_key(c, next_cdi, &mut subject_public_key)?;
     let subject_id = cdi_id(c, &subject_public_key)?;
 
-    attest_key_seed(c, cdi, &mut seed)?;
-    let issuer_seed = &seed;
     let mut issuer_public_key = [0u8; 32];
-    c.public_key(issuer_seed, &mut issuer_public_key)?;
+    attest_public_key(c, cdi, &mut issuer_public_key)?;
     let issuer_id = cdi_id(c, &issuer_public_key)?;
 
     let params = CwtParams {
@@ -354,5 +380,6 @@ fn issue_next_stage_cwt_into<C: Crypto>(
         subject_public_key: &subject_public_key,
         profile_name,
     };
-    render_and_sign(c, issuer_seed, &params, buf)
+    // As in `issue_device_id_cwt`, the issuer seed exists only to sign.
+    render_and_sign(c, |c, m, sig| attest_sign(c, cdi, m, sig), &params, buf)
 }
