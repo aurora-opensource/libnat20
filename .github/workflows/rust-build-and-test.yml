@@ -118,6 +118,16 @@ jobs:
             profile=$(basename "$config" .toml)
             tools/build-firmware-lib.sh "$profile"
           done
+      - name: Check that no panic is reachable (SIZE.md)
+        run: |
+          for features in mono-crypto mono-crypto,verify-after-sign; do
+            cargo build --release --target armv7a-none-eabi -p size-probe \
+              --no-default-features --features "$features,panic-never"
+          done
+          for config in firmware/*.toml; do
+            RUSTC_BOOTSTRAP=1 cargo build --release -p size-probe --config "$config" \
+              --no-default-features --features mono-crypto,panic-never
+          done
       - name: Check the code size budget (SIZE.md)
         run: |
           for features in "" "--no-default-features --features mono-crypto" \
@@ -128,3 +138,20 @@ jobs:
             test "$text" -le 40000
           done
 
+  rust-stack-probe:
+    name: Rust secret invariants check (QEMU, ${{ matrix.profile || 'target defaults' }})
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        # Empty: the target defaults alone.
+        profile: ["", "u-boot-armv7"]
+    steps:
+      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b #v4.1.5
+      - name: Install the pinned toolchain, the Arm cross compiler and QEMU
+        run: |
+          rustup toolchain install
+          rustup component add rust-src
+          sudo apt update
+          sudo apt install gcc-arm-none-eabi qemu-system-arm -y
+      - name: Run the stack probe
+        run: tools/stack-probe.sh ${{ matrix.profile }}
