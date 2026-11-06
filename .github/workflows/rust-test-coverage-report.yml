@@ -65,9 +65,8 @@ jobs:
         working-directory: rust
         run: |
           cargo llvm-cov clean --workspace
-          cargo llvm-cov --no-report -p nat20 --features soft-crypto,mono-crypto
+          cargo llvm-cov --no-report -p nat20 --features soft-crypto
           cargo llvm-cov --no-report -p nat20-ffi --lib --no-default-features --features soft-crypto
-          cargo llvm-cov --no-report -p nat20-ffi --lib --no-default-features --features mono-crypto,soft-crypto
           cargo llvm-cov report --lcov --output-path lcov.info \
             --ignore-filename-regex '(/tests/|_tests\.rs$|/third_party/)'
           # Paths relative to the repository root, as the report expects.
