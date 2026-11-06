@@ -46,15 +46,16 @@
  *
  * It checks the two invariants of nat20::crypto separately:
  *
- *  - The backend invariant, operation by operation, through
- *    n20r_probe_backend_op (feature stack-probe): after each operation only
- *    the frames of the probe thunk, the entry point and the backend method
- *    may hold anything (RESIDUE_LIMIT). Residue catches what no list of
- *    secrets can, such as hash state left from an HMAC keyed with a CDI.
- *  - End to end, each secret-handling entry point of nat20_rust.h: the code
- *    between the backend operations may leave non-secret residue (pointers,
- *    lengths), so here the check is that no secret is left, including the
- *    key-equivalent HMAC midstates.
+ *  - The backend contract, operation by operation, on the built-in
+ *    software backend through n20r_probe_backend_op (feature stack-probe):
+ *    after each operation only the frames of the probe thunk, the entry
+ *    point and the backend method may hold anything (RESIDUE_LIMIT).
+ *    Residue catches what no list of secrets can, such as hash state left
+ *    from an HMAC keyed with a CDI.
+ *  - End to end, each entry point of nat20_rust.h with the built-in backend
+ *    as its crypto table: the library between the backend operations may
+ *    leave non-secret residue (pointers, lengths), so here the check is
+ *    that no secret is left, including the key-equivalent HMAC midstates.
  *
  * Exits 0 if every check passes.
  */
@@ -144,6 +145,10 @@ static uint8_t hidden[32];
 
 static uint8_t ctx[N20R_DICE_CTX_SIZE] __attribute__((aligned(8)));
 static uint8_t handover[2048] __attribute__((aligned(8)));
+static uint8_t soft[N20R_SOFT_CRYPTO_SIZE] __attribute__((aligned(8)));
+static n20r_crypto_t crypto;
+static n20r_key_t root;
+static n20r_key_t next;
 static uint8_t next_cdi[32];
 static uint8_t public_key[32];
 static uint8_t op_out[64];
@@ -151,14 +156,14 @@ static uint32_t op;
 
 static int call_backend_op(void) { return n20r_probe_backend_op(op, cdi, op_out); }
 
-static int call_public_key(void) { return n20r_device_id_public_key(cdi, public_key); }
+static int call_public_key(void) { return n20r_device_id_public_key(&crypto, root, public_key); }
 
 static int call_device_id(void) {
-    return n20r_issue_device_id_cwt(cdi, NULL, 0, handover, sizeof(handover));
+    return n20r_issue_device_id_cwt(&crypto, root, NULL, 0, handover, sizeof(handover));
 }
 
 static int call_next_stage(void) {
-    return n20r_issue_next_stage_cwt(ctx, cdi, next_cdi, handover, sizeof(handover));
+    return n20r_issue_next_stage_cwt(&crypto, ctx, root, &next, handover, sizeof(handover));
 }
 
 static int leaks(void) {
@@ -223,7 +228,8 @@ int main(void) {
     memset(config_descriptor, 0xc1, sizeof(config_descriptor));
     memset(authority_hash, 0xc2, sizeof(authority_hash));
     memset(hidden, 0xc3, sizeof(hidden));
-    if (n20r_ctx_init(ctx, sizeof(ctx)) ||
+    if (n20r_soft_crypto_init(soft, sizeof(soft), &crypto) ||
+        n20r_soft_crypto_import_cdi(soft, cdi, &root) || n20r_ctx_init(ctx, sizeof(ctx)) ||
         n20r_set_code_hash(ctx, code_hash, sizeof(code_hash), NULL) ||
         n20r_set_configuration_descriptor(
             ctx, config_descriptor, sizeof(config_descriptor), NULL) ||
@@ -233,14 +239,15 @@ int main(void) {
         probe_exit(1);
     }
 
-    static char const *const ops[] = {"sha512", "hmac_sha512", "public_key", "sign"};
+    static char const *const ops[] = {"sha512", "kdf", "public_key", "sign"};
     for (op = 0; op < sizeof(ops) / sizeof(ops[0]); op++)
         failed |= run(ops[op], call_backend_op, 1);
     failed |= run("n20r_device_id_public_key", call_public_key, 0);
     failed |= run("n20r_issue_device_id_cwt", call_device_id, 0);
     failed |= run("n20r_issue_next_stage_cwt", call_next_stage, 0);
     /* Searching for the wrong secrets would find nothing, and pass. */
-    if (memcmp(next_cdi, secrets[1].bytes, sizeof(next_cdi))) {
+    if (n20r_soft_crypto_export_cdi(soft, next, next_cdi) ||
+        memcmp(next_cdi, secrets[1].bytes, sizeof(next_cdi))) {
         probe_puts("stack-probe: next CDI differs from probe_secrets.h\n");
         failed = 1;
     }

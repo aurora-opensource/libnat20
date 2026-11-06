@@ -36,25 +36,34 @@
  */
 
 //! Entry points for `tools/stack-probe.sh` only (feature `stack-probe`):
-//! each runs one operation of the crypto backend directly, so the probe can
-//! check the backend invariant of `nat20::crypto` operation by operation:
-//! once the operation returns, nothing it touched below this frame may be
-//! left non-zero. Never part of a firmware build.
+//! each runs one operation of the built-in software backend directly, so
+//! the probe can check, operation by operation, the contract every backend
+//! must meet (`nat20::crypto`): once the operation returns, nothing it
+//! touched below this frame may be left non-zero. Never part of a firmware
+//! build.
 
-use nat20::crypto::Seed32;
-use nat20::{Digest, Ed25519Signer};
+use nat20::crypto::soft::SoftCrypto;
+use nat20::{Crypto, Digest, Error, KeyKind};
 
-use crate::{crypto_backend, status, Error, N20rError};
+use crate::{status, N20rError};
 
 /// `n20r_probe_backend_op` operations.
 const OP_SHA512: u32 = 0;
-const OP_HMAC: u32 = 1;
+const OP_KDF: u32 = 1;
 const OP_PUBLIC_KEY: u32 = 2;
 const OP_SIGN: u32 = 3;
 
-/// Runs backend operation `op` with the 32 secret bytes at `secret` as its
-/// key (the HMAC key, or the Ed25519 seed) and writes up to 64 bytes of its
-/// result to `out`.
+/// The backend's storage: static, so that its key slots are not counted as
+/// stack residue.
+static mut BACKEND: SoftCrypto<3> = SoftCrypto::new();
+
+/// Runs backend operation `op` with the 32 secret bytes at `secret` as the
+/// CDI and writes up to 64 bytes of its result to `out`.
+///
+/// The backend lives in static storage, so only frames are on the probe's
+/// stack. It is reset (which wipes the keys of the previous run) and given
+/// the keys the operation needs before the operation runs, and nothing runs
+/// after it: whatever is left below this frame is the operation's.
 ///
 /// # Safety
 /// `secret` must point to 32 readable bytes and `out` to 64 writable bytes.
@@ -65,26 +74,39 @@ pub unsafe extern "C" fn n20r_probe_backend_op(
     out: *mut u8,
 ) -> N20rError {
     status((|| {
-        if secret.is_null() || out.is_null() {
-            return Err(Error::InvalidArgument);
-        }
-        // SAFETY: the caller guarantees 32 readable bytes; `Seed32` is
-        // `repr(transparent)` over `[u8; 32]`, so the key is used in place.
-        let seed = &*secret.cast::<Seed32>();
-        let key = seed.as_bytes();
+        // SAFETY: the caller guarantees 32 readable bytes.
+        let cdi_bytes = secret
+            .cast::<[u8; 32]>()
+            .as_ref()
+            .ok_or(Error::InvalidArgument)?;
         // SAFETY: the caller guarantees 64 writable bytes.
-        let out = &mut *out.cast::<[u8; 64]>();
-        let mut crypto = crypto_backend()?;
+        let out = out
+            .cast::<[u8; 64]>()
+            .as_mut()
+            .ok_or(Error::InvalidArgument)?;
+        // SAFETY: the probe is single-threaded and calls one operation at a
+        // time, so nothing else accesses the storage meanwhile.
+        let crypto = &mut *core::ptr::addr_of_mut!(BACKEND);
+        *crypto = SoftCrypto::new();
+        let cdi = crypto.import_cdi(cdi_bytes)?;
         let message: &[u8] = b"nat20 stack probe";
+        let context: [&[u8]; 1] = [b"stack probe"];
+        let (public_key, _) = out.split_at_mut(32);
+        let public_key =
+            <&mut [u8; 32]>::try_from(public_key).map_err(|_| Error::InvalidArgument)?;
         match op {
-            OP_SHA512 => crypto.sha512(&mut [&key[..], message].iter().copied(), out)?,
-            OP_HMAC => crypto.hmac_sha512(key, &mut [message].iter().copied(), &mut out[..])?,
-            OP_PUBLIC_KEY => {
-                let (public_key, _) = out.split_at_mut(32);
-                let public_key = public_key.try_into().map_err(|_| Error::InvalidArgument)?;
-                crypto.public_key(seed, public_key)?;
+            OP_SHA512 => crypto.sha512(&mut [&cdi_bytes[..], message].iter().copied(), out)?,
+            OP_KDF => {
+                crypto.kdf(&cdi, KeyKind::Cdi, &mut context.iter().copied())?;
             }
-            OP_SIGN => crypto.sign(seed, message, out)?,
+            OP_PUBLIC_KEY => {
+                let key = crypto.kdf(&cdi, KeyKind::Ed25519, &mut context.iter().copied())?;
+                crypto.public_key(&key, public_key)?;
+            }
+            OP_SIGN => {
+                let key = crypto.kdf(&cdi, KeyKind::Ed25519, &mut context.iter().copied())?;
+                crypto.sign(&key, message, out)?;
+            }
             _ => return Err(Error::InvalidArgument),
         }
         Ok(())
