@@ -45,11 +45,11 @@ name = "size-probe"
 path = "src/main.rs"
 
 [features]
-# Measure the Monocypher-backed configuration:
-# cargo build -p size-probe --no-default-features --features mono-crypto ...
-default = ["soft-crypto"]
+# Without features the program supplies a crypto table that does nothing,
+# so the size is the library's own; soft-crypto adds the built-in backend:
+# cargo build -p size-probe --features soft-crypto ...
+default = []
 soft-crypto = ["nat20-ffi/soft-crypto"]
-mono-crypto = ["nat20-ffi/mono-crypto"]
 verify-after-sign = ["nat20-ffi/verify-after-sign"]
 
 [dependencies]
