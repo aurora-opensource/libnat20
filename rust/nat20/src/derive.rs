@@ -38,18 +38,16 @@
 //! Deterministic DICE derivations and certificate issuance.
 //! Port of the COSE path of `src/core/functionality.c`.
 //!
-//! All derivations are HKDF-Expand-SHA512 from a 32-byte CDI secret with the
-//! same salts and tags as the C library, so a given CDI yields the same keys
-//! and identifiers as C libnat20 with the BoringSSL crypto backend.
-
-use zeroize::{Zeroize, ZeroizeOnDrop};
+//! The derivations are those of the C library, with the same salts and
+//! tags, so a given CDI yields the same keys and identifiers as C libnat20
+//! with the BoringSSL crypto backend. Secret keys are handles of the crypto
+//! backend ([`Crypto::Key`]); the derivations order them so that at most
+//! [`MIN_KEY_SLOTS`](crate::crypto::MIN_KEY_SLOTS) are live at once, and
+//! free every key they derive on every path, except the next CDI they hand
+//! to the caller.
 
 use crate::cose::{self, SIG_SIZE_ED25519};
-// The Zeroize impls below are written by hand instead of derived: the
-// zeroize_derive proc macro would drag syn/quote/proc-macro2 into the
-// build, which direct-rustc environments (build systems that invoke rustc
-// without cargo) cannot host-compile.
-use crate::crypto::{hkdf_expand_sha512, hkdf_sha512, Crypto, CryptoError, Digest, Seed32};
+use crate::crypto::{hkdf_sha512, with_key, Crypto, CryptoError, Digest, KeyKind};
 use crate::cwt::{self, CwtParams};
 use crate::error::Error;
 use crate::open_dice::OpenDiceInput;
@@ -78,56 +76,6 @@ pub const ID_SALT: [u8; 64] = [
     0x72, 0x09, 0x35, 0x94, 0x96, 0xfc, 0xff, 0x1d, 0xb9, 0x52, 0x0b, 0xa5, 0x1c, 0x7b, 0x29, 0xea,
 ];
 
-/// A 32-byte Compound Device Identifier secret. Zeroized on drop.
-///
-/// Moving a value leaves a copy behind that drop never sees, so the
-/// derivations write into a `CdiSecret` the caller owns instead of
-/// returning one; [`Default`] (all zeros) gives the container to fill.
-///
-/// The layout is guaranteed to be that of `[u8; 32]` (`repr(transparent)`),
-/// so a reference to 32 bytes the caller owns, such as a buffer handed in
-/// over a C ABI, can be used as a `&CdiSecret` or `&mut CdiSecret` in place
-/// without copying the secret.
-#[derive(Default)]
-#[repr(transparent)]
-pub struct CdiSecret([u8; 32]);
-
-impl Zeroize for CdiSecret {
-    fn zeroize(&mut self) {
-        self.0.zeroize();
-    }
-}
-
-impl Drop for CdiSecret {
-    fn drop(&mut self) {
-        self.zeroize();
-    }
-}
-
-impl ZeroizeOnDrop for CdiSecret {}
-
-impl CdiSecret {
-    /// Wraps raw CDI bytes. The array is moved in, so wiping any copy the
-    /// caller still holds is up to the caller; [`as_mut_bytes`] fills a
-    /// container in place instead.
-    ///
-    /// [`as_mut_bytes`]: Self::as_mut_bytes
-    pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        CdiSecret(bytes)
-    }
-
-    /// The raw CDI bytes (e.g. to hand the next-stage CDI to the next boot
-    /// stage).
-    pub fn as_bytes(&self) -> &[u8; 32] {
-        &self.0
-    }
-
-    /// The raw CDI bytes, writable, to fill the container in place.
-    pub fn as_mut_bytes(&mut self) -> &mut [u8; 32] {
-        &mut self.0
-    }
-}
-
 /// A CDI_ID: 20 bytes derived from a public key, used as issuer/subject
 /// identifier and rendered as 40 hex characters in the CWT.
 pub type CdiId = [u8; 20];
@@ -136,7 +84,7 @@ pub type CdiId = [u8; 20];
 /// next-CDI derivation:
 /// `SHA512(code_hash, config_hash-or-descriptor, authority_hash, mode, hidden)`.
 /// Port of `n20_compress_input`.
-pub fn compress_input<D: Digest>(
+pub fn compress_input<D: Digest + ?Sized>(
     d: &mut D,
     input: &OpenDiceInput,
 ) -> Result<[u8; 64], CryptoError> {
@@ -159,40 +107,67 @@ pub fn compress_input<D: Digest>(
     Ok(digest)
 }
 
-/// Derives the next-level attestation CDI into `next`:
-/// `HKDF-Expand-SHA512(cdi, input_digest || "CDI_Attest", 32)`.
-/// Port of `n20_next_level_cdi_attest`.
-pub fn next_cdi_attest<D: Digest>(
-    d: &mut D,
-    cdi: &CdiSecret,
+/// Derives the next-level attestation CDI from `cdi`, with context
+/// `input_digest || "CDI_Attest"`. Port of `n20_next_level_cdi_attest`.
+/// The key is the caller's to free.
+pub fn next_cdi_attest<C: Crypto + ?Sized>(
+    c: &mut C,
+    cdi: &C::Key,
     input_digest: &[u8; 64],
-    next: &mut CdiSecret,
-) -> Result<(), CryptoError> {
-    hkdf_expand_sha512(d, &cdi.0, &[input_digest, CDI_ATTEST], &mut next.0)
+) -> Result<C::Key, CryptoError> {
+    c.kdf(
+        cdi,
+        KeyKind::Cdi,
+        &mut [&input_digest[..], CDI_ATTEST].iter().copied(),
+    )
 }
 
-/// Derives the attestation key seed for a CDI into `seed`:
-/// `HKDF-Expand-SHA512(cdi, ASYM_SALT || "Key Pair Attest", 32)`.
-/// Port of `n20_derive_cdi_attestation_key` (Ed25519: the 32 bytes are the
-/// RFC 8032 seed, as in the BoringSSL backend).
-pub fn attest_key_seed<D: Digest>(
-    d: &mut D,
-    cdi: &CdiSecret,
-    seed: &mut Seed32,
-) -> Result<(), CryptoError> {
-    hkdf_expand_sha512(d, &cdi.0, &[&ASYM_SALT, ATTEST_KEY_PAIR], &mut seed.0)
+/// Derives the Ed25519 attestation key of `cdi`, with context
+/// `ASYM_SALT || "Key Pair Attest"`. Port of
+/// `n20_derive_cdi_attestation_key`. The key is the caller's to free.
+pub fn attest_key<C: Crypto + ?Sized>(c: &mut C, cdi: &C::Key) -> Result<C::Key, CryptoError> {
+    c.kdf(
+        cdi,
+        KeyKind::Ed25519,
+        &mut [&ASYM_SALT[..], ATTEST_KEY_PAIR].iter().copied(),
+    )
 }
 
 /// Derives the CDI_ID for a public key:
 /// `HKDF-SHA512(ikm = public_key, salt = ID_SALT, info = "ID", 20)` with the
 /// high bit of the first byte cleared. Port of `n20_open_dice_cdi_id`.
-pub fn cdi_id<D: Digest>(d: &mut D, public_key: &[u8; 32]) -> Result<CdiId, CryptoError> {
+pub fn cdi_id<D: Digest + ?Sized>(d: &mut D, public_key: &[u8; 32]) -> Result<CdiId, CryptoError> {
     let mut id: CdiId = [0; 20];
     hkdf_sha512(d, public_key, &ID_SALT, &[ID_INFO], &mut id)?;
-    id[0] &= 0x7f;
+    if let Some(first) = id.first_mut() {
+        *first &= 0x7f;
+    }
     Ok(id)
 }
 
+/// Writes the attestation public key of `cdi`. The attestation key exists
+/// only during this call.
+pub fn attest_public_key<C: Crypto + ?Sized>(
+    c: &mut C,
+    cdi: &C::Key,
+    public_key: &mut [u8; 32],
+) -> Result<(), CryptoError> {
+    let key = attest_key(c, cdi)?;
+    with_key(c, key, |c, key| c.public_key(key, public_key))
+}
+
+/// Signs `message` with the attestation key of `cdi`. As in
+/// [`attest_public_key`], the key exists only during this call.
+fn attest_sign<C: Crypto + ?Sized>(
+    c: &mut C,
+    cdi: &C::Key,
+    message: &[u8],
+    signature: &mut [u8; SIG_SIZE_ED25519],
+) -> Result<(), Error> {
+    let key = attest_key(c, cdi)?;
+    with_key(c, key, |c, key| c.sign(key, message, signature))?;
+    Ok(())
+}
 /// Computes the exact certificate size for `params` without any crypto,
 /// mirroring the C NULL-buffer size query.
 fn size_query(params: &CwtParams) -> Error {
@@ -214,7 +189,7 @@ fn size_query(params: &CwtParams) -> Error {
 /// buffer is needed, so the certificate size is bounded only by `buf`.
 /// `sign` derives the signing key itself, so no key exists while anything
 /// is rendered.
-fn render_and_sign<C: Crypto>(
+fn render_and_sign<C: Crypto + ?Sized>(
     c: &mut C,
     sign: impl FnOnce(&mut C, &[u8], &mut [u8; SIG_SIZE_ED25519]) -> Result<(), Error>,
     params: &CwtParams,
@@ -244,39 +219,13 @@ fn render_and_sign<C: Crypto>(
     Ok(s.written())
 }
 
-/// Derives the attestation public key of `cdi` into `public_key`. The seed
-/// exists only during this call, in a container wiped on every path out.
-pub fn attest_public_key<C: Crypto>(
-    c: &mut C,
-    cdi: &CdiSecret,
-    public_key: &mut [u8; 32],
-) -> Result<(), CryptoError> {
-    let mut seed = Seed32::default();
-    attest_key_seed(c, cdi, &mut seed)?;
-    c.public_key(&seed, public_key)
-}
-
-/// Signs `message` with the attestation key of `cdi`. As in
-/// [`attest_public_key`], the seed exists only during this call.
-fn attest_sign<C: Crypto>(
-    c: &mut C,
-    cdi: &CdiSecret,
-    message: &[u8],
-    signature: &mut [u8; SIG_SIZE_ED25519],
-) -> Result<(), Error> {
-    let mut seed = Seed32::default();
-    attest_key_seed(c, cdi, &mut seed)?;
-    c.sign(&seed, message, signature)?;
-    Ok(())
-}
-
 /// Dummy CDI_ID used in size-query mode (`0x7f` filler, like the C library;
 /// the hex rendering is fixed-width so any value yields the exact size).
 const SIZE_QUERY_ID: CdiId = [0x7f; 20];
 
 /// Issues the self-signed device-identity CWT from the root CDI.
 ///
-/// Derives the device-identity key (`attest_key_seed`), uses its CDI_ID as
+/// Derives the device-identity key ([`attest_key`]), uses its CDI_ID as
 /// both issuer and subject, and signs the certificate with the key it
 /// certifies. This extends the C library, which does not currently support
 /// COSE for self-signed certificates.
@@ -285,9 +234,9 @@ const SIZE_QUERY_ID: CdiId = [0x7f; 20];
 /// result is `Err(Error::InsufficientBuffer { required })`. On success the
 /// encoded certificate occupies `buf[buf.len() - n ..]` where `n` is the
 /// returned byte count.
-pub fn issue_device_id_cwt<C: Crypto>(
+pub fn issue_device_id_cwt<C: Crypto + ?Sized>(
     c: &mut C,
-    cdi: &CdiSecret,
+    cdi: &C::Key,
     profile_name: Option<&[u8]>,
     buf: Option<&mut [u8]>,
 ) -> Result<usize, Error> {
@@ -312,44 +261,32 @@ pub fn issue_device_id_cwt<C: Crypto>(
         subject_public_key: &public_key,
         profile_name,
     };
-    // The seed is derived a second time to sign: it then exists only around
+    // The key is derived a second time to sign: it then exists only around
     // the signature, not while the certificate is rendered.
     render_and_sign(c, |c, m, sig| attest_sign(c, cdi, m, sig), &params, buf)
 }
 
-/// Derives the next-stage CDI and key pair from `cdi` and the open-DICE
-/// `input`, and issues the next-stage CWT signed by the device-identity key.
+/// Derives the next-stage CDI from `cdi` and the open-DICE `input`, and
+/// issues the next-stage CWT signed by the device-identity key.
 ///
-/// Writes the next-stage CDI (to be handed to the next boot stage) to
-/// `next_cdi` and returns the certificate size. The certificate certifies
-/// the next-stage public key and carries the open-DICE claims; the
-/// profile-name claim is taken from `input.profile_name`.
+/// Returns the certificate size and the next-stage CDI, a key the caller
+/// owns (to be handed to the next boot stage, then freed). The certificate
+/// certifies the next-stage public key and carries the open-DICE claims;
+/// the profile-name claim is taken from `input.profile_name`.
 ///
 /// With `buf = None` this is an exact-size query: no crypto runs, no CDI is
 /// derived, and the result is `Err(Error::InsufficientBuffer { required })`.
 /// On success the encoded certificate occupies `buf[buf.len() - n ..]`. On
-/// any error `next_cdi` is left zeroed.
-pub fn issue_next_stage_cwt<C: Crypto>(
+/// any error every key derived is freed.
+///
+/// At most three keys are live at once: `cdi`, the next CDI, and one
+/// attestation key.
+pub fn issue_next_stage_cwt<C: Crypto + ?Sized>(
     c: &mut C,
-    cdi: &CdiSecret,
+    cdi: &C::Key,
     input: &OpenDiceInput,
-    next_cdi: &mut CdiSecret,
     buf: Option<&mut [u8]>,
-) -> Result<usize, Error> {
-    let result = issue_next_stage_cwt_into(c, cdi, input, next_cdi, buf);
-    if result.is_err() {
-        next_cdi.zeroize();
-    }
-    result
-}
-
-fn issue_next_stage_cwt_into<C: Crypto>(
-    c: &mut C,
-    cdi: &CdiSecret,
-    input: &OpenDiceInput,
-    next_cdi: &mut CdiSecret,
-    buf: Option<&mut [u8]>,
-) -> Result<usize, Error> {
+) -> Result<(usize, C::Key), Error> {
     let profile_name = (!input.profile_name.is_empty()).then_some(input.profile_name);
 
     let Some(buf) = buf else {
@@ -363,8 +300,25 @@ fn issue_next_stage_cwt_into<C: Crypto>(
     };
 
     let input_digest = compress_input(c, input)?;
-    next_cdi_attest(c, cdi, &input_digest, next_cdi)?;
+    let next_cdi = next_cdi_attest(c, cdi, &input_digest)?;
+    match issue_next_stage_with(c, cdi, &next_cdi, input, profile_name, buf) {
+        Ok(n) => Ok((n, next_cdi)),
+        Err(e) => {
+            c.key_free(next_cdi);
+            Err(e)
+        }
+    }
+}
 
+/// The rest of [`issue_next_stage_cwt`], once the next CDI exists.
+fn issue_next_stage_with<C: Crypto + ?Sized>(
+    c: &mut C,
+    cdi: &C::Key,
+    next_cdi: &C::Key,
+    input: &OpenDiceInput,
+    profile_name: Option<&[u8]>,
+    buf: &mut [u8],
+) -> Result<usize, Error> {
     let mut subject_public_key = [0u8; 32];
     attest_public_key(c, next_cdi, &mut subject_public_key)?;
     let subject_id = cdi_id(c, &subject_public_key)?;
@@ -380,6 +334,6 @@ fn issue_next_stage_cwt_into<C: Crypto>(
         subject_public_key: &subject_public_key,
         profile_name,
     };
-    // As in `issue_device_id_cwt`, the issuer seed exists only to sign.
+    // As in `issue_device_id_cwt`, the issuer key exists only to sign.
     render_and_sign(c, |c, m, sig| attest_sign(c, cdi, m, sig), &params, buf)
 }
