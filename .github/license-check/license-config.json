@@ -12,6 +12,7 @@
       "**/Kbuild",
       "examples/linux/br_external/external.desc",
       "examples/linux/**/Makefile",
+      "rust/examples/**/Makefile",
       "examples/linux/nat20cli/openssl_dice.cnf",
       ".clang-format",
       ".gitignore"
@@ -28,7 +29,8 @@
       "**/*.ld"
     ],
     "exclude": [
-      "rust/third_party/**"
+      "rust/third_party/**",
+      "rust/examples/*/third_party/**"
     ],
     "license": "./.github/license-check/header-apache2-or-gpl2-slash-star.txt"
   },
@@ -44,7 +46,8 @@
       "**/*.txt",
       "examples/linux/br_external/configs/*",
       "rust/Cargo.lock",
-      "rust/third_party/**"
+      "rust/third_party/**",
+      "rust/examples/*/third_party/**"
     ],
     "exclude": [
       "**/CMakeLists.txt"
