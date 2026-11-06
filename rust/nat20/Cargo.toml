@@ -43,9 +43,10 @@ description = "Minimal no_std port of libnat20: DICE key derivation and CWT (COS
 [features]
 default = []
 # Software crypto backend (sha2/hmac/ed25519-dalek). Disable to bring your own
-# Digest/Ed25519Signer implementations.
+# Digest/Crypto implementation.
 soft-crypto = ["dep:sha2", "dep:hmac", "dep:ed25519-dalek"]
-# Fault-injection hardening: verify each signature after creation.
+# Fault-injection hardening for soft-crypto: verify each signature after
+# creation.
 # Costs code size (pulls in verification) and ~2x signing time.
 verify-after-sign = []
 
