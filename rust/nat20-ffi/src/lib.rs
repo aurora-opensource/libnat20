@@ -65,13 +65,16 @@
 //! size-negotiation call and nothing is moved afterwards. The wire bytes are
 //! identical to those C libnat20 produces.
 //!
-//! # Secrets
+//! # Crypto
 //!
-//! The CDIs are used in place, in the caller's buffers: the root CDI is read
-//! through a reference to the caller's 32 bytes, and the next CDI is derived
-//! straight into `next_cdi_out`. Every other secret lives and dies inside
-//! the library under the invariants of `nat20::crypto`, so when a call
-//! returns, the caller's two CDI buffers are the only copies left.
+//! The integrator plugs in the crypto backend as a table of functions,
+//! [`N20rCrypto`] (`n20r_crypto_t`), passed to every call that needs it.
+//! Keys are opaque handles of that backend, so the library never sees a
+//! secret: the root CDI comes in as a handle, and the next CDI goes out as
+//! one. The backend must keep the contract in `nat20_rust.h`, which
+//! includes wiping what it leaves on the stack, and needs at most three
+//! key slots (`nat20::MIN_KEY_SLOTS`). The `soft-crypto` feature adds a
+//! ready-made software backend ([`soft`]).
 
 // Unit tests link std on the host; every other build is no_std.
 #![cfg_attr(not(test), no_std)]
@@ -91,17 +94,19 @@
 use core::mem::{align_of, size_of};
 use core::slice;
 
-use zeroize::Zeroize as _;
-
-use nat20::cbor::{write_bytes, write_header, write_map_header, write_text_bytes, Major};
-use nat20::derive::{attest_public_key, issue_device_id_cwt, issue_next_stage_cwt, CdiSecret};
+use nat20::derive::{attest_public_key, issue_device_id_cwt, issue_next_stage_cwt};
 use nat20::handover::{HandoverHeader, HandoverStruct, TAG_COSE_SIGN1};
 use nat20::open_dice::OpenDiceInput;
-use nat20::stream::WStream;
-use nat20::Error;
+use nat20::{Crypto as _, Error};
 
 mod cbuf;
+pub mod crypto;
 mod ctx;
+#[cfg(feature = "soft-crypto")]
+pub mod soft;
+
+use crypto::{CCrypto, CKey};
+pub use crypto::{N20rCrypto, N20rKey, N20rSlice};
 
 use cbuf::{CBuf, CDrop};
 use ctx::DiceCtx;
@@ -113,17 +118,6 @@ use ctx::DiceCtx;
 /// structure actually requires, and the assertion at the end of this file
 /// keeps the two in step.
 pub const N20R_DICE_CTX_SIZE: usize = 256;
-
-#[cfg(feature = "mono-crypto")]
-fn crypto_backend() -> Result<nat20::crypto::mono::MonoCrypto, Error> {
-    nat20::crypto::mono::MonoCrypto::new()
-        .map_err(|_| Error::Crypto(nat20::CryptoError::InitializationFailed))
-}
-
-#[cfg(all(feature = "soft-crypto", not(feature = "mono-crypto")))]
-fn crypto_backend() -> Result<nat20::crypto::soft::SoftCrypto, Error> {
-    Ok(nat20::crypto::soft::SoftCrypto)
-}
 
 /// Error codes returned across the C ABI.
 ///
@@ -293,35 +287,6 @@ unsafe fn slice_arg<'a>(ptr: *const u8, size: usize) -> &'a [u8] {
     }
 }
 
-/// The 32-byte root CDI in caller memory, used in place rather than copied.
-///
-/// # Safety
-/// `ptr` must be null (rejected) or point to 32 readable bytes that nothing
-/// writes for `'a`.
-unsafe fn cdi_ref<'a>(ptr: *const u8) -> Result<&'a CdiSecret, Error> {
-    if ptr.is_null() {
-        return Err(Error::InvalidArgument);
-    }
-    // SAFETY: non-null, and the caller guarantees 32 readable bytes that
-    // nothing writes for `'a`. `CdiSecret` is `repr(transparent)` over
-    // `[u8; 32]`, so it has the layout and alignment (1) of those bytes.
-    Ok(&*ptr.cast::<CdiSecret>())
-}
-
-/// The caller's 32-byte buffer for the next CDI, derived into in place.
-///
-/// # Safety
-/// `ptr` must be null (rejected) or point to 32 writable bytes that nothing
-/// else accesses for `'a`.
-unsafe fn cdi_out<'a>(ptr: *mut u8) -> Result<&'a mut CdiSecret, Error> {
-    if ptr.is_null() {
-        return Err(Error::InvalidArgument);
-    }
-    // SAFETY: as in `cdi_ref`, for writes, and nothing else accesses the
-    // bytes for `'a`.
-    Ok(&mut *ptr.cast::<CdiSecret>())
-}
-
 /// Rejects a handover region that is null, too small for the header, or
 /// misaligned for it.
 fn check_handover_region(raw: *const u8, raw_size: usize) -> Result<(), Error> {
@@ -383,21 +348,24 @@ fn issue_into(
     Ok(())
 }
 
-/// Issues the self-signed device-identity CWT from the 32-byte root CDI and
-/// appends it to the handover.
+/// Issues the self-signed device-identity CWT from the root CDI, a key of
+/// `crypto`, and appends it to the handover.
 ///
 /// This **initialises** the handover, discarding anything already in it, so
 /// it must be called first; [`n20r_issue_next_stage_cwt`] then appends to the
 /// same region. It takes no DICE context: the device identity derives from
 /// the CDI alone. All arguments are checked before the region is touched;
 /// once they pass, the region is initialised even if issuing then fails,
-/// which leaves an empty handover.
+/// which leaves an empty handover. `cdi` stays the caller's.
 ///
 /// # Safety
-/// Pointer/size arguments must satisfy the contract in `nat20_rust.h`.
+/// `crypto` must be null (rejected) or a table that meets the contract in
+/// `nat20_rust.h`, and `cdi` a key of it. Pointer/size arguments must
+/// satisfy the contract in `nat20_rust.h`.
 #[no_mangle]
 pub unsafe extern "C" fn n20r_issue_device_id_cwt(
-    cdi: *const u8,
+    crypto: *const N20rCrypto,
+    cdi: N20rKey,
     profile_name: *const u8,
     profile_name_size: usize,
     handover: *mut u8,
@@ -409,9 +377,9 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
         // that the region is this call's: the device identity always starts
         // the chain.
 
-        // SAFETY: the caller guarantees `cdi` is null or points to 32
-        // readable bytes that nothing writes during the call.
-        let root_cdi = cdi_ref(cdi)?;
+        // SAFETY: the caller guarantees `crypto` is null or a valid table.
+        let mut crypto = CCrypto::from_raw(crypto)?;
+        let root_cdi = CKey(cdi);
         // SAFETY: the caller guarantees `profile_name` is null or points to
         // `profile_name_size` readable bytes for the duration of the call.
         // Empty omits the claim.
@@ -421,11 +389,10 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
         // writable region that nothing else accesses during the call, which
         // is what `handover_arg` requires; the struct does not outlive it.
         let mut handover = handover_arg(handover, handover_size)?;
-        let mut crypto = crypto_backend()?;
 
         handover.init()?;
         issue_into(&mut handover, |buf| {
-            issue_device_id_cwt(&mut crypto, root_cdi, profile, buf)
+            issue_device_id_cwt(&mut crypto, &root_cdi, profile, buf)
         })
     })())
 }
@@ -434,40 +401,35 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
 /// device-identity key, appending it to the handover.
 ///
 /// The certificate carries the open-DICE claims held in `ctx`. The handover
-/// must already hold the chain (see [`n20r_issue_device_id_cwt`]).
-/// The next CDI is derived straight into `next_cdi_out`, which holds zeros
-/// after any error, and must not overlap `cdi` (`InvalidArgument`).
+/// must already hold the chain (see [`n20r_issue_device_id_cwt`]). On
+/// success `*next_cdi_out` is the next CDI, a key of `crypto` that the
+/// caller owns and frees; on error it is unchanged and every key the call
+/// derived is freed. `cdi` stays the caller's.
 ///
 /// # Safety
-/// `ctx` must be a context prepared by [`n20r_ctx_init`], and every buffer
-/// registered in it must still satisfy the contract documented on the
-/// setters. The other pointer/size arguments must satisfy the contract in
-/// `nat20_rust.h`.
+/// `crypto` and `cdi` as for [`n20r_issue_device_id_cwt`]. `ctx` must be a
+/// context prepared by [`n20r_ctx_init`], and every buffer registered in it
+/// must still satisfy the contract documented on the setters. The other
+/// pointer/size arguments must satisfy the contract in `nat20_rust.h`.
 #[no_mangle]
 pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
+    crypto: *const N20rCrypto,
     ctx: *mut u8,
-    cdi: *const u8,
-    next_cdi_out: *mut u8,
+    cdi: N20rKey,
+    next_cdi_out: *mut N20rKey,
     handover: *mut u8,
     handover_size: usize,
 ) -> N20rError {
     status((|| {
-        // The two CDIs are references into the caller's memory, which must
-        // not overlap: one is read while the other is written.
-        let (out, root) = (next_cdi_out as usize, cdi as usize);
-        if out < root.wrapping_add(32) && root < out.wrapping_add(32) {
+        if next_cdi_out.is_null() {
             return Err(Error::InvalidArgument);
         }
-        // SAFETY: the caller guarantees `next_cdi_out` is null or points to
-        // 32 writable bytes that no other argument overlaps.
-        let next_cdi = cdi_out(next_cdi_out)?;
-        // Zeros until the derivation succeeds, whatever fails first.
-        next_cdi.zeroize();
+        // SAFETY: as in `n20r_issue_device_id_cwt`.
+        let mut crypto = CCrypto::from_raw(crypto)?;
+        let root_cdi = CKey(cdi);
         // SAFETY: the caller guarantees `ctx` is a context prepared by
         // `n20r_ctx_init`.
         let ctx = DiceCtx::from_raw(ctx)?;
-        // SAFETY: as in `n20r_issue_device_id_cwt`.
-        let root_cdi = cdi_ref(cdi)?;
         // SAFETY: as in `n20r_issue_device_id_cwt`.
         let mut handover = handover_arg(handover, handover_size)?;
         // SAFETY: every buffer registered in the context must still be valid
@@ -484,41 +446,52 @@ pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
             profile_name: ctx.profile_name.as_slice(),
             hidden: ctx.hidden.as_slice(),
         };
-        let mut crypto = crypto_backend()?;
-
+        // The size query derives no key; the real issue hands one back.
+        let mut next_cdi = None;
         let result = issue_into(&mut handover, |buf| {
-            issue_next_stage_cwt(&mut crypto, root_cdi, &dice_input, next_cdi, buf)
+            let (n, key) = issue_next_stage_cwt(&mut crypto, &root_cdi, &dice_input, buf)?;
+            next_cdi = Some(key);
+            Ok(n)
         });
-        if result.is_err() {
-            next_cdi.zeroize();
+        match (result, next_cdi) {
+            (Ok(()), Some(key)) => {
+                // SAFETY: null was rejected at the top, and the caller
+                // guarantees it is writable.
+                *next_cdi_out = key.0;
+                Ok(())
+            }
+            (result, key) => {
+                if let Some(key) = key {
+                    crypto.key_free(key);
+                }
+                result.and(Err(Error::CertificateSizeMismatch))
+            }
         }
-        result
     })())
 }
 
-/// Writes the 32-byte device-identity public key for the given root CDI
-/// (e.g. for provisioning).
+/// Writes the 32-byte device-identity public key for the root CDI, a key of
+/// `crypto` (e.g. for provisioning).
 ///
 /// # Safety
-/// `cdi` must point to 32 readable bytes and `public_key_out` to 32
-/// writable bytes.
+/// `crypto` and `cdi` as for [`n20r_issue_device_id_cwt`];
+/// `public_key_out` must be null (rejected) or point to 32 writable bytes.
 #[no_mangle]
 pub unsafe extern "C" fn n20r_device_id_public_key(
-    cdi: *const u8,
+    crypto: *const N20rCrypto,
+    cdi: N20rKey,
     public_key_out: *mut u8,
 ) -> N20rError {
     status((|| {
         if public_key_out.is_null() {
             return Err(Error::InvalidArgument);
         }
-        // SAFETY: the caller guarantees `cdi` is null or points to 32
-        // readable bytes that nothing writes during the call.
-        let root_cdi = cdi_ref(cdi)?;
+        // SAFETY: as in `n20r_issue_device_id_cwt`.
+        let mut crypto = CCrypto::from_raw(crypto)?;
         // SAFETY: null was rejected above, and the caller guarantees 32
         // writable bytes; `[u8; 32]` has alignment 1.
         let public_key = &mut *public_key_out.cast::<[u8; 32]>();
-        let mut crypto = crypto_backend()?;
-        attest_public_key(&mut crypto, root_cdi, public_key)?;
+        attest_public_key(&mut crypto, &CKey(cdi), public_key)?;
         Ok(())
     })())
 }
@@ -581,128 +554,15 @@ unsafe fn handover_ref_arg<'b>(
     nat20::handover::HandoverRef::new(header, content)
 }
 
-/// `N20R_CBOR_UINT`: the entry's value is `uint_value`.
-pub const N20R_CBOR_UINT: u32 = 0;
-/// `N20R_CBOR_BYTES`: the entry's value is the byte string `data`/`size`.
-pub const N20R_CBOR_BYTES: u32 = 2;
-/// `N20R_CBOR_TEXT`: the entry's value is the UTF-8 text string `data`/`size`.
-pub const N20R_CBOR_TEXT: u32 = 3;
-
-/// One key-value pair of a map encoded by [`n20r_encode_cbor_map`], laid out
-/// as `n20r_cbor_map_entry_t` in `nat20_rust.h`.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct N20rCborMapEntry {
-    /// The unsigned integer key.
-    pub key: u64,
-    /// The value when `kind` is `N20R_CBOR_UINT`.
-    pub uint_value: u64,
-    /// The value when `kind` is `N20R_CBOR_BYTES` or `N20R_CBOR_TEXT`.
-    pub data: *const u8,
-    /// Length of `data` in bytes.
-    pub size: usize,
-    /// One of the `N20R_CBOR_*` constants: the CBOR major type of the value.
-    pub kind: u32,
-}
-
-/// Writes `entries` as a CBOR map, last pair first because the stream writes
-/// backward.
-///
-/// # Safety
-/// Every entry must have a valid `kind`, and the `data` of each bytes or text
-/// entry must be null or point to `size` readable bytes.
-unsafe fn encode_cbor_map(s: &mut WStream, entries: &[N20rCborMapEntry]) {
-    for e in entries.iter().rev() {
-        let bytes = if e.kind == N20R_CBOR_UINT {
-            &[][..]
-        } else {
-            // SAFETY: guaranteed by our caller.
-            slice_arg(e.data, e.size)
-        };
-        match e.kind {
-            N20R_CBOR_UINT => write_header(s, Major::Uint, e.uint_value),
-            N20R_CBOR_BYTES => write_bytes(s, bytes),
-            // Text is written verbatim, not validated (see write_text_bytes).
-            _ => write_text_bytes(s, bytes),
-        }
-        write_header(s, Major::Uint, e.key);
-    }
-    write_map_header(s, entries.len() as u64);
-}
-
-/// Encodes a CBOR map with unsigned integer keys, such as an open-DICE code
-/// or configuration descriptor, into `out`.
-///
-/// The keys must be strictly ascending, which makes the encoding
-/// deterministic (RFC 8949 section 4.2.1). On input `*size` is the capacity
-/// of `out`; on success it is the encoded length, and the map starts at
-/// `out[0]`. If `out` is null or too small, `*size` is set to the exact
-/// length needed and `InsufficientBuffer` is returned with nothing written.
-/// Unordered keys or an unknown `kind` return `InvalidArgument` with `*size`
-/// unchanged. A null `data` is an empty string, whatever its `size`.
-///
-/// # Safety
-/// `size` must point to a readable and writable `usize`. `entries` must point
-/// to `count` readable entries, or may be null when `count` is 0. The `data`
-/// of each bytes or text entry must be null or point to `size` readable
-/// bytes (text should be UTF-8; it is written verbatim). `out` must be null
-/// or point to `*size` writable bytes that do not overlap any entry's data.
-#[no_mangle]
-pub unsafe extern "C" fn n20r_encode_cbor_map(
-    entries: *const N20rCborMapEntry,
-    count: usize,
-    out: *mut u8,
-    size: *mut usize,
-) -> N20rError {
-    status((|| -> Result<(), Error> {
-        if size.is_null() || (entries.is_null() && count != 0) {
-            return Err(Error::InvalidArgument);
-        }
-        let entries = if count == 0 {
-            &[]
-        } else {
-            // SAFETY: non-null, and the caller guarantees `count` readable
-            // entries.
-            slice::from_raw_parts(entries, count)
-        };
-        let mut prev_key = None;
-        for e in entries {
-            let valid_kind = matches!(e.kind, N20R_CBOR_UINT | N20R_CBOR_BYTES | N20R_CBOR_TEXT);
-            if !valid_kind || prev_key.is_some_and(|prev| e.key <= prev) {
-                return Err(Error::InvalidArgument);
-            }
-            prev_key = Some(e.key);
-        }
-
-        let mut counter = WStream::counting();
-        // SAFETY: the entries were validated above, and the caller
-        // guarantees their data.
-        encode_cbor_map(&mut counter, entries);
-        let required = counter.written();
-        // SAFETY: non-null, and the caller guarantees it is readable and
-        // writable.
-        let capacity = *size;
-        *size = required;
-        if out.is_null() || capacity < required {
-            return Err(Error::InsufficientBuffer { required });
-        }
-        // SAFETY: non-null, and the caller guarantees `capacity` >= `required`
-        // writable bytes that overlap no input. Writing into exactly
-        // `required` bytes puts the backward-written map at offset 0.
-        let out = slice::from_raw_parts_mut(out, required);
-        encode_cbor_map(&mut WStream::new(out), entries);
-        Ok(())
-    })())
-}
-
 // Compile-time locks on the C-visible ABI (checked on every build, including
 // cross builds, so they guard the actual target layout).
 const _: () = {
     assert!(core::mem::size_of::<N20rError>() == 4);
-    // n20r_cbor_map_entry_t in nat20_rust.h.
-    assert!(size_of::<N20rCborMapEntry>() == if size_of::<usize>() == 4 { 32 } else { 40 });
     // `N20R_DICE_CTX_SIZE` in nat20_rust.h must cover the real structure.
     assert!(DiceCtx::required_size() <= N20R_DICE_CTX_SIZE);
+    // n20r_slice_t and n20r_crypto_t in nat20_rust.h: pointers and sizes.
+    assert!(size_of::<N20rSlice>() == 2 * size_of::<usize>());
+    assert!(size_of::<N20rCrypto>() == 6 * size_of::<usize>());
 };
 
 /// Panic handler: this crate produces a final staticlib artifact, so it must
@@ -714,8 +574,6 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-#[cfg(test)]
-mod cbor_map_tests;
 #[cfg(test)]
 mod ctx_tests;
 #[cfg(test)]
