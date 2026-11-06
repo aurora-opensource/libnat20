@@ -45,8 +45,8 @@
 # environment calls for. The result is
 # target/<target>/release/libnat20_rust.a.
 #
-# All profiles use the Monocypher backend, the smaller one, for tight
-# flash budgets.
+# The library carries no crypto: the firmware supplies its crypto backend
+# as an n20r_crypto_t (nat20_rust.h) and links it beside the library.
 #
 # core is always rebuilt from source (-Zbuild-std=core): it applies the
 # profile's flags to core too, and position-independent firmware needs it
@@ -63,9 +63,7 @@
 # CARGO_ENCODED_RUSTFLAGS is set, as build systems such as Yocto do. The
 # script refuses to run then rather than build without them.
 #
-# Requires: rustup (for the pinned toolchain + rust-src), and the target's
-# C cross compiler for the vendored Monocypher sources (arm-none-eabi-gcc
-# for armv7).
+# Requires: rustup (for the pinned toolchain + rust-src).
 
 set -eu
 
@@ -78,9 +76,10 @@ fi
 profile=${1:-}
 case "$profile" in
 u-boot-armv7)
-	# U-Boot provides putc() and hang(), so panics print
-	# "rust: panicked at <file>:<line>: <msg>" on its console.
-	features=mono-crypto,panic-putc-hang
+	# U-Boot provides putc() and hang(), so a panic would print
+	# "rust: panicked at <file>:<line>: <msg>" on its console. None is
+	# reachable (SIZE.md), but a static library must name a handler.
+	features=panic-putc-hang
 	;;
 *)
 	echo "usage: $0 <profile>   (profiles: u-boot-armv7)" >&2
