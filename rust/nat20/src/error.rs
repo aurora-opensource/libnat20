@@ -55,6 +55,10 @@ pub enum Error {
     InvalidArgument,
     /// The crypto backend reported an error.
     Crypto(CryptoError),
+    /// A DICE handover structure is malformed (see [`crate::handover`]).
+    InvalidHandoverHeader,
+    /// A certificate's size differed from what its size query predicted.
+    CertificateSizeMismatch,
 }
 
 impl From<CryptoError> for Error {

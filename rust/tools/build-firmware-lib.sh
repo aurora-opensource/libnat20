@@ -1,0 +1,99 @@
+#!/bin/sh
+# Copyright 2026 Aurora Operations, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
+#
+# This work is dual licensed.
+# You may use it under Apache-2.0 or GPL-2.0 at your option.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# OR
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see
+# <https://www.gnu.org/licenses/>.
+#
+# Builds the nat20 static library for a firmware environment:
+#
+#     tools/build-firmware-lib.sh <profile>
+#
+# Profiles are the cargo configuration files in firmware/, named
+# <environment>-<arch>: u-boot-armv7 is U-Boot on 32-bit Arm. A profile
+# names the target and adds the environment's flags to the target
+# defaults in .cargo/config.toml; this script adds the crate features the
+# environment calls for. The result is
+# target/<target>/release/libnat20_rust.a.
+#
+# The library carries no crypto: the firmware supplies its crypto backend
+# as an n20r_crypto_t (nat20_rust.h) and links it beside the library.
+#
+# core is always rebuilt from source (-Zbuild-std=core): it applies the
+# profile's flags to core too, and position-independent firmware needs it
+# (see the profile). RUSTC_BOOTSTRAP=1 makes the *pinned stable* toolchain
+# (rust-toolchain.toml) accept the unstable -Zbuild-std machinery — the
+# same technique the Linux kernel uses. The usual caveat applies: these
+# flags carry no stability guarantee, so their behavior is only locked by
+# the toolchain pin; re-verify on every toolchain bump (along with the
+# size measurement and the constant-time disassembly spot-check, see
+# SIZE.md and README.md).
+#
+# cargo ignores the target rustflags of configuration files, and with them
+# the profile's (+reserve-r9 for U-Boot), when RUSTFLAGS or
+# CARGO_ENCODED_RUSTFLAGS is set, as build systems such as Yocto do. The
+# script refuses to run then rather than build without them.
+#
+# Requires: rustup (for the pinned toolchain + rust-src).
+
+set -eu
+
+if [ -n "${RUSTFLAGS:-}${CARGO_ENCODED_RUSTFLAGS:-}" ]; then
+	echo "$0: RUSTFLAGS or CARGO_ENCODED_RUSTFLAGS is set, which would make" \
+		"cargo drop the profile's rustflags; unset them" >&2
+	exit 2
+fi
+
+profile=${1:-}
+case "$profile" in
+u-boot-armv7)
+	# U-Boot provides putc() and hang(), so a panic would print
+	# "rust: panicked at <file>:<line>: <msg>" on its console. None is
+	# reachable (SIZE.md), but a static library must name a handler.
+	features=panic-putc-hang
+	;;
+*)
+	echo "usage: $0 <profile>   (profiles: u-boot-armv7)" >&2
+	exit 2
+	;;
+esac
+
+cd "$(dirname "$0")/.."
+
+rustup component add rust-src >/dev/null 2>&1 || true
+
+config="firmware/$profile.toml"
+target=$(sed -n 's/^target = "\(.*\)"$/\1/p' "$config")
+
+RUSTC_BOOTSTRAP=1 exec cargo build --config "$config" -Zbuild-std=core --release \
+	--target "$target" -p nat20-ffi \
+	--no-default-features --features "$features"

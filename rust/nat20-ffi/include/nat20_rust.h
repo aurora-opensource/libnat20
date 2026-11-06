@@ -1,0 +1,418 @@
+/*
+ * Copyright 2026 Aurora Operations, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0
+ *
+ * This work is dual licensed.
+ * You may use it under Apache-2.0 or GPL-2.0 at your option.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * OR
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * @file nat20_rust.h
+ * @brief C interface of the Rust nat20 library (libnat20_rust.a).
+ *
+ * Deterministic DICE key derivation and CWT (COSE_Sign1, Ed25519)
+ * certificate issuance for boot firmware. Derivation- and wire-compatible
+ * with C libnat20 (BoringSSL backend): the same CDI yields the same keys,
+ * identifiers, and certificate bytes.
+ *
+ * Certificates are not returned in a caller buffer: the issue functions
+ * append them to a DICE handover (the certificate chain passed from stage to
+ * stage; format in HANDOVER.md) as entries, sizing each entry to the
+ * certificate before writing it. There is therefore no size-negotiation
+ * call; a handover too small to hold another entry is reported as
+ * N20R_ERR_INSUFFICIENT_BUFFER. n20r_issue_next_stage_cwt() leaves the
+ * handover unchanged on that and every other error; for
+ * n20r_issue_device_id_cwt(), which starts a new handover, see there.
+ *
+ * A NULL pointer with a size is an empty buffer, whatever the size.
+ *
+ * A handover region must be 4-byte aligned.
+ *
+ * Crypto: the integrator supplies the crypto as a table of functions,
+ * n20r_crypto_t (see "The crypto table" below). Keys are opaque handles of
+ * that backend, so the library never handles a secret: the root CDI comes
+ * in as a handle and the next CDI goes out as one. The library has no
+ * panic that could stop a call half way (checked at link time).
+ *
+ * Stack: besides what the crypto backend uses, the deepest call reaches
+ * about 1 KiB below the caller's frame.
+ */
+
+#ifndef NAT20_RUST_H
+#define NAT20_RUST_H
+
+#ifdef N20R_TYPES_HEADER
+/* For environments compiled with -nostdinc that provide size_t and the
+ * uintN_t types themselves, where the compiler's stdint.h would conflict:
+ * define N20R_TYPES_HEADER to their header. U-Boot, for example, needs
+ * -DN20R_TYPES_HEADER='"linux/types.h"': quoted, because GNU C predefines
+ * `linux`, which would be expanded inside angle brackets. */
+#include N20R_TYPES_HEADER
+#else
+#include <stddef.h>
+#include <stdint.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum n20r_error {
+    N20R_OK = 0,
+    /** The handover cannot fit another entry of the required size.
+     *  Same numeric value as n20_error_insufficient_buffer_size_e. */
+    N20R_ERR_INSUFFICIENT_BUFFER = 3,
+    /** An argument violates the documented contract, or the DICE context
+     *  was never initialised with n20r_ctx_init(). */
+    N20R_ERR_INVALID_ARGUMENT = 4,
+    N20R_ERR_CRYPTO = 5,
+    /** A certificate came out a different size than predicted (a library
+     *  bug); nothing was appended. */
+    N20R_ERR_CERTIFICATE_SIZE_MISMATCH = 6,
+} n20r_error_t;
+
+/**
+ * The crypto table
+ * ================
+ *
+ * The integrator's crypto backend: SHA-512, a key derivation function and
+ * Ed25519, on opaque key handles, so a backend may keep its keys in a
+ * hardware engine or a secure element. It follows the key model of C
+ * libnat20's crypto.h, with fewer operations. The table and the context it
+ * points to must stay valid for the duration of each call it is passed to.
+ * Every function returns 0 on success; any other value fails the call with
+ * N20R_ERR_CRYPTO.
+ *
+ * Key slots: the library holds at most 3 keys at a time, counting the root
+ * CDI the caller passes in (n20r_issue_next_stage_cwt() derives the next
+ * CDI first, then one attestation key at a time, freeing each before the
+ * next). A backend without dynamic allocation can therefore reserve 3 key
+ * slots and never run out. Every key the library derives it frees before
+ * the call returns, except the next CDI, which it hands to the caller.
+ *
+ * Secrets: when a function returns, on success or on error, nothing it
+ * computed from a key may remain in memory it does not own. That includes
+ * the stack below its caller's frame and the registers the calling
+ * convention lets it clobber, which a software backend must therefore wipe
+ * before returning (run the computation in a frame of its own, then zero
+ * the stack it reached and those registers); a hardware backend typically
+ * keeps its keys in the engine. key_free must wipe the key. The library
+ * does not wipe after the backend: what a backend leaves, stays.
+ */
+
+/** An opaque key handle of the backend. */
+typedef void *n20r_key_t;
+
+/** One part of a gather list: size bytes at data (data may be NULL if size
+ *  is 0). A gather list's content is the concatenation of its parts. */
+typedef struct n20r_slice {
+    uint8_t const *data;
+    size_t size;
+} n20r_slice_t;
+
+/** What n20r_crypto_t.kdf derives. */
+#define N20R_KEY_CDI 0     /**< a CDI: the input of further derivations */
+#define N20R_KEY_ED25519 1 /**< an Ed25519 key pair */
+
+typedef struct n20r_crypto {
+    /** Passed back unchanged as the first argument of every function. */
+    void *ctx;
+    /** SHA-512 of the concatenation of the count parts, which are public,
+     *  into digest (64 bytes). */
+    int (*sha512)(void *ctx, n20r_slice_t const *parts, size_t count, uint8_t digest[64]);
+    /** Derives a key of kind (N20R_KEY_*) from cdi, an N20R_KEY_CDI key:
+     *  HKDF-Expand-SHA512 with the CDI as the pseudorandom key, the
+     *  concatenation of the count context parts as info, and 32 bytes of
+     *  output, which are the new CDI or the RFC 8032 seed of the key pair
+     *  (as the kdf of C libnat20's BoringSSL backend). Writes the new key's
+     *  handle to *key_out. */
+    int (*kdf)(void *ctx,
+               n20r_key_t cdi,
+               uint32_t kind,
+               n20r_slice_t const *context,
+               size_t count,
+               n20r_key_t *key_out);
+    /** The Ed25519 public key (32 bytes) of key, an N20R_KEY_ED25519 key. */
+    int (*public_key)(void *ctx, n20r_key_t key, uint8_t public_key[32]);
+    /** The RFC 8032 Ed25519 signature (64 bytes) of message_size bytes at
+     *  message with key, an N20R_KEY_ED25519 key. A backend that verifies
+     *  the signature before releasing it resists fault attacks: a faulty
+     *  signature next to a correct one over the same message can give the
+     *  key away. */
+    int (*sign)(void *ctx,
+                n20r_key_t key,
+                uint8_t const *message,
+                size_t message_size,
+                uint8_t signature[64]);
+    /** Frees and wipes key. */
+    void (*key_free)(void *ctx, n20r_key_t key);
+} n20r_crypto_t;
+
+/**
+ * The built-in software backend
+ * -----------------------------
+ *
+ * Only in a library built with the soft-crypto feature: a crypto table over
+ * the library's own software backend (sha2, hmac, ed25519-dalek), for
+ * callers that bring no crypto of their own. It holds 3 keys and keeps the
+ * contract above. Like the DICE context, it lives in caller-provided
+ * storage, 8-byte aligned:
+ *
+ *     static uint8_t soft[N20R_SOFT_CRYPTO_SIZE] __aligned(8);
+ *     n20r_crypto_t crypto;
+ *     n20r_key_t cdi;
+ *     n20r_soft_crypto_init(soft, sizeof(soft), &crypto);
+ *     n20r_soft_crypto_import_cdi(soft, root_cdi_bytes, &cdi);
+ */
+#define N20R_SOFT_CRYPTO_SIZE 256
+
+/** Initialises the backend in storage and fills *crypto_out with its
+ *  table. */
+n20r_error_t n20r_soft_crypto_init(uint8_t *storage, size_t size, n20r_crypto_t *crypto_out);
+/** Copies a 32-byte CDI into a key slot and writes its handle to
+ *  *key_out. */
+n20r_error_t n20r_soft_crypto_import_cdi(uint8_t *storage,
+                                         uint8_t const cdi[32],
+                                         n20r_key_t *key_out);
+/** Writes the CDI key holds to cdi_out (e.g. the next CDI for the next boot
+ *  stage), which is the caller's to wipe. */
+n20r_error_t n20r_soft_crypto_export_cdi(uint8_t *storage, n20r_key_t key, uint8_t cdi_out[32]);
+/** Wipes every key and invalidates the storage. */
+n20r_error_t n20r_soft_crypto_cleanup(uint8_t *storage);
+
+/**
+ * The DICE context
+ * ================
+ *
+ * Open-DICE measurements become available at different points in a boot, so
+ * they are accumulated in a context before a certificate commits them. The
+ * library keeps no global state: the caller provides the storage, stamps it
+ * with n20r_ctx_init(), and passes it back to every setter and to
+ * n20r_issue_next_stage_cwt(). Each access verifies the stamp, so using an
+ * uninitialised context returns N20R_ERR_INVALID_ARGUMENT rather than acting
+ * on garbage. Zero-filled memory is deliberately not a valid context.
+ *
+ * Declare the storage with this size and an alignment suitable for a
+ * pointer:
+ *
+ *     static uint8_t dice_ctx[N20R_DICE_CTX_SIZE] __aligned(8);
+ *
+ * The constant is deliberately larger than the structure needs so that this
+ * header stays stable if the layout changes; a compile-time assertion in the
+ * library keeps the two in step.
+ *
+ * Each setter takes a (pointer, size) pair and an optional destructor. With
+ * a destructor the buffer is adopted and released when the field is replaced
+ * or the context is cleaned up; without one it is borrowed and must stay
+ * valid, and must not be mutated, until that same point. Ownership
+ * transfers only when the setter returns N20R_OK; on an error the
+ * destructor is not called and the buffer stays the caller's. A NULL
+ * pointer clears the field. Fields never set are empty.
+ *
+ * Notes on the fields:
+ *  - If configuration_hash is empty, configuration_descriptor is used as
+ *    the inline configuration value. Its size is not checked: the Open
+ *    Profile for DICE requires exactly 64 bytes, other profiles relax that.
+ *  - profile_name should be UTF-8 (not NUL-terminated; size gives the
+ *    length). It is written verbatim as a CBOR text string and not
+ *    validated, as in C libnat20.
+ *  - hidden feeds the CDI derivation but never appears in the certificate.
+ */
+#define N20R_DICE_CTX_SIZE 256
+
+/** Prepares a caller-provided buffer for use as a DICE context. Rejects a
+ *  NULL, misaligned or undersized buffer. */
+n20r_error_t n20r_ctx_init(uint8_t *ctx, size_t size);
+
+/** Releases every buffer the context adopted and invalidates the stamp, so a
+ *  later use without re-initialising is rejected. */
+n20r_error_t n20r_ctx_cleanup(uint8_t *ctx);
+
+n20r_error_t n20r_set_code_hash(uint8_t *ctx,
+                                uint8_t const *code_hash,
+                                size_t code_hash_size,
+                                void (*drop)(void *));
+n20r_error_t n20r_set_code_descriptor(uint8_t *ctx,
+                                      uint8_t const *code_descriptor,
+                                      size_t code_descriptor_size,
+                                      void (*drop)(void *));
+n20r_error_t n20r_set_configuration_hash(uint8_t *ctx,
+                                         uint8_t const *configuration_hash,
+                                         size_t configuration_hash_size,
+                                         void (*drop)(void *));
+n20r_error_t n20r_set_configuration_descriptor(uint8_t *ctx,
+                                               uint8_t const *configuration_descriptor,
+                                               size_t configuration_descriptor_size,
+                                               void (*drop)(void *));
+n20r_error_t n20r_set_authority_hash(uint8_t *ctx,
+                                     uint8_t const *authority_hash,
+                                     size_t authority_hash_size,
+                                     void (*drop)(void *));
+n20r_error_t n20r_set_authority_descriptor(uint8_t *ctx,
+                                           uint8_t const *authority_descriptor,
+                                           size_t authority_descriptor_size,
+                                           void (*drop)(void *));
+n20r_error_t n20r_set_profile_name(uint8_t *ctx,
+                                   uint8_t const *profile_name,
+                                   size_t profile_name_size,
+                                   void (*drop)(void *));
+n20r_error_t n20r_set_hidden(uint8_t *ctx,
+                             uint8_t const *hidden,
+                             size_t hidden_size,
+                             void (*drop)(void *));
+
+/** 0 not-configured, 1 normal, 2 debug, 3 recovery. Any other value is
+ *  rejected and leaves the previous mode in place. */
+n20r_error_t n20r_set_mode(uint8_t *ctx, uint8_t mode);
+
+/**
+ * Issues the self-signed device-identity CWT from the root CDI and starts a
+ * new handover with it.
+ *
+ * The certificate certifies the device-identity Ed25519 public key (derived
+ * deterministically from the CDI) and is signed with that same key. Issuer
+ * and subject are both the key's CDI_ID.
+ *
+ * This initialises the handover, discarding anything it held, so call it
+ * first. All arguments are checked before the region is touched; once they
+ * pass, the region is initialised even if issuing then fails, which leaves
+ * an empty handover.
+ *
+ * @param crypto The crypto backend.
+ * @param cdi The root CDI, a key of crypto; stays the caller's.
+ * @param profile_name Optional profile-name claim (UTF-8, not validated);
+ *        NULL or size 0 to omit.
+ * @param handover The handover region, 4-byte aligned.
+ * @param handover_size Size of the handover region in bytes.
+ */
+n20r_error_t n20r_issue_device_id_cwt(n20r_crypto_t const *crypto,
+                                      n20r_key_t cdi,
+                                      uint8_t const *profile_name,
+                                      size_t profile_name_size,
+                                      uint8_t *handover,
+                                      size_t handover_size);
+
+/**
+ * Derives the next-stage CDI from the root CDI and the open-DICE input, and
+ * issues the next-stage CWT: it contains the open-DICE claims and the
+ * next-stage public key, and is signed by the device-identity key. The
+ * certificate is appended to the handover, which must already hold the
+ * chain up to this stage (see n20r_issue_device_id_cwt()).
+ *
+ * @param crypto The crypto backend.
+ * @param ctx DICE context holding the open-DICE input, prepared by
+ *        n20r_ctx_init(). Fields never set are empty.
+ * @param cdi The root CDI, a key of crypto; stays the caller's.
+ * @param next_cdi_out On success, the next-stage CDI: a key of crypto the
+ *        caller owns, hands to the next boot stage and frees. Unchanged on
+ *        error, when every key the call derived has been freed. Must be
+ *        non-NULL.
+ * @param handover The handover region, 4-byte aligned.
+ * @param handover_size Size of the handover region in bytes.
+ */
+n20r_error_t n20r_issue_next_stage_cwt(n20r_crypto_t const *crypto,
+                                       uint8_t *ctx,
+                                       n20r_key_t cdi,
+                                       n20r_key_t *next_cdi_out,
+                                       uint8_t *handover,
+                                       size_t handover_size);
+
+/**
+ * Validates a DICE handover left by an earlier stage, as a stage taking it
+ * over must before relying on or extending it.
+ *
+ * Checks the header and that the content is a CBOR indefinite-length array
+ * closed at the terminator offset (HANDOVER.md, "Rules"); entries are not
+ * parsed. The region is not modified.
+ *
+ * @param handover The handover region, 4-byte aligned.
+ * @param handover_size Size of the region in bytes.
+ * @param used On success, the number of bytes in use (header, entries and
+ *        terminator); unchanged on error.
+ * @return N20R_ERR_INVALID_ARGUMENT for any malformed structure.
+ */
+n20r_error_t n20r_handover_validate(uint8_t const *handover, size_t handover_size, size_t *used);
+
+/**
+ * CBOR maps with unsigned integer keys
+ * ====================================
+ *
+ * Encodes open-DICE code and configuration descriptors (or any other map
+ * with unsigned integer keys) with the library's own CBOR encoder, so
+ * callers need no encoder of their own. Each entry's kind is the CBOR major
+ * type of its value.
+ */
+#define N20R_CBOR_UINT 0
+#define N20R_CBOR_BYTES 2
+#define N20R_CBOR_TEXT 3
+
+typedef struct n20r_cbor_map_entry {
+    uint64_t key;
+    /** The value when kind is N20R_CBOR_UINT. */
+    uint64_t uint_value;
+    /** The value when kind is N20R_CBOR_BYTES or N20R_CBOR_TEXT (UTF-8,
+     *  written verbatim, not validated). */
+    uint8_t const *data;
+    size_t size;
+    uint32_t kind;
+} n20r_cbor_map_entry_t;
+
+/**
+ * Encodes a CBOR map of count entries into out.
+ *
+ * Keys must be strictly ascending, which makes the encoding deterministic
+ * (RFC 8949 section 4.2.1). On input *size is the capacity of out; on
+ * success it is the encoded length and the map starts at out[0]. If out is
+ * NULL or too small, *size is set to the exact length needed and
+ * N20R_ERR_INSUFFICIENT_BUFFER is returned with nothing written. Unordered
+ * keys or an unknown kind return N20R_ERR_INVALID_ARGUMENT with *size
+ * unchanged. NULL data is an empty string, whatever its size.
+ */
+n20r_error_t n20r_encode_cbor_map(n20r_cbor_map_entry_t const *entries,
+                                  size_t count,
+                                  uint8_t *out,
+                                  size_t *size);
+
+/**
+ * Writes the 32-byte device-identity Ed25519 public key for the root CDI cdi,
+ * a key of crypto (e.g. for provisioning or out-of-band trust
+ * establishment).
+ */
+n20r_error_t n20r_device_id_public_key(n20r_crypto_t const *crypto,
+                                       n20r_key_t cdi,
+                                       uint8_t public_key_out[32]);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* NAT20_RUST_H */

@@ -35,13 +35,33 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-/* Locks the sizes of Monocypher's incremental-hash contexts against the
- * opaque buffers used on the Rust side (crypto/mono.rs). */
+/* QEMU `virt`: RAM starts at 0x40000000. */
+ENTRY(_start)
 
-#include <monocypher-ed25519.h>
-#include <stddef.h>
+MEMORY
+{
+	RAM (rwx) : ORIGIN = 0x40000000, LENGTH = 16M
+}
 
-int nat20_mono_ctx_sizes_ok(size_t sha_ctx_size, size_t hmac_ctx_size) {
-    return sizeof(crypto_sha512_ctx) <= sha_ctx_size &&
-           sizeof(crypto_sha512_hmac_ctx) <= hmac_ctx_size;
+SECTIONS
+{
+	.text : { *(.text.start) *(.text*) } > RAM
+	.rodata : { *(.rodata*) } > RAM
+	.ARM.exidx : { *(.ARM.exidx*) } > RAM
+	.data : { *(.data*) } > RAM
+	.bss (NOLOAD) : {
+		. = ALIGN(4);
+		__bss_start = .;
+		*(.bss*) *(COMMON)
+		. = ALIGN(4);
+		__bss_end = .;
+	} > RAM
+	.stacks (NOLOAD) : {
+		. = ALIGN(8);
+		. += 0x4000;
+		__main_stack_top = .;
+		__probe_stack_bottom = .;
+		. += 0x10000;
+		__probe_stack_top = .;
+	} > RAM
 }

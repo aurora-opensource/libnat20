@@ -52,14 +52,14 @@
 //!
 //! No allocation, no floating point, and no panics: a panic would cut short
 //! the wiping of secrets (see [`crypto`]).
-//! Cryptographic primitives are pluggable through the traits in [`crypto`];
-//! a software implementation backed by `sha2`/`hmac`/`ed25519-dalek` is
+//! Cryptographic primitives are pluggable through the traits in [`crypto`],
+//! on opaque key handles, so a backend may keep its keys in hardware; a
+//! software implementation backed by `sha2`/`hmac`/`ed25519-dalek` is
 //! available behind the `soft-crypto` feature.
 
 #![no_std]
 // unsafe is denied everywhere except the register clearing of the crypto
-// scrub (crypto/scrub.rs) and the FFI bindings of the optional Monocypher
-// backend (crypto/mono.rs), which carry their own allows.
+// scrub (crypto/scrub.rs), which carries its own allow.
 #![deny(unsafe_code)]
 #![deny(missing_docs)]
 // A panic would cut short the wiping of secrets (see nat20::crypto), so
@@ -80,10 +80,11 @@ pub mod crypto;
 pub mod cwt;
 pub mod derive;
 pub mod error;
+pub mod handover;
 pub mod open_dice;
 pub mod stream;
 
-pub use crypto::{Crypto, CryptoError, Digest, Ed25519Signer, Seed32};
-pub use derive::{issue_device_id_cwt, issue_next_stage_cwt, CdiId, CdiSecret};
+pub use crypto::{Crypto, CryptoError, Digest, KeyKind, MIN_KEY_SLOTS};
+pub use derive::{issue_device_id_cwt, issue_next_stage_cwt, CdiId};
 pub use error::Error;
 pub use open_dice::{Mode, OpenDiceInput};
