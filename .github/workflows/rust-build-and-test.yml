@@ -108,6 +108,12 @@ jobs:
         run: |
           cargo build --release --target armv7a-none-eabi -p nat20-ffi
           cargo build --release --target armv7a-none-eabi -p nat20-ffi --features soft-crypto
+      - name: Build the static library for each firmware profile
+        run: |
+          for config in firmware/*.toml; do
+            profile=$(basename "$config" .toml)
+            tools/build-firmware-lib.sh "$profile"
+          done
       - name: Check the code size budget (SIZE.md)
         run: |
           for features in "" "--features soft-crypto" "--features soft-crypto,verify-after-sign"; do
