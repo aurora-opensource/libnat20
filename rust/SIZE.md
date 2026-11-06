@@ -35,6 +35,16 @@ What the numbers rest on:
 - **The crypto backend**: most of the built-in backend's size is
   curve25519-dalek and sha2, unrolled for speed. A backend written for
   size is much smaller: one over Monocypher measured about 8 KB less.
+- **Panic formatting**: no panic is reachable in the library, so the panic
+  handler and its message formatting (several KiB) are not linked at all.
+  `-Cpanic=immediate-abort`, which would drop them with the built-in
+  backend, is deliberately not offered: panics then become trap
+  instructions, and a firmware's exception handler (U-Boot's) dumps the
+  registers, which can hold secrets, on its console.
+- **Firmware profiles**: the numbers are for the target defaults. A
+  profile's flags cost a little on top: reserving r9 for U-Boot
+  (`firmware/u-boot-armv7.toml`) adds nothing to the library alone and
+  56 B with the built-in backend.
 
 Experiments that did **not** pay off (don't re-try without new evidence):
 `#[inline(never)]` on the CBOR writers (±0 — they were already outlined);
