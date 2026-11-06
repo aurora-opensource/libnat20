@@ -58,8 +58,7 @@
 
 #![no_std]
 // unsafe is denied everywhere except the register clearing of the crypto
-// scrub (crypto/scrub.rs) and the FFI bindings of the optional Monocypher
-// backend (crypto/mono.rs), which carry their own allows.
+// scrub (crypto/scrub.rs), which carries its own allow.
 #![deny(unsafe_code)]
 #![deny(missing_docs)]
 // A panic would cut short the wiping of secrets (see nat20::crypto), so

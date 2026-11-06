@@ -52,8 +52,7 @@
 //! type.
 //!
 //! The software implementation ([`soft::SoftCrypto`]) lives behind the
-//! `soft-crypto` feature, the Monocypher one (`mono::MonoCrypto`) behind
-//! `mono-crypto`.
+//! `soft-crypto` feature.
 //!
 //! # Secrets
 //!
@@ -76,8 +75,6 @@
 //! So once an operation of this crate returns, the only copies of a secret
 //! are in the containers its caller owns.
 
-#[cfg(feature = "mono-crypto")]
-pub mod mono;
 mod scrub;
 #[cfg(feature = "soft-crypto")]
 pub mod soft;
