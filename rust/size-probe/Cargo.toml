@@ -51,6 +51,9 @@ path = "src/main.rs"
 default = []
 soft-crypto = ["nat20-ffi/soft-crypto"]
 verify-after-sign = ["nat20-ffi/verify-after-sign"]
+# The link check that no panic is reachable (see SIZE.md): the program
+# only links if the optimizer removed every panic.
+panic-never = ["nat20-ffi/panic-never"]
 
 [dependencies]
 nat20-ffi = { path = "../nat20-ffi", default-features = false, features = ["panic-loop"] }

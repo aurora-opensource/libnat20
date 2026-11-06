@@ -104,6 +104,8 @@ use nat20::{Crypto as _, Error};
 mod cbuf;
 pub mod crypto;
 mod ctx;
+#[cfg(feature = "stack-probe")]
+mod probe;
 #[cfg(feature = "soft-crypto")]
 pub mod soft;
 
@@ -688,14 +690,34 @@ const _: () = {
 /// nothing — it must not depend on any environment symbols);
 /// `panic-putc-hang` prints the panic message and location through the
 /// environment's `putc()` and then calls its `hang()`, as U-Boot provides
-/// them.
-#[cfg(all(feature = "panic-loop", not(feature = "panic-putc-hang")))]
+/// them. No panic is reachable in the library (`SIZE.md`), so with a C
+/// crypto backend no handler, and none of its message formatting, ends up
+/// in a program.
+#[cfg(all(
+    feature = "panic-loop",
+    not(feature = "panic-putc-hang"),
+    not(feature = "panic-never")
+))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-#[cfg(feature = "panic-putc-hang")]
+/// `panic-never`, for checking only: the handler references a symbol that
+/// nothing defines, so linking the library into a program fails if any
+/// panic is still reachable once the optimizer is done. `size-probe` links
+/// the whole C ABI this way (see `SIZE.md`); never ship this build.
+#[cfg(feature = "panic-never")]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    extern "C" {
+        fn nat20_a_panic_is_reachable() -> !;
+    }
+    // SAFETY: never runs: the call cannot be linked, which is the point.
+    unsafe { nat20_a_panic_is_reachable() }
+}
+
+#[cfg(all(feature = "panic-putc-hang", not(feature = "panic-never")))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     use core::fmt::Write as _;
