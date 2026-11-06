@@ -45,11 +45,13 @@ name = "nat20_rust"
 crate-type = ["staticlib", "rlib"]
 
 [features]
-default = ["panic-loop", "soft-crypto"]
-# Crypto backend selection; when both are enabled, mono-crypto wins.
+default = ["panic-loop"]
+# The built-in software crypto backend, as a C crypto table
+# (n20r_soft_crypto_*): for C callers that bring no crypto of their own, and
+# for the tests. Without it, the caller supplies the crypto (nat20_rust.h).
 soft-crypto = ["nat20/soft-crypto"]
-mono-crypto = ["nat20/mono-crypto"]
-# Fault-injection hardening, see nat20's feature of the same name.
+# Fault-injection hardening of the built-in backend, see nat20's feature of
+# the same name.
 verify-after-sign = ["nat20/verify-after-sign"]
 # Exactly one panic strategy must be selected for bare-metal builds.
 # Host unit tests build without either: --no-default-features --features soft-crypto.
@@ -58,8 +60,8 @@ verify-after-sign = ["nat20/verify-after-sign"]
 panic-loop = []
 panic-putc-hang = []
 # For tools/stack-probe.sh only: exports n20r_probe_backend_op, which runs
-# one crypto backend operation for the probe to check.
-stack-probe = []
+# one operation of the built-in backend for the probe to check.
+stack-probe = ["soft-crypto"]
 # For checking only, never for shipping: the panic handler cannot be linked,
 # so a program linking the library fails to link if any panic is reachable.
 # Overrides the other two.
@@ -67,5 +69,3 @@ panic-never = []
 
 [dependencies]
 nat20 = { path = "../nat20" }
-# To wipe the next CDI in the caller's buffer on error.
-zeroize = { version = "1.9", default-features = false }

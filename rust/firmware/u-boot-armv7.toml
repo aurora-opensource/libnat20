@@ -39,8 +39,8 @@
 #     tools/build-firmware-lib.sh u-boot-armv7
 #
 # This adds to the armv7a-none-eabi defaults in .cargo/config.toml. A
-# build system that invokes rustc and the C compiler itself must apply the
-# same flags.
+# build system that invokes rustc itself must apply the same flags, and
+# compile its crypto backend's C with U-Boot's (-ffixed-r9 among them).
 
 [build]
 target = "armv7a-none-eabi"
@@ -48,17 +48,10 @@ target = "armv7a-none-eabi"
 [target.armv7a-none-eabi]
 # U-Boot keeps its global data pointer (gd) in r9 for good and compiles
 # all of its C with -ffixed-r9. Rust must not allocate r9 either, or calls
-# back into U-Boot (the panic-putc-hang handler's putc) find gd clobbered.
+# back into U-Boot (the crypto backend, the panic-putc-hang handler's putc)
+# find gd clobbered.
 # rustc does not know the feature and says so; LLVM honors it.
 rustflags = ["-C", "target-feature=+reserve-r9"]
-
-[env]
-# The same for the Monocypher C sources (cc reads CFLAGS_<target>).
-# -fshort-wchar and -fno-short-enums match the EABI attributes of U-Boot's
-# objects (Tag_ABI_PCS_wchar_t, Tag_ABI_enum_size), which silences linker
-# warnings; Monocypher uses neither wchar_t nor enums in its ABI, so they
-# do not change the code.
-CFLAGS_armv7a_none_eabi = "-ffixed-r9 -fshort-wchar -fno-short-enums"
 
 [unstable]
 # U-Boot links position-independent (-pie), which rejects the movw/movt

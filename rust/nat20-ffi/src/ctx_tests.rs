@@ -38,7 +38,9 @@
 //! Tests of the DICE context and its setters through the C ABI.
 
 use super::*;
-use crate::tests::{device_id_cert, expected_handover, start_handover, Region, CDI};
+use crate::tests::{
+    device_id_cert, expected_handover, start_handover, Backend, Region, CDI, UNTOUCHED,
+};
 use core::ffi::c_void;
 use core::ptr;
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -70,31 +72,28 @@ impl Storage {
 fn issue_via_ffi(ctx: *mut u8) -> ([u8; 32], Vec<u8>) {
     let mut r = Region::new();
     assert_eq!(start_handover(&mut r, None), N20rError::Ok);
-    let mut next_cdi = [0u8; 32];
+    let mut b = Backend::new();
+    let mut next_cdi = UNTOUCHED;
     let rc = unsafe {
-        n20r_issue_next_stage_cwt(ctx, CDI.as_ptr(), next_cdi.as_mut_ptr(), r.ptr(), r.0.len())
+        n20r_issue_next_stage_cwt(&b.table, ctx, b.cdi, &mut next_cdi, r.ptr(), r.0.len())
     };
     assert_eq!(rc, N20rError::Ok);
-    (next_cdi, r.used().to_vec())
+    assert_eq!(b.keys_in_use(), 2, "the root CDI and the next one");
+    let next = b.export(next_cdi);
+    b.free(next_cdi);
+    (next, r.used().to_vec())
 }
 
 /// The handover `issue_via_ffi` must produce, from the library directly.
 fn issue_via_library(input: &OpenDiceInput) -> ([u8; 32], Vec<u8>) {
     let mut cert = vec![0u8; 1024];
-    let mut next_cdi = CdiSecret::default();
-    let n = issue_next_stage_cwt(
-        &mut SoftCrypto,
-        &CdiSecret::from_bytes(CDI),
-        input,
-        &mut next_cdi,
-        Some(&mut cert),
-    )
-    .unwrap();
-    let next = &cert[cert.len() - n..];
-    (
-        *next_cdi.as_bytes(),
-        expected_handover(&[&device_id_cert(None), next]),
-    )
+    let mut c = SoftCrypto::<3>::new();
+    let cdi = c.import_cdi(&CDI).unwrap();
+    let (n, next_cdi) = issue_next_stage_cwt(&mut c, &cdi, input, Some(&mut cert)).unwrap();
+    let mut next = [0u8; 32];
+    c.export_cdi(&next_cdi, &mut next).unwrap();
+    let issued = &cert[cert.len() - n..];
+    (next, expected_handover(&[&device_id_cert(None), issued]))
 }
 
 #[test]
@@ -141,19 +140,14 @@ fn an_uninitialised_context_is_rejected() {
     let mut r = Region::new();
     assert_eq!(start_handover(&mut r, None), N20rError::Ok);
     let before = r.0;
-    let mut next_cdi = [0u8; 32];
+    let b = Backend::new();
+    let mut next_cdi = UNTOUCHED;
     let rc = unsafe {
-        n20r_issue_next_stage_cwt(
-            s.ptr(),
-            CDI.as_ptr(),
-            next_cdi.as_mut_ptr(),
-            r.ptr(),
-            r.0.len(),
-        )
+        n20r_issue_next_stage_cwt(&b.table, s.ptr(), b.cdi, &mut next_cdi, r.ptr(), r.0.len())
     };
     assert_eq!(rc, N20rError::InvalidArgument);
     assert_eq!(r.0, before, "the handover is untouched");
-    assert_eq!(next_cdi, [0; 32], "no CDI is handed out");
+    assert_eq!(next_cdi, UNTOUCHED, "no CDI is handed out");
 }
 
 #[test]
@@ -296,41 +290,28 @@ fn adopted_buffers_are_released_exactly_once() {
     }
 }
 
-/// The two CDIs are used in place, one read while the other is written, so
-/// overlapping buffers are rejected rather than silently aliased.
+/// Whatever fails, before or after the next CDI is derived, no CDI is handed
+/// out and every key the call derived is freed.
 #[test]
-fn overlapping_cdi_buffers_are_rejected() {
-    let mut s = Storage::new();
-    let ctx = s.init();
-    let mut r = Region::new();
-    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
-    let mut cdis = [0x11u8; 64];
-    for offset in [0, 1, 31] {
-        let base = cdis.as_mut_ptr();
-        let rc =
-            unsafe { n20r_issue_next_stage_cwt(ctx, base, base.add(offset), r.ptr(), r.0.len()) };
-        assert_eq!(rc, N20rError::InvalidArgument, "offset {offset}");
-    }
-    let base = cdis.as_mut_ptr();
-    let rc = unsafe { n20r_issue_next_stage_cwt(ctx, base, base.add(32), r.ptr(), r.0.len()) };
-    assert_eq!(rc, N20rError::Ok, "adjacent buffers do not overlap");
-}
-
-/// The next CDI is derived straight into the caller's buffer, which holds
-/// zeros after an error, whether it fails before or after the derivation.
-#[test]
-fn the_next_cdi_buffer_holds_zeros_after_an_error() {
+fn a_failed_next_stage_hands_out_nothing_and_frees_its_keys() {
     let mut s = Storage::new();
     let ctx = s.init();
     let mut r = Region::new();
     assert_eq!(start_handover(&mut r, None), N20rError::Ok);
     let used = r.used().len();
     for size in [0, used + 8] {
-        let mut next_cdi = [0xaau8; 32];
+        let mut b = Backend::new();
+        let mut next_cdi = UNTOUCHED;
         let rc = unsafe {
-            n20r_issue_next_stage_cwt(ctx, CDI.as_ptr(), next_cdi.as_mut_ptr(), r.ptr(), size)
+            n20r_issue_next_stage_cwt(&b.table, ctx, b.cdi, &mut next_cdi, r.ptr(), size)
         };
         assert_ne!(rc, N20rError::Ok, "size {size}");
-        assert_eq!(next_cdi, [0; 32], "size {size}");
+        assert_eq!(next_cdi, UNTOUCHED, "size {size}");
+        assert_eq!(b.keys_in_use(), 1, "size {size}");
     }
+    let b = Backend::new();
+    let rc = unsafe {
+        n20r_issue_next_stage_cwt(&b.table, ctx, b.cdi, ptr::null_mut(), r.ptr(), r.0.len())
+    };
+    assert_eq!(rc, N20rError::InvalidArgument);
 }
