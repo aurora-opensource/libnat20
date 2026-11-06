@@ -66,7 +66,7 @@ jobs:
         run: |
           cargo clippy -p nat20 --all-targets -- -D warnings
           cargo clippy -p nat20 --features soft-crypto --all-targets -- -D warnings
-          cargo clippy -p nat20-ffi --tests --no-default-features --features soft-crypto -- -D warnings
+          cargo clippy -p nat20-ffi --tests --no-default-features --features soft-crypto,stack-probe -- -D warnings
       - name: Docs
         env:
           RUSTDOCFLAGS: -D warnings
@@ -116,13 +116,10 @@ jobs:
           done
       - name: Check that no panic is reachable (SIZE.md)
         run: |
-          for features in mono-crypto mono-crypto,verify-after-sign; do
-            cargo build --release --target armv7a-none-eabi -p size-probe \
-              --no-default-features --features "$features,panic-never"
-          done
+          cargo build --release --target armv7a-none-eabi -p size-probe --features panic-never
           for config in firmware/*.toml; do
             RUSTC_BOOTSTRAP=1 cargo build --release -p size-probe --config "$config" \
-              --no-default-features --features mono-crypto,panic-never
+              --features panic-never
           done
       - name: Check the code size budget (SIZE.md)
         run: |

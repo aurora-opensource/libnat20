@@ -34,14 +34,17 @@
 # along with this program; if not, see
 # <https://www.gnu.org/licenses/>.
 #
-# Checks on the target the secret invariants of nat20::crypto: that each
-# crypto backend operation leaves nothing below its own frame, and that the
-# secret-handling entry points leave no secret on the stack. Also measures
-# how deep each goes (to size the backends' scrubs).
+# Checks on the target the secrets contract of nat20::crypto: that each
+# operation of the built-in software backend leaves nothing below its own
+# frame, and that the entry points leave no secret on the stack. Also
+# measures how deep each goes (to size the backend's scrubs). A firmware's
+# own crypto backend must keep the same contract; the probe shows how to
+# check that.
 #
 #     tools/stack-probe.sh [profile]
 #
-# For each crypto backend, with and without verify-after-sign, builds the
+# With the built-in software backend, with and without verify-after-sign,
+# builds the
 # static library for armv7 (Thumb-2, opt-level z, fat LTO), with the flags
 # of the firmware profile from firmware/ if one is given, as
 # tools/build-firmware-lib.sh does. Links it into tools/stack-probe/probe.c
@@ -82,7 +85,7 @@ CFLAGS='-mcpu=cortex-a7 -mthumb -mfloat-abi=soft -mno-unaligned-access -Os
 	-ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns -Wall'
 
 status=0
-for backend in mono-crypto mono-crypto,verify-after-sign soft-crypto soft-crypto,verify-after-sign; do
+for backend in soft-crypto soft-crypto,verify-after-sign; do
 	for scrub in on off; do
 		variant="$backend-scrub-$scrub"
 		noscrub=

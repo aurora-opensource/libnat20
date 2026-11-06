@@ -60,8 +60,8 @@ verify-after-sign = ["nat20/verify-after-sign"]
 panic-loop = []
 panic-putc-hang = []
 # For tools/stack-probe.sh only: exports n20r_probe_backend_op, which runs
-# one crypto backend operation for the probe to check.
-stack-probe = []
+# one operation of the built-in backend for the probe to check.
+stack-probe = ["soft-crypto"]
 # For checking only, never for shipping: the panic handler cannot be linked,
 # so a program linking the library fails to link if any panic is reachable.
 # Overrides the other two.

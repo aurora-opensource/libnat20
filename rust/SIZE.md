@@ -25,25 +25,25 @@ Budget: **40 KB .text**.
 
 ## No reachable panic
 
-The same build with the `panic-never` feature checks that the library
-contains no panic the optimizer could not remove:
+The library-only build with the `panic-never` feature checks that the
+library contains no panic the optimizer could not remove:
 
 ```
-cargo build --release --target armv7a-none-eabi -p size-probe \
-    --no-default-features --features mono-crypto,panic-never
+cargo build --release --target armv7a-none-eabi -p size-probe --features panic-never
 ```
 
 `panic-never` installs a panic handler that calls a symbol nothing defines,
 so the link fails if any panic is still reachable once fat LTO is done. It
-succeeds for `mono-crypto` (with and without `verify-after-sign`, and with
-the firmware profiles), which is what the secret invariants of
-`nat20::crypto` rely on: a panic would never come back to wipe anything.
-With `soft-crypto` it fails on bounds checks inside curve25519-dalek's
-scalar arithmetic, which the compiler cannot prove away. The check depends
-on the build (optimization level, LTO), so it is made on the build that
-ships. A failing link names no culprit; looking for calls into
-`core::panicking` and `core::slice::index` in the disassembly of the
-ordinary build finds them.
+succeeds, with the target defaults and with each firmware profile, and
+whatever crypto backend the firmware links: the backend is outside the
+Rust code, behind function pointers. That is what the secrets contract of
+`nat20::crypto` relies on: a panic would never come back to wipe or free
+anything. With `soft-crypto` it fails on bounds checks inside
+curve25519-dalek's scalar arithmetic, which the compiler cannot prove
+away. The check depends on the build (optimization level, LTO), so it is
+made on the build that ships. A failing link names no culprit; looking for
+calls into `core::panicking` and `core::slice::index` in the disassembly of
+the ordinary build finds them.
 
 What the numbers rest on:
 
