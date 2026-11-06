@@ -35,9 +35,10 @@
 
 [workspace]
 resolver = "2"
-members = ["nat20", "nat20-ffi"]
-# nat20-ffi is a bare-metal artifact; build it for a bare-metal target
-# such as armv7a-none-eabi (it provides no host panic handler).
+members = ["nat20", "nat20-ffi", "size-probe"]
+# nat20-ffi and size-probe are bare-metal artifacts; build them for a
+# bare-metal target such as armv7a-none-eabi (they provide no host panic
+# handler).
 default-members = ["nat20"]
 
 # nat20-ffi is no_std even on the host, so dev builds must not require
