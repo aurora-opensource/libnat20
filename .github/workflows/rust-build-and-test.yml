@@ -64,6 +64,7 @@ jobs:
         run: cargo fmt --all --check
       - name: Clippy
         run: |
+          cargo clippy -p nat20 --all-targets -- -D warnings
           cargo clippy -p nat20 --features soft-crypto --all-targets -- -D warnings
       - name: Docs
         env:
