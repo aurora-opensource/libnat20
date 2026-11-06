@@ -5,37 +5,36 @@ Measured on `size-probe`, which links the full FFI surface
 `n20r_device_id_public_key`, the context setters, `n20r_handover_validate`
 and `n20r_encode_cbor_map`), built with the pinned toolchain for
 `armv7a-none-eabi`, release profile (`opt-level = "z"`, fat LTO,
-`panic = "abort"`):
+`panic = "abort"`). Without features it hands the library a crypto table
+that computes nothing, so the size is the library's own; the firmware adds
+its crypto backend. `soft-crypto` adds the built-in backend instead:
 
 ```
 cargo build --release --target armv7a-none-eabi -p size-probe
-cargo build --release --target armv7a-none-eabi -p size-probe \
-    --no-default-features --features mono-crypto
+cargo build --release --target armv7a-none-eabi -p size-probe --features soft-crypto
 llvm-size target/armv7a-none-eabi/release/size-probe
 ```
 
 Budget: **40 KB .text**.
 
-| backend                                   | .text   |
-|-------------------------------------------|---------|
-| `soft-crypto` (default)                   | 28800 B |
-| `mono-crypto`                             | 19834 B |
-| `mono-crypto`, `verify-after-sign`        | 22630 B |
+| build                                        | .text   |
+|----------------------------------------------|---------|
+| library only                                 |  8696 B |
+| with the built-in backend (`soft-crypto`)    | 30078 B |
+| `soft-crypto`, `verify-after-sign`           | 33342 B |
 
 What the numbers rest on:
 
-- **Thumb-2** (`.cargo/config.toml`): about 15–20% smaller than ARM mode
-  (Monocypher: 23882 B in ARM mode). The constant-time spot-check was done
-  on the Thumb disassembly: the curve and scalar secret paths are
-  branch-free, and all `it` blocks sit in public-data encoder and FFI code.
+- **Thumb-2** (`.cargo/config.toml`): about 15–20% smaller than ARM mode.
+  The constant-time spot-check was done on the Thumb disassembly: the
+  curve and scalar secret paths are branch-free, and all `it` blocks sit in
+  public-data encoder and FFI code.
 - **Compact SHA-512**: the `sha2` feature `force-soft-compact` selects the
   loop-based compression function, about 15 KB smaller than the default
   unrolled one on 32-bit Arm.
-- **Backend choice**: Monocypher saves about 8 KB over ed25519-dalek and
-  sha2, whose arithmetic is unrolled for speed. A pure-C build of the same
-  feature set (libnat20's encoders plus Monocypher) measured within about
-  1.1 KB of the Rust build with Monocypher, so the footprint is the crypto
-  backend, not the language.
+- **The crypto backend**: most of the built-in backend's size is
+  curve25519-dalek and sha2, unrolled for speed. A backend written for
+  size is much smaller: one over Monocypher measured about 8 KB less.
 
 Experiments that did **not** pay off (don't re-try without new evidence):
 `#[inline(never)]` on the CBOR writers (±0 — they were already outlined);
@@ -49,8 +48,8 @@ inlining against prebuilt core, and the library has no runtime division).
 From `llvm-nm --print-size` on an unstripped build
 (`--config 'profile.release.strip="none"'`), .text symbols grouped by crate
 namespace. Caveat: fat LTO attributes inlined callee code to the caller, so
-e.g. "nat20 (lib)" includes hmac/sha2 code inlined into the HKDF and
-`SoftCrypto::hmac_sha512` bodies; treat the split as approximate.
+e.g. "nat20 (lib)" includes hmac/sha2 code inlined into the backend's
+bodies; treat the split as approximate.
 
 | bytes | share | crate |
 |-------|-------|-------|

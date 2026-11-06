@@ -107,15 +107,13 @@ jobs:
       - name: Build the static library
         run: |
           cargo build --release --target armv7a-none-eabi -p nat20-ffi
-          cargo build --release --target armv7a-none-eabi -p nat20-ffi \
-            --no-default-features --features mono-crypto,panic-loop
+          cargo build --release --target armv7a-none-eabi -p nat20-ffi --features soft-crypto
       - name: Check the code size budget (SIZE.md)
         run: |
-          for features in "" "--no-default-features --features mono-crypto" \
-              "--no-default-features --features mono-crypto,verify-after-sign"; do
+          for features in "" "--features soft-crypto" "--features soft-crypto,verify-after-sign"; do
             cargo build --release --target armv7a-none-eabi -p size-probe $features
             text=$(arm-none-eabi-size target/armv7a-none-eabi/release/size-probe | awk 'NR == 2 { print $1 }')
-            echo "size-probe ${features:-(soft-crypto)}: ${text} B .text"
+            echo "size-probe ${features:-(library only)}: ${text} B .text"
             test "$text" -le 40000
           done
 
