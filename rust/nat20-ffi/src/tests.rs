@@ -40,11 +40,64 @@
 use super::*;
 use core::ptr;
 use nat20::crypto::soft::SoftCrypto;
-use nat20::crypto::Seed32;
-use nat20::derive::attest_key_seed;
-use nat20::Ed25519Signer as _;
 
 pub(crate) const CDI: [u8; 32] = [0x11; 32];
+
+#[repr(C, align(8))]
+struct SoftStorage([u8; soft::N20R_SOFT_CRYPTO_SIZE]);
+
+/// The built-in software backend through the C ABI, with [`CDI`] imported:
+/// the crypto table every test hands to the library.
+pub(crate) struct Backend {
+    storage: Box<SoftStorage>,
+    pub(crate) table: N20rCrypto,
+    pub(crate) cdi: N20rKey,
+}
+
+impl Backend {
+    pub(crate) fn new() -> Self {
+        let mut storage = Box::new(SoftStorage([0; soft::N20R_SOFT_CRYPTO_SIZE]));
+        let mut table = core::mem::MaybeUninit::<N20rCrypto>::uninit();
+        let mut cdi = ptr::null_mut();
+        unsafe {
+            let st = storage.0.as_mut_ptr();
+            assert_eq!(
+                soft::n20r_soft_crypto_init(st, storage.0.len(), table.as_mut_ptr()),
+                N20rError::Ok
+            );
+            assert_eq!(
+                soft::n20r_soft_crypto_import_cdi(st, CDI.as_ptr(), &mut cdi),
+                N20rError::Ok
+            );
+            Backend {
+                storage,
+                table: table.assume_init(),
+                cdi,
+            }
+        }
+    }
+
+    /// The CDI bytes `key` holds.
+    pub(crate) fn export(&mut self, key: N20rKey) -> [u8; 32] {
+        let mut out = [0u8; 32];
+        let rc = unsafe {
+            soft::n20r_soft_crypto_export_cdi(self.storage.0.as_mut_ptr(), key, out.as_mut_ptr())
+        };
+        assert_eq!(rc, N20rError::Ok);
+        out
+    }
+
+    pub(crate) fn free(&mut self, key: N20rKey) {
+        unsafe { (self.table.key_free.unwrap())(self.table.ctx, key) }
+    }
+
+    pub(crate) fn keys_in_use(&mut self) -> usize {
+        unsafe { soft::keys_in_use(self.storage.0.as_mut_ptr()) }
+    }
+}
+
+/// A key handle no backend hands out, to check an output is left alone.
+pub(crate) const UNTOUCHED: N20rKey = 0x5a5a as N20rKey;
 
 /// A handover region, aligned as the header requires.
 #[repr(C, align(4))]
@@ -87,20 +140,17 @@ pub(crate) fn expected_handover(certs: &[&[u8]]) -> Vec<u8> {
 /// The device-identity certificate, issued by the library directly.
 pub(crate) fn device_id_cert(profile: Option<&[u8]>) -> Vec<u8> {
     let mut buf = vec![0u8; 1024];
-    let n = issue_device_id_cwt(
-        &mut SoftCrypto,
-        &CdiSecret::from_bytes(CDI),
-        profile,
-        Some(&mut buf),
-    )
-    .unwrap();
+    let mut c = SoftCrypto::<3>::new();
+    let cdi = c.import_cdi(&CDI).unwrap();
+    let n = issue_device_id_cwt(&mut c, &cdi, profile, Some(&mut buf)).unwrap();
     buf[buf.len() - n..].to_vec()
 }
 
 /// Starts a handover through the C ABI.
 pub(crate) fn start_handover(region: &mut Region, profile: Option<&[u8]>) -> N20rError {
     let (p, n) = profile.map_or((ptr::null(), 0), |p| (p.as_ptr(), p.len()));
-    unsafe { n20r_issue_device_id_cwt(CDI.as_ptr(), p, n, region.ptr(), region.0.len()) }
+    let b = Backend::new();
+    unsafe { n20r_issue_device_id_cwt(&b.table, b.cdi, p, n, region.ptr(), region.0.len()) }
 }
 
 #[test]
@@ -121,7 +171,9 @@ fn device_id_cwt_starts_the_handover() {
 #[test]
 fn a_null_profile_name_is_omitted_whatever_the_size() {
     let mut r = Region::new();
-    let rc = unsafe { n20r_issue_device_id_cwt(CDI.as_ptr(), ptr::null(), 5, r.ptr(), r.0.len()) };
+    let b = Backend::new();
+    let rc =
+        unsafe { n20r_issue_device_id_cwt(&b.table, b.cdi, ptr::null(), 5, r.ptr(), r.0.len()) };
     assert_eq!(rc, N20rError::Ok);
     assert_eq!(r.used(), expected_handover(&[&device_id_cert(None)]));
 }
@@ -133,24 +185,24 @@ fn device_id_cwt_checks_arguments_before_touching_the_handover() {
     let mut r = Region::new();
     assert_eq!(start_handover(&mut r, None), N20rError::Ok);
     let before = r.0;
+    let b = Backend::new();
+    let mut incomplete = Backend::new().table;
+    incomplete.sign = None;
     unsafe {
         let h = r.ptr();
-        assert_eq!(
-            n20r_issue_device_id_cwt(ptr::null(), ptr::null(), 0, h, 2048),
-            N20rError::InvalidArgument
-        );
-        assert_eq!(
-            n20r_issue_device_id_cwt(CDI.as_ptr(), ptr::null(), 0, h.add(1), 2000),
-            N20rError::InvalidArgument
-        );
-        assert_eq!(
-            n20r_issue_device_id_cwt(CDI.as_ptr(), ptr::null(), 0, ptr::null_mut(), 2048),
-            N20rError::InvalidArgument
-        );
-        assert_eq!(
-            n20r_issue_device_id_cwt(CDI.as_ptr(), ptr::null(), 0, h, 15),
-            N20rError::InvalidArgument
-        );
+        let (t, k) = (&b.table as *const N20rCrypto, b.cdi);
+        for (crypto, handover, size) in [
+            (ptr::null(), h, 2048),
+            (&incomplete as *const N20rCrypto, h, 2048),
+            (t, h.add(1), 2000),
+            (t, ptr::null_mut(), 2048),
+            (t, h, 15),
+        ] {
+            assert_eq!(
+                n20r_issue_device_id_cwt(crypto, k, ptr::null(), 0, handover, size),
+                N20rError::InvalidArgument
+            );
+        }
     }
     assert_eq!(r.0, before);
 }
@@ -160,7 +212,9 @@ fn device_id_cwt_checks_arguments_before_touching_the_handover() {
 #[test]
 fn device_id_cwt_reports_a_too_small_handover() {
     let mut r = Region::new();
-    let rc = unsafe { n20r_issue_device_id_cwt(CDI.as_ptr(), ptr::null(), 0, r.ptr(), 64) };
+    let mut b = Backend::new();
+    let rc = unsafe { n20r_issue_device_id_cwt(&b.table, b.cdi, ptr::null(), 0, r.ptr(), 64) };
+    assert_eq!(b.keys_in_use(), 1, "the attestation key is freed");
     assert_eq!(rc, N20rError::InsufficientBuffer);
     assert_eq!(r.used(), expected_handover(&[]));
 }
@@ -168,36 +222,38 @@ fn device_id_cwt_reports_a_too_small_handover() {
 #[test]
 fn device_id_public_key_matches_the_library() {
     let mut pk = [0u8; 32];
+    let mut b = Backend::new();
     assert_eq!(
-        unsafe { n20r_device_id_public_key(CDI.as_ptr(), pk.as_mut_ptr()) },
+        unsafe { n20r_device_id_public_key(&b.table, b.cdi, pk.as_mut_ptr()) },
         N20rError::Ok
     );
+    assert_eq!(b.keys_in_use(), 1);
 
-    let mut c = SoftCrypto;
-    let mut seed = Seed32::default();
-    attest_key_seed(&mut c, &CdiSecret::from_bytes(CDI), &mut seed).unwrap();
+    let mut c = SoftCrypto::<3>::new();
+    let cdi = c.import_cdi(&CDI).unwrap();
     let mut expected = [0u8; 32];
-    c.public_key(&seed, &mut expected).unwrap();
+    attest_public_key(&mut c, &cdi, &mut expected).unwrap();
     assert_eq!(pk, expected);
 }
 
 #[test]
 fn device_id_public_key_rejects_null() {
     let mut pk = [0u8; 32];
+    let b = Backend::new();
     unsafe {
         assert_eq!(
-            n20r_device_id_public_key(core::ptr::null(), pk.as_mut_ptr()),
+            n20r_device_id_public_key(ptr::null(), b.cdi, pk.as_mut_ptr()),
             N20rError::InvalidArgument
         );
         assert_eq!(
-            n20r_device_id_public_key(CDI.as_ptr(), core::ptr::null_mut()),
+            n20r_device_id_public_key(&b.table, b.cdi, ptr::null_mut()),
             N20rError::InvalidArgument
         );
     }
 }
 
 /// A next stage that does not fit is reported, the handover keeps the chain
-/// it had, and no CDI is handed out.
+/// it had, no CDI is handed out, and no key is left behind.
 #[test]
 fn next_stage_cwt_into_a_full_handover_changes_nothing() {
     let mut r = Region::new();
@@ -207,25 +263,28 @@ fn next_stage_cwt_into_a_full_handover_changes_nothing() {
     #[repr(C, align(8))]
     struct Ctx([u8; N20R_DICE_CTX_SIZE]);
     let mut ctx = Ctx([0; N20R_DICE_CTX_SIZE]);
-    let mut next_cdi = [0u8; 32];
+    let mut next_cdi = UNTOUCHED;
+    let mut b = Backend::new();
     unsafe {
         assert_eq!(
             n20r_ctx_init(ctx.0.as_mut_ptr(), N20R_DICE_CTX_SIZE),
             N20rError::Ok
         );
         let rc = n20r_issue_next_stage_cwt(
+            &b.table,
             ctx.0.as_mut_ptr(),
-            CDI.as_ptr(),
-            next_cdi.as_mut_ptr(),
+            b.cdi,
+            &mut next_cdi,
             r.ptr(),
             used + 16,
         );
         assert_eq!(rc, N20rError::InsufficientBuffer);
     }
+    assert_eq!(b.keys_in_use(), 1);
     assert_eq!(r.used(), expected_handover(&[&device_id_cert(None)]));
     assert!(
         r.0[used..].iter().all(|&b| b == 0),
         "nothing left past the chain"
     );
-    assert_eq!(next_cdi, [0; 32]);
+    assert_eq!(next_cdi, UNTOUCHED);
 }

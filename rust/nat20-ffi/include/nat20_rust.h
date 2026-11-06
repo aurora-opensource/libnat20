@@ -57,18 +57,14 @@
  *
  * A handover region must be 4-byte aligned.
  *
- * Secrets: the CDIs are used in place, in the caller's buffers; nothing
- * copies them. Every other secret a call derives (seeds, keys, HMAC state)
- * is wiped before the call returns, on success and on error, from the stack
- * and from the registers a call may clobber: each crypto operation wipes
- * what it used as it returns. So once a call returns, the only copies of a
- * secret are the root CDI passed in and the next CDI passed out, which are
- * the caller's to wipe. The library contains no panic that could cut this
- * short.
+ * Crypto: the integrator supplies the crypto as a table of functions,
+ * n20r_crypto_t (see "The crypto table" below). Keys are opaque handles of
+ * that backend, so the library never handles a secret: the root CDI comes
+ * in as a handle and the next CDI goes out as one. The library has no
+ * panic that could stop a call half way.
  *
- * Stack: the deepest call, n20r_issue_next_stage_cwt(), reaches about
- * 3 KiB below the caller's frame with the Monocypher backend (3.5 KiB with
- * verify-after-sign), 8 KiB with the soft backend.
+ * Stack: besides what the crypto backend uses, the deepest call reaches
+ * about 1 KiB below the caller's frame.
  */
 
 #ifndef NAT20_RUST_H
@@ -103,6 +99,115 @@ typedef enum n20r_error {
      *  bug); nothing was appended. */
     N20R_ERR_CERTIFICATE_SIZE_MISMATCH = 6,
 } n20r_error_t;
+
+/**
+ * The crypto table
+ * ================
+ *
+ * The integrator's crypto backend: SHA-512, a key derivation function and
+ * Ed25519, on opaque key handles, so a backend may keep its keys in a
+ * hardware engine or a secure element. It follows the key model of C
+ * libnat20's crypto.h, with fewer operations. The table and the context it
+ * points to must stay valid for the duration of each call it is passed to.
+ * Every function returns 0 on success; any other value fails the call with
+ * N20R_ERR_CRYPTO.
+ *
+ * Key slots: the library holds at most 3 keys at a time, counting the root
+ * CDI the caller passes in (n20r_issue_next_stage_cwt() derives the next
+ * CDI first, then one attestation key at a time, freeing each before the
+ * next). A backend without dynamic allocation can therefore reserve 3 key
+ * slots and never run out. Every key the library derives it frees before
+ * the call returns, except the next CDI, which it hands to the caller.
+ *
+ * Secrets: when a function returns, on success or on error, nothing it
+ * computed from a key may remain in memory it does not own. That includes
+ * the stack below its caller's frame and the registers the calling
+ * convention lets it clobber, which a software backend must therefore wipe
+ * before returning (run the computation in a frame of its own, then zero
+ * the stack it reached and those registers); a hardware backend typically
+ * keeps its keys in the engine. key_free must wipe the key. The library
+ * does not wipe after the backend: what a backend leaves, stays.
+ */
+
+/** An opaque key handle of the backend. */
+typedef void *n20r_key_t;
+
+/** One part of a gather list: size bytes at data (data may be NULL if size
+ *  is 0). A gather list's content is the concatenation of its parts. */
+typedef struct n20r_slice {
+    uint8_t const *data;
+    size_t size;
+} n20r_slice_t;
+
+/** What n20r_crypto_t.kdf derives. */
+#define N20R_KEY_CDI 0     /**< a CDI: the input of further derivations */
+#define N20R_KEY_ED25519 1 /**< an Ed25519 key pair */
+
+typedef struct n20r_crypto {
+    /** Passed back unchanged as the first argument of every function. */
+    void *ctx;
+    /** SHA-512 of the concatenation of the count parts, which are public,
+     *  into digest (64 bytes). */
+    int (*sha512)(void *ctx, n20r_slice_t const *parts, size_t count, uint8_t digest[64]);
+    /** Derives a key of kind (N20R_KEY_*) from cdi, an N20R_KEY_CDI key:
+     *  HKDF-Expand-SHA512 with the CDI as the pseudorandom key, the
+     *  concatenation of the count context parts as info, and 32 bytes of
+     *  output, which are the new CDI or the RFC 8032 seed of the key pair
+     *  (as the kdf of C libnat20's BoringSSL backend). Writes the new key's
+     *  handle to *key_out. */
+    int (*kdf)(void *ctx,
+               n20r_key_t cdi,
+               uint32_t kind,
+               n20r_slice_t const *context,
+               size_t count,
+               n20r_key_t *key_out);
+    /** The Ed25519 public key (32 bytes) of key, an N20R_KEY_ED25519 key. */
+    int (*public_key)(void *ctx, n20r_key_t key, uint8_t public_key[32]);
+    /** The RFC 8032 Ed25519 signature (64 bytes) of message_size bytes at
+     *  message with key, an N20R_KEY_ED25519 key. A backend that verifies
+     *  the signature before releasing it resists fault attacks: a faulty
+     *  signature next to a correct one over the same message can give the
+     *  key away. */
+    int (*sign)(void *ctx,
+                n20r_key_t key,
+                uint8_t const *message,
+                size_t message_size,
+                uint8_t signature[64]);
+    /** Frees and wipes key. */
+    void (*key_free)(void *ctx, n20r_key_t key);
+} n20r_crypto_t;
+
+/**
+ * The built-in software backend
+ * -----------------------------
+ *
+ * Only in a library built with the soft-crypto feature: a crypto table over
+ * the library's own software backend (sha2, hmac, ed25519-dalek), for
+ * callers that bring no crypto of their own. It holds 3 keys and keeps the
+ * contract above. Like the DICE context, it lives in caller-provided
+ * storage, 8-byte aligned:
+ *
+ *     static uint8_t soft[N20R_SOFT_CRYPTO_SIZE] __aligned(8);
+ *     n20r_crypto_t crypto;
+ *     n20r_key_t cdi;
+ *     n20r_soft_crypto_init(soft, sizeof(soft), &crypto);
+ *     n20r_soft_crypto_import_cdi(soft, root_cdi_bytes, &cdi);
+ */
+#define N20R_SOFT_CRYPTO_SIZE 256
+
+/** Initialises the backend in storage and fills *crypto_out with its
+ *  table. */
+n20r_error_t n20r_soft_crypto_init(uint8_t *storage, size_t size, n20r_crypto_t *crypto_out);
+/** Copies a 32-byte CDI into a key slot and writes its handle to
+ *  *key_out. */
+n20r_error_t n20r_soft_crypto_import_cdi(uint8_t *storage,
+                                         uint8_t const cdi[32],
+                                         n20r_key_t *key_out);
+/** Writes the CDI key holds to cdi_out (e.g. the next CDI for the next boot
+ *  stage), which is the caller's to wipe. */
+n20r_error_t n20r_soft_crypto_export_cdi(uint8_t *storage, n20r_key_t key, uint8_t cdi_out[32]);
+/** Wipes every key and invalidates the storage. */
+n20r_error_t n20r_soft_crypto_cleanup(uint8_t *storage);
 
 /**
  * The DICE context
@@ -190,8 +295,8 @@ n20r_error_t n20r_set_hidden(uint8_t *ctx,
 n20r_error_t n20r_set_mode(uint8_t *ctx, uint8_t mode);
 
 /**
- * Issues the self-signed device-identity CWT from the 32-byte root CDI and
- * starts a new handover with it.
+ * Issues the self-signed device-identity CWT from the root CDI and starts a
+ * new handover with it.
  *
  * The certificate certifies the device-identity Ed25519 public key (derived
  * deterministically from the CDI) and is signed with that same key. Issuer
@@ -202,13 +307,15 @@ n20r_error_t n20r_set_mode(uint8_t *ctx, uint8_t mode);
  * pass, the region is initialised even if issuing then fails, which leaves
  * an empty handover.
  *
- * @param cdi 32-byte root CDI secret.
+ * @param crypto The crypto backend.
+ * @param cdi The root CDI, a key of crypto; stays the caller's.
  * @param profile_name Optional profile-name claim (UTF-8, not validated);
  *        NULL or size 0 to omit.
  * @param handover The handover region, 4-byte aligned.
  * @param handover_size Size of the handover region in bytes.
  */
-n20r_error_t n20r_issue_device_id_cwt(uint8_t const cdi[32],
+n20r_error_t n20r_issue_device_id_cwt(n20r_crypto_t const *crypto,
+                                      n20r_key_t cdi,
                                       uint8_t const *profile_name,
                                       size_t profile_name_size,
                                       uint8_t *handover,
@@ -221,19 +328,21 @@ n20r_error_t n20r_issue_device_id_cwt(uint8_t const cdi[32],
  * certificate is appended to the handover, which must already hold the
  * chain up to this stage (see n20r_issue_device_id_cwt()).
  *
+ * @param crypto The crypto backend.
  * @param ctx DICE context holding the open-DICE input, prepared by
  *        n20r_ctx_init(). Fields never set are empty.
- * @param cdi 32-byte root CDI secret.
- * @param next_cdi_out Receives the 32-byte next-stage CDI (hand this to the
- *        next boot stage), derived into it in place; holds zeros after any
- *        error. Must be non-NULL and must not overlap cdi. Treat as
- *        secret.
+ * @param cdi The root CDI, a key of crypto; stays the caller's.
+ * @param next_cdi_out On success, the next-stage CDI: a key of crypto the
+ *        caller owns, hands to the next boot stage and frees. Unchanged on
+ *        error, when every key the call derived has been freed. Must be
+ *        non-NULL.
  * @param handover The handover region, 4-byte aligned.
  * @param handover_size Size of the handover region in bytes.
  */
-n20r_error_t n20r_issue_next_stage_cwt(uint8_t *ctx,
-                                       uint8_t const cdi[32],
-                                       uint8_t next_cdi_out[32],
+n20r_error_t n20r_issue_next_stage_cwt(n20r_crypto_t const *crypto,
+                                       uint8_t *ctx,
+                                       n20r_key_t cdi,
+                                       n20r_key_t *next_cdi_out,
                                        uint8_t *handover,
                                        size_t handover_size);
 
@@ -294,10 +403,13 @@ n20r_error_t n20r_encode_cbor_map(n20r_cbor_map_entry_t const *entries,
                                   size_t *size);
 
 /**
- * Writes the 32-byte device-identity Ed25519 public key for the given root
- * CDI (e.g. for provisioning or out-of-band trust establishment).
+ * Writes the 32-byte device-identity Ed25519 public key for the root CDI cdi,
+ * a key of crypto (e.g. for provisioning or out-of-band trust
+ * establishment).
  */
-n20r_error_t n20r_device_id_public_key(uint8_t const cdi[32], uint8_t public_key_out[32]);
+n20r_error_t n20r_device_id_public_key(n20r_crypto_t const *crypto,
+                                       n20r_key_t cdi,
+                                       uint8_t public_key_out[32]);
 
 #ifdef __cplusplus
 }
