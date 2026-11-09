@@ -159,7 +159,7 @@ static int call_backend_op(void) { return n20r_probe_backend_op(op, cdi, op_out)
 static int call_public_key(void) { return n20r_device_id_public_key(&crypto, root, public_key); }
 
 static int call_device_id(void) {
-    return n20r_issue_device_id_cwt(&crypto, root, NULL, 0, handover, sizeof(handover));
+    return n20r_issue_device_id_key(&crypto, root, handover, sizeof(handover));
 }
 
 static int call_next_stage(void) {
@@ -243,7 +243,7 @@ int main(void) {
     for (op = 0; op < sizeof(ops) / sizeof(ops[0]); op++)
         failed |= run(ops[op], call_backend_op, 1);
     failed |= run("n20r_device_id_public_key", call_public_key, 0);
-    failed |= run("n20r_issue_device_id_cwt", call_device_id, 0);
+    failed |= run("n20r_issue_device_id_key", call_device_id, 0);
     failed |= run("n20r_issue_next_stage_cwt", call_next_stage, 0);
     /* Searching for the wrong secrets would find nothing, and pass. */
     if (n20r_soft_crypto_export_cdi(soft, next, next_cdi) ||
