@@ -5,13 +5,13 @@ boot firmware on Arm Cortex-A. It performs deterministic DICE key derivation
 and issues CWT certificates (COSE_Sign1, Ed25519):
 
 1. **Device identity**: from the root CDI, derive the device-identity
-   Ed25519 key and issue a *self-signed* CWT.
+   Ed25519 key and start the chain with its public key, a COSE_Key.
 2. **Next stage**: from the root CDI plus the open-DICE measurements of the
    next boot stage, derive the next CDI and a second key pair, and issue a
    CWT carrying the open-DICE claims and the second public key, signed by
    the device-identity key.
 
-Both certificates go into a DICE handover (`HANDOVER.md`), the certificate
+The key and the certificate go into a DICE handover (`HANDOVER.md`), the certificate
 chain each boot stage leaves in memory for the next.
 
 ## Compatibility with C libnat20
@@ -23,10 +23,12 @@ identical COSE_Sign1/CWT CBOR layout (verified byte-for-byte by
 `nat20/tests/differential.rs` against a certificate produced by
 `n20_issue_certificate`; regenerate with `tools/c_diff_harness.c`).
 
-One deliberate extension: the C library currently rejects COSE for
-self-signed certificates; this port issues the device-identity CWT
-self-signed (issuer == subject == CDI_ID of the embedded key, mode claim
-`0x00` "not configured", key usage keyCertSign).
+One deliberate departure: the chain does not start with a self-signed
+certificate (the C library rejects COSE for self-signed certificates) but
+with the device-identity public key itself, an Ed25519 COSE_Key
+(`{1: OKP, 3: EdDSA, 4: [verify], -1: Ed25519, -2: x}`) under CBOR tag
+80152. A signature by the key over itself would add nothing a verifier
+can check. The next-stage CWT names the key's CDI_ID as its issuer.
 
 Profile-specific rules stay with the profile: the profile name is written
 verbatim as a CBOR text string, as in C libnat20, and an inline
@@ -118,8 +120,8 @@ Thumb-2 code on armv7; they apply whatever firmware the library goes into.
   `verify-after-sign`), wipes included.
 - Calling sequence per boot, with `crypto` the backend's table and `cdi`
   the root CDI as one of its keys:
-  1. `n20r_issue_device_id_cwt(&crypto, cdi, ...)` — self-signed device
-     identity; starts the handover.
+  1. `n20r_issue_device_id_key(&crypto, cdi, ...)` — the device-identity
+     COSE_Key; starts the handover.
   2. `n20r_ctx_init(ctx, ...)`, then `n20r_set_*` as the measurements of
      the next stage become known.
   3. `n20r_issue_next_stage_cwt(&crypto, ctx, cdi, &next_cdi, ...)` —
@@ -245,6 +247,6 @@ also needs its defaults in `.cargo/config.toml`, the register clearing of
 ## Verifying certificates off-target
 
 ```
-python3 tools/decode_cwt.py device_id.cwt                # self-signed
-python3 tools/decode_cwt.py next_stage.cwt device_id.cwt # chained
+python3 tools/decode_cwt.py next_stage.cwt device_id.key # against the device-identity COSE_Key
+python3 tools/decode_cwt.py next.cwt next_stage.cwt      # against the issuer certificate
 ```
