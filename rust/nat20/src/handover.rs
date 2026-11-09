@@ -56,6 +56,10 @@ use core::ops::{Deref, DerefMut};
 /// Tag for the COSE_Sign1 structure in the handover entries.
 pub const TAG_COSE_SIGN1: &[u8] = &[0xD2];
 
+/// Tag 80152 for the device-identity COSE_Key that starts the chain
+/// (`0xDA` and the tag number as a big-endian `u32`).
+pub const TAG_DEVICE_ID_COSE_KEY: &[u8] = &[0xDA, 0x00, 0x01, 0x39, 0x18];
+
 /// CBOR initial byte opening an indefinite-length array.
 const CBOR_ARRAY_INDEFINITE: u8 = 0x9F;
 /// CBOR break byte, closing an indefinite-length item.
