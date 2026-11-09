@@ -41,7 +41,7 @@
 use crate::cbor::{self, Major};
 use crate::cose;
 use crate::derive::CdiId;
-use crate::open_dice::{Mode, OpenDiceInput};
+use crate::open_dice::OpenDiceInput;
 use crate::stream::WStream;
 
 /// CWT claim key: issuer (RFC 8392).
@@ -79,9 +79,8 @@ pub struct CwtParams<'a> {
     pub issuer_id: &'a CdiId,
     /// Subject CDI_ID (rendered as 40 hex characters).
     pub subject_id: &'a CdiId,
-    /// Measurements of the certified target environment; `None` for a
-    /// self-signed device-identity certificate.
-    pub input: Option<&'a OpenDiceInput<'a>>,
+    /// Measurements of the certified target environment.
+    pub input: &'a OpenDiceInput<'a>,
     /// The certified Ed25519 public key.
     pub subject_public_key: &'a [u8; 32],
     /// Profile name claim, if any. Should be UTF-8; written verbatim without
@@ -130,29 +129,27 @@ pub fn write_cwt_payload(s: &mut WStream, p: &CwtParams) {
     cbor::write_int(s, LABEL_SUBJECT_PUBLIC_KEY);
     pairs += 1;
 
-    let mode = [p.input.map_or(Mode::NotConfigured, |i| i.mode) as u8];
+    let mode = [p.input.mode as u8];
     cbor::write_bytes(s, &mode);
     cbor::write_int(s, LABEL_MODE);
     pairs += 1;
 
-    if let Some(input) = p.input {
-        let optional_claims = [
-            (input.authority_descriptor, LABEL_AUTHORITY_DESCRIPTOR),
-            (input.authority_hash, LABEL_AUTHORITY_HASH),
-            (
-                input.configuration_descriptor,
-                LABEL_CONFIGURATION_DESCRIPTOR,
-            ),
-            (input.configuration_hash, LABEL_CONFIGURATION_HASH),
-            (input.code_descriptor, LABEL_CODE_DESCRIPTOR),
-            (input.code_hash, LABEL_CODE_HASH),
-        ];
-        for (data, label) in optional_claims {
-            if !data.is_empty() {
-                cbor::write_bytes(s, data);
-                cbor::write_int(s, label);
-                pairs += 1;
-            }
+    let optional_claims = [
+        (p.input.authority_descriptor, LABEL_AUTHORITY_DESCRIPTOR),
+        (p.input.authority_hash, LABEL_AUTHORITY_HASH),
+        (
+            p.input.configuration_descriptor,
+            LABEL_CONFIGURATION_DESCRIPTOR,
+        ),
+        (p.input.configuration_hash, LABEL_CONFIGURATION_HASH),
+        (p.input.code_descriptor, LABEL_CODE_DESCRIPTOR),
+        (p.input.code_hash, LABEL_CODE_HASH),
+    ];
+    for (data, label) in optional_claims {
+        if !data.is_empty() {
+            cbor::write_bytes(s, data);
+            cbor::write_int(s, label);
+            pairs += 1;
         }
     }
 
