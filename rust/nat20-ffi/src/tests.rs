@@ -119,13 +119,18 @@ impl Region {
     }
 }
 
-/// The handover holding `certs`, each tagged COSE_Sign1, as the format
-/// specifies it.
-pub(crate) fn expected_handover(certs: &[&[u8]]) -> Vec<u8> {
+/// The handover holding `entries`, as the format specifies it: the first
+/// is the device-identity COSE_Key, tagged 80152, the others certificates,
+/// each tagged COSE_Sign1.
+pub(crate) fn expected_handover(entries: &[&[u8]]) -> Vec<u8> {
     let mut content = vec![0x9F];
-    for c in certs {
-        content.push(0xD2);
-        content.extend_from_slice(c);
+    for (i, e) in entries.iter().enumerate() {
+        if i == 0 {
+            content.extend_from_slice(&[0xDA, 0x00, 0x01, 0x39, 0x18]);
+        } else {
+            content.push(0xD2);
+        }
+        content.extend_from_slice(e);
     }
     let terminator = (16 + content.len()) as u32;
     content.push(0xFF);
@@ -137,53 +142,41 @@ pub(crate) fn expected_handover(certs: &[&[u8]]) -> Vec<u8> {
     h
 }
 
-/// The device-identity certificate, issued by the library directly.
-pub(crate) fn device_id_cert(profile: Option<&[u8]>) -> Vec<u8> {
+/// The device-identity COSE_Key, issued by the library directly.
+pub(crate) fn device_id_key() -> Vec<u8> {
     let mut buf = vec![0u8; 1024];
     let mut c = SoftCrypto::<3>::new();
     let cdi = c.import_cdi(&CDI).unwrap();
-    let n = issue_device_id_cwt(&mut c, &cdi, profile, Some(&mut buf)).unwrap();
+    let n = issue_device_id_key(&mut c, &cdi, Some(&mut buf)).unwrap();
     buf[buf.len() - n..].to_vec()
 }
 
 /// Starts a handover through the C ABI.
-pub(crate) fn start_handover(region: &mut Region, profile: Option<&[u8]>) -> N20rError {
-    let (p, n) = profile.map_or((ptr::null(), 0), |p| (p.as_ptr(), p.len()));
+pub(crate) fn start_handover(region: &mut Region) -> N20rError {
     let b = Backend::new();
-    unsafe { n20r_issue_device_id_cwt(&b.table, b.cdi, p, n, region.ptr(), region.0.len()) }
+    unsafe { n20r_issue_device_id_key(&b.table, b.cdi, region.ptr(), region.0.len()) }
 }
 
 #[test]
-fn device_id_cwt_starts_the_handover() {
+fn device_id_key_starts_the_handover() {
     let mut r = Region::new();
     r.0.fill(0xAA);
-    assert_eq!(start_handover(&mut r, Some(b"test.profile")), N20rError::Ok);
-    assert_eq!(
-        r.used(),
-        expected_handover(&[&device_id_cert(Some(b"test.profile"))])
-    );
+    assert_eq!(start_handover(&mut r), N20rError::Ok);
+    assert_eq!(r.used(), expected_handover(&[&device_id_key()]));
 
     // Starting again discards the old chain.
-    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
-    assert_eq!(r.used(), expected_handover(&[&device_id_cert(None)]));
-}
-
-#[test]
-fn a_null_profile_name_is_omitted_whatever_the_size() {
-    let mut r = Region::new();
-    let b = Backend::new();
-    let rc =
-        unsafe { n20r_issue_device_id_cwt(&b.table, b.cdi, ptr::null(), 5, r.ptr(), r.0.len()) };
-    assert_eq!(rc, N20rError::Ok);
-    assert_eq!(r.used(), expected_handover(&[&device_id_cert(None)]));
+    let first = r.used().len();
+    assert_eq!(start_handover(&mut r), N20rError::Ok);
+    assert_eq!(r.used(), expected_handover(&[&device_id_key()]));
+    assert_eq!(r.used().len(), first);
 }
 
 /// Arguments are checked before the region is touched, so a bad call
 /// cannot destroy an existing chain.
 #[test]
-fn device_id_cwt_checks_arguments_before_touching_the_handover() {
+fn device_id_key_checks_arguments_before_touching_the_handover() {
     let mut r = Region::new();
-    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
+    assert_eq!(start_handover(&mut r), N20rError::Ok);
     let before = r.0;
     let b = Backend::new();
     let mut incomplete = Backend::new().table;
@@ -199,7 +192,7 @@ fn device_id_cwt_checks_arguments_before_touching_the_handover() {
             (t, h, 15),
         ] {
             assert_eq!(
-                n20r_issue_device_id_cwt(crypto, k, ptr::null(), 0, handover, size),
+                n20r_issue_device_id_key(crypto, k, handover, size),
                 N20rError::InvalidArgument
             );
         }
@@ -210,10 +203,10 @@ fn device_id_cwt_checks_arguments_before_touching_the_handover() {
 /// A region too small for the certificate is reported and left as a valid,
 /// empty handover.
 #[test]
-fn device_id_cwt_reports_a_too_small_handover() {
+fn device_id_key_reports_a_too_small_handover() {
     let mut r = Region::new();
     let mut b = Backend::new();
-    let rc = unsafe { n20r_issue_device_id_cwt(&b.table, b.cdi, ptr::null(), 0, r.ptr(), 64) };
+    let rc = unsafe { n20r_issue_device_id_key(&b.table, b.cdi, r.ptr(), 32) };
     assert_eq!(b.keys_in_use(), 1, "the attestation key is freed");
     assert_eq!(rc, N20rError::InsufficientBuffer);
     assert_eq!(r.used(), expected_handover(&[]));
@@ -257,7 +250,7 @@ fn device_id_public_key_rejects_null() {
 #[test]
 fn next_stage_cwt_into_a_full_handover_changes_nothing() {
     let mut r = Region::new();
-    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
+    assert_eq!(start_handover(&mut r), N20rError::Ok);
     let used = r.used().len();
 
     #[repr(C, align(8))]
@@ -281,7 +274,7 @@ fn next_stage_cwt_into_a_full_handover_changes_nothing() {
         assert_eq!(rc, N20rError::InsufficientBuffer);
     }
     assert_eq!(b.keys_in_use(), 1);
-    assert_eq!(r.used(), expected_handover(&[&device_id_cert(None)]));
+    assert_eq!(r.used(), expected_handover(&[&device_id_key()]));
     assert!(
         r.0[used..].iter().all(|&b| b == 0),
         "nothing left past the chain"

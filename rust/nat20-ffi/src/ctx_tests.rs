@@ -39,7 +39,7 @@
 
 use super::*;
 use crate::tests::{
-    device_id_cert, expected_handover, start_handover, Backend, Region, CDI, UNTOUCHED,
+    device_id_key, expected_handover, start_handover, Backend, Region, CDI, UNTOUCHED,
 };
 use core::ffi::c_void;
 use core::ptr;
@@ -71,7 +71,7 @@ impl Storage {
 /// Builds a two-certificate handover through the C ABI.
 fn issue_via_ffi(ctx: *mut u8) -> ([u8; 32], Vec<u8>) {
     let mut r = Region::new();
-    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
+    assert_eq!(start_handover(&mut r), N20rError::Ok);
     let mut b = Backend::new();
     let mut next_cdi = UNTOUCHED;
     let rc = unsafe {
@@ -93,7 +93,7 @@ fn issue_via_library(input: &OpenDiceInput) -> ([u8; 32], Vec<u8>) {
     let mut next = [0u8; 32];
     c.export_cdi(&next_cdi, &mut next).unwrap();
     let issued = &cert[cert.len() - n..];
-    (next, expected_handover(&[&device_id_cert(None), issued]))
+    (next, expected_handover(&[&device_id_key(), issued]))
 }
 
 #[test]
@@ -138,7 +138,7 @@ fn an_uninitialised_context_is_rejected() {
         );
     }
     let mut r = Region::new();
-    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
+    assert_eq!(start_handover(&mut r), N20rError::Ok);
     let before = r.0;
     let b = Backend::new();
     let mut next_cdi = UNTOUCHED;
@@ -297,7 +297,7 @@ fn a_failed_next_stage_hands_out_nothing_and_frees_its_keys() {
     let mut s = Storage::new();
     let ctx = s.init();
     let mut r = Region::new();
-    assert_eq!(start_handover(&mut r, None), N20rError::Ok);
+    assert_eq!(start_handover(&mut r), N20rError::Ok);
     let used = r.used().len();
     for size in [0, used + 8] {
         let mut b = Backend::new();
