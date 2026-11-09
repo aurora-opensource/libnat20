@@ -51,7 +51,7 @@ use core::ffi::c_void;
 
 use nat20_rust::{
     n20r_ctx_cleanup, n20r_ctx_init, n20r_device_id_public_key, n20r_encode_cbor_map,
-    n20r_handover_validate, n20r_issue_device_id_cwt, n20r_issue_next_stage_cwt,
+    n20r_handover_validate, n20r_issue_device_id_key, n20r_issue_next_stage_cwt,
     n20r_set_authority_hash, n20r_set_code_descriptor, n20r_set_code_hash,
     n20r_set_configuration_hash, n20r_set_mode, N20rCborMapEntry, N20rCrypto, N20rKey, N20rSlice,
     N20R_CBOR_BYTES, N20R_DICE_CTX_SIZE,
@@ -159,7 +159,7 @@ pub extern "C" fn _start() -> ! {
 
         let mut used = 0usize;
         let _ = n20r_handover_validate(handover, 1024, &mut used);
-        let _ = n20r_issue_device_id_cwt(&crypto, cdi, core::ptr::null(), 0, handover, 1024);
+        let _ = n20r_issue_device_id_key(&crypto, cdi, handover, 1024);
 
         let ctx = core::ptr::addr_of_mut!(CTX) as *mut u8;
         let _ = n20r_ctx_init(ctx, N20R_DICE_CTX_SIZE);
