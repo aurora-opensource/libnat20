@@ -33,10 +33,12 @@ and carry no meaning.
 Each entry is one complete CBOR data item, in chain order (device identity
 first, each later certificate signed by the key of the one before):
 
+- `#6.80152(COSE_Key)` — the device-identity public key, which starts the
+  chain (tag bytes `0xDA 0x00 0x01 0x39 0x18`); only as the first entry;
 - `#6.18(COSE_Sign1)` — a CWT DICE certificate (tag byte `0xD2`), or
 - a tagged byte string holding a DER X.509 certificate.
 
-The library writes only the first kind today.
+The library writes the first two kinds.
 
 ## Rules
 
