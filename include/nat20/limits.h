@@ -35,7 +35,10 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-/** @file Homogeneous Limits definitions for various environments. */
+/**
+ * @file limits.h
+ * @brief Homogeneous Limits definitions for various environments.
+ */
 
 #pragma once
 

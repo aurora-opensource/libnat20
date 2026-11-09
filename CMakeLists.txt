@@ -185,6 +185,9 @@ set(LIBNAT20_DOC_PAGES
     # Add additional input files for doxygen here.
     README.md
     CONTRIBUTING.md
+    examples/linux/README_linux.md
+    examples/linux/nat20crypto/SECURITY.md
+    src/service/DICE_SERVICE.md
 )
 
 set(LIBNAT20_PUB_CRYPTO_BSSL_HEADERS
@@ -686,6 +689,7 @@ if (NAT20_WITH_DOCS)
 
     set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
     set(DOXYGEN_MACRO_EXPANSION YES)
+    set(DOXYGEN_EXTRACT_STATIC YES)
 
     doxygen_add_docs(nat20_docs
         ${LIBNAT20_PUB_HEADERS}

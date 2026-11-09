@@ -60,8 +60,8 @@ extern "C" {
  *
  * The service node state includes a pointer to a crypto context and the minimal CDI
  * that the service node can use to derive other CDIs. The service operations
- * for this implementation are defined in @ref src/service/gnostic.c, and is based
- * on the DICE functionality implemented in @ref src/core/functionality.c.
+ * for this implementation are defined in src/service/gnostic.c, and is based
+ * on the DICE functionality implemented in src/core/functionality.c.
  * The supported operations include CDI promotion, issuing CDI certificates,
  * issuing ECA certificates, issuing ECA end-entity certificates, signing with ECA
  * end-entity keys.
@@ -100,7 +100,7 @@ typedef struct n20_gnostic_node_state_s n20_gnostic_node_state_t;
 /**
  * @brief The service operations for the Gnostic Stateless service implementation.
  *
- * This symbol is defined in @ref src/service/gnostic.c and represents
+ * This symbol is defined in src/service/gnostic.c and represents
  * a fully initialized n20_service_ops_t structure that can be used to
  * implement a service node with the Gnostic Stateless implementation.
  */
