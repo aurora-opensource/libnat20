@@ -51,7 +51,7 @@
  * call; a handover too small to hold another entry is reported as
  * N20R_ERR_INSUFFICIENT_BUFFER. n20r_issue_next_stage_cwt() leaves the
  * handover unchanged on that and every other error; for
- * n20r_issue_device_id_cwt(), which starts a new handover, see there.
+ * n20r_issue_device_id_key(), which starts a new handover, see there.
  *
  * A NULL pointer with a size is an empty buffer, whatever the size.
  *
@@ -295,12 +295,10 @@ n20r_error_t n20r_set_hidden(uint8_t *ctx,
 n20r_error_t n20r_set_mode(uint8_t *ctx, uint8_t mode);
 
 /**
- * Issues the self-signed device-identity CWT from the root CDI and starts a
- * new handover with it.
- *
- * The certificate certifies the device-identity Ed25519 public key (derived
- * deterministically from the CDI) and is signed with that same key. Issuer
- * and subject are both the key's CDI_ID.
+ * Starts a new handover with the device identity: the device-identity
+ * Ed25519 public key (derived deterministically from the root CDI) as a
+ * COSE_Key, under CBOR tag 80152. The next-stage CWT names the key's CDI_ID
+ * as its issuer and is verified with this key.
  *
  * This initialises the handover, discarding anything it held, so call it
  * first. All arguments are checked before the region is touched; once they
@@ -309,15 +307,11 @@ n20r_error_t n20r_set_mode(uint8_t *ctx, uint8_t mode);
  *
  * @param crypto The crypto backend.
  * @param cdi The root CDI, a key of crypto; stays the caller's.
- * @param profile_name Optional profile-name claim (UTF-8, not validated);
- *        NULL or size 0 to omit.
  * @param handover The handover region, 4-byte aligned.
  * @param handover_size Size of the handover region in bytes.
  */
-n20r_error_t n20r_issue_device_id_cwt(n20r_crypto_t const *crypto,
+n20r_error_t n20r_issue_device_id_key(n20r_crypto_t const *crypto,
                                       n20r_key_t cdi,
-                                      uint8_t const *profile_name,
-                                      size_t profile_name_size,
                                       uint8_t *handover,
                                       size_t handover_size);
 
@@ -326,7 +320,7 @@ n20r_error_t n20r_issue_device_id_cwt(n20r_crypto_t const *crypto,
  * issues the next-stage CWT: it contains the open-DICE claims and the
  * next-stage public key, and is signed by the device-identity key. The
  * certificate is appended to the handover, which must already hold the
- * chain up to this stage (see n20r_issue_device_id_cwt()).
+ * chain up to this stage (see n20r_issue_device_id_key()).
  *
  * @param crypto The crypto backend.
  * @param ctx DICE context holding the open-DICE input, prepared by
