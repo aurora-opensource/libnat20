@@ -46,9 +46,9 @@
 //! * Certificates are CWTs wrapped in COSE_Sign1 with byte-identical CBOR
 //!   layout to `n20_issue_certificate` with `n20_certificate_format_cose_e`.
 //!
-//! It extends the C library in one way: self-signed device-identity
-//! certificates can be issued as CWTs (the C library currently rejects COSE
-//! for `n20_cert_type_self_signed_e`).
+//! It departs from the C library in one way: the chain starts with the
+//! device-identity public key as a COSE_Key, not with a self-signed
+//! certificate (the C library rejects COSE for `n20_cert_type_self_signed_e`).
 //!
 //! No allocation, no floating point, and no panics: a panic would cut short
 //! the wiping of secrets (see [`crypto`]).
@@ -85,6 +85,6 @@ pub mod open_dice;
 pub mod stream;
 
 pub use crypto::{Crypto, CryptoError, Digest, KeyKind, MIN_KEY_SLOTS};
-pub use derive::{issue_device_id_cwt, issue_next_stage_cwt, CdiId};
+pub use derive::{issue_device_id_key, issue_next_stage_cwt, CdiId};
 pub use error::Error;
 pub use open_dice::{Mode, OpenDiceInput};
