@@ -1,7 +1,7 @@
 # Code size
 
 Measured on `size-probe`, which links the full FFI surface
-(`n20r_issue_device_id_cwt`, `n20r_issue_next_stage_cwt`,
+(`n20r_issue_device_id_key`, `n20r_issue_next_stage_cwt`,
 `n20r_device_id_public_key`, the context setters, `n20r_handover_validate`
 and `n20r_encode_cbor_map`), built with the pinned toolchain for
 `armv7a-none-eabi`, release profile (`opt-level = "z"`, fat LTO,
@@ -19,9 +19,9 @@ Budget: **40 KB .text**.
 
 | build                                        | .text   |
 |----------------------------------------------|---------|
-| library only                                 |  8696 B |
-| with the built-in backend (`soft-crypto`)    | 30078 B |
-| `soft-crypto`, `verify-after-sign`           | 33342 B |
+| library only                                 |  8260 B |
+| with the built-in backend (`soft-crypto`)    | 29698 B |
+| `soft-crypto`, `verify-after-sign`           | 32962 B |
 
 What the numbers rest on:
 

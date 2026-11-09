@@ -38,8 +38,8 @@
 //! C ABI for the nat20 Rust library, intended for linking into boot firmware.
 //!
 //! See `include/nat20_rust.h` for the C-side contract. The API is
-//! deliberately coarse-grained: the two boot-stage operations (self-signed
-//! device-identity CWT; next-stage CWT + next CDI) plus a public-key helper.
+//! deliberately coarse-grained: the two boot-stage operations (device-identity
+//! COSE_Key; next-stage CWT + next CDI) plus a public-key helper.
 //! No key handles cross the FFI boundary.
 //!
 //! # The DICE context
@@ -95,8 +95,8 @@ use core::mem::{align_of, size_of};
 use core::slice;
 
 use nat20::cbor::{write_bytes, write_header, write_map_header, write_text_bytes, Major};
-use nat20::derive::{attest_public_key, issue_device_id_cwt, issue_next_stage_cwt};
-use nat20::handover::{HandoverHeader, HandoverStruct, TAG_COSE_SIGN1};
+use nat20::derive::{attest_public_key, issue_device_id_key, issue_next_stage_cwt};
+use nat20::handover::{HandoverHeader, HandoverStruct, TAG_COSE_SIGN1, TAG_DEVICE_ID_COSE_KEY};
 use nat20::open_dice::OpenDiceInput;
 use nat20::stream::WStream;
 use nat20::{Crypto as _, Error};
@@ -325,12 +325,13 @@ unsafe fn handover_arg<'b>(raw: *mut u8, raw_size: usize) -> Result<HandoverStru
     HandoverStruct::new(header, content)
 }
 
-/// Issues a certificate into a handover entry: queries its exact size with
-/// `issue(None)`, reserves an entry tagged COSE_Sign1 of that size, writes
+/// Issues a chain entry into the handover: queries its exact size with
+/// `issue(None)`, reserves an entry tagged `tag` of that size, writes
 /// the certificate into it with `issue(Some(entry))`, and commits it. On any
 /// error the handover is left as it was.
 fn issue_into(
     handover: &mut HandoverStruct,
+    tag: &[u8],
     mut issue: impl FnMut(Option<&mut [u8]>) -> Result<usize, Error>,
 ) -> Result<(), Error> {
     let size = match issue(None) {
@@ -339,7 +340,7 @@ fn issue_into(
         // A size query that yields no size: the size contract is broken.
         Ok(_) => return Err(Error::CertificateSizeMismatch),
     };
-    let mut entry = handover.reserve_entry(size, Some(TAG_COSE_SIGN1))?;
+    let mut entry = handover.reserve_entry(size, Some(tag))?;
     let written = issue(Some(&mut entry))?;
     // The certificate is written backward from the end of the buffer, so a
     // short one would leave a gap at the front of the entry.
@@ -350,8 +351,8 @@ fn issue_into(
     Ok(())
 }
 
-/// Issues the self-signed device-identity CWT from the root CDI, a key of
-/// `crypto`, and appends it to the handover.
+/// Starts the chain with the device identity: the attestation public key
+/// of the root CDI, a key of `crypto`, as a COSE_Key under tag 80152.
 ///
 /// This **initialises** the handover, discarding anything already in it, so
 /// it must be called first; [`n20r_issue_next_stage_cwt`] then appends to the
@@ -365,11 +366,9 @@ fn issue_into(
 /// `nat20_rust.h`, and `cdi` a key of it. Pointer/size arguments must
 /// satisfy the contract in `nat20_rust.h`.
 #[no_mangle]
-pub unsafe extern "C" fn n20r_issue_device_id_cwt(
+pub unsafe extern "C" fn n20r_issue_device_id_key(
     crypto: *const N20rCrypto,
     cdi: N20rKey,
-    profile_name: *const u8,
-    profile_name_size: usize,
     handover: *mut u8,
     handover_size: usize,
 ) -> N20rError {
@@ -382,19 +381,14 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
         // SAFETY: the caller guarantees `crypto` is null or a valid table.
         let mut crypto = CCrypto::from_raw(crypto)?;
         let root_cdi = CKey(cdi);
-        // SAFETY: the caller guarantees `profile_name` is null or points to
-        // `profile_name_size` readable bytes for the duration of the call.
-        // Empty omits the claim.
-        let profile = slice_arg(profile_name, profile_name_size);
-        let profile = (!profile.is_empty()).then_some(profile);
         // SAFETY: the caller guarantees `handover`/`handover_size` describe a
         // writable region that nothing else accesses during the call, which
         // is what `handover_arg` requires; the struct does not outlive it.
         let mut handover = handover_arg(handover, handover_size)?;
 
         handover.init()?;
-        issue_into(&mut handover, |buf| {
-            issue_device_id_cwt(&mut crypto, &root_cdi, profile, buf)
+        issue_into(&mut handover, TAG_DEVICE_ID_COSE_KEY, |buf| {
+            issue_device_id_key(&mut crypto, &root_cdi, buf)
         })
     })())
 }
@@ -403,13 +397,13 @@ pub unsafe extern "C" fn n20r_issue_device_id_cwt(
 /// device-identity key, appending it to the handover.
 ///
 /// The certificate carries the open-DICE claims held in `ctx`. The handover
-/// must already hold the chain (see [`n20r_issue_device_id_cwt`]). On
+/// must already hold the chain (see [`n20r_issue_device_id_key`]). On
 /// success `*next_cdi_out` is the next CDI, a key of `crypto` that the
 /// caller owns and frees; on error it is unchanged and every key the call
 /// derived is freed. `cdi` stays the caller's.
 ///
 /// # Safety
-/// `crypto` and `cdi` as for [`n20r_issue_device_id_cwt`]. `ctx` must be a
+/// `crypto` and `cdi` as for [`n20r_issue_device_id_key`]. `ctx` must be a
 /// context prepared by [`n20r_ctx_init`], and every buffer registered in it
 /// must still satisfy the contract documented on the setters. The other
 /// pointer/size arguments must satisfy the contract in `nat20_rust.h`.
@@ -426,13 +420,13 @@ pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
         if next_cdi_out.is_null() {
             return Err(Error::InvalidArgument);
         }
-        // SAFETY: as in `n20r_issue_device_id_cwt`.
+        // SAFETY: as in `n20r_issue_device_id_key`.
         let mut crypto = CCrypto::from_raw(crypto)?;
         let root_cdi = CKey(cdi);
         // SAFETY: the caller guarantees `ctx` is a context prepared by
         // `n20r_ctx_init`.
         let ctx = DiceCtx::from_raw(ctx)?;
-        // SAFETY: as in `n20r_issue_device_id_cwt`.
+        // SAFETY: as in `n20r_issue_device_id_key`.
         let mut handover = handover_arg(handover, handover_size)?;
         // SAFETY: every buffer registered in the context must still be valid
         // and unmodified — the setters' contract, inherited here. The borrows
@@ -450,7 +444,7 @@ pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
         };
         // The size query derives no key; the real issue hands one back.
         let mut next_cdi = None;
-        let result = issue_into(&mut handover, |buf| {
+        let result = issue_into(&mut handover, TAG_COSE_SIGN1, |buf| {
             let (n, key) = issue_next_stage_cwt(&mut crypto, &root_cdi, &dice_input, buf)?;
             next_cdi = Some(key);
             Ok(n)
@@ -476,7 +470,7 @@ pub unsafe extern "C" fn n20r_issue_next_stage_cwt(
 /// `crypto` (e.g. for provisioning).
 ///
 /// # Safety
-/// `crypto` and `cdi` as for [`n20r_issue_device_id_cwt`];
+/// `crypto` and `cdi` as for [`n20r_issue_device_id_key`];
 /// `public_key_out` must be null (rejected) or point to 32 writable bytes.
 #[no_mangle]
 pub unsafe extern "C" fn n20r_device_id_public_key(
@@ -488,7 +482,7 @@ pub unsafe extern "C" fn n20r_device_id_public_key(
         if public_key_out.is_null() {
             return Err(Error::InvalidArgument);
         }
-        // SAFETY: as in `n20r_issue_device_id_cwt`.
+        // SAFETY: as in `n20r_issue_device_id_key`.
         let mut crypto = CCrypto::from_raw(crypto)?;
         // SAFETY: null was rejected above, and the caller guarantees 32
         // writable bytes; `[u8; 32]` has alignment 1.
