@@ -105,7 +105,7 @@ static n20r_key_t issue(n20r_crypto_t const *crypto,
     memset(config_hash, 0x22, sizeof(config_hash));
     memset(authority_hash, 0x33, sizeof(authority_hash));
     memset(hidden, 0x44, sizeof(hidden));
-    if (n20r_issue_device_id_cwt(crypto, root, NULL, 0, handover, size) != N20R_OK) return NULL;
+    if (n20r_issue_device_id_key(crypto, root, handover, size) != N20R_OK) return NULL;
     if (n20r_ctx_init(ctx, sizeof(ctx)) ||
         n20r_set_code_hash(ctx, code_hash, sizeof(code_hash), NULL) ||
         n20r_set_code_descriptor(
