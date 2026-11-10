@@ -42,7 +42,7 @@
 //! touched below this frame may be left non-zero. Never part of a firmware
 //! build.
 
-use nat20::crypto::soft::SoftCrypto;
+use nat20::crypto::soft::{KeySlots, SoftCrypto};
 use nat20::{Crypto, Digest, Error, KeyKind};
 
 use crate::{status, N20rError};
@@ -55,7 +55,7 @@ const OP_SIGN: u32 = 3;
 
 /// The backend's storage: static, so that its key slots are not counted as
 /// stack residue.
-static mut BACKEND: SoftCrypto<3> = SoftCrypto::new();
+static mut SLOTS: KeySlots<3> = KeySlots::new();
 
 /// Runs backend operation `op` with the 32 secret bytes at `secret` as the
 /// CDI and writes up to 64 bytes of its result to `out`.
@@ -86,8 +86,9 @@ pub unsafe extern "C" fn n20r_probe_backend_op(
             .ok_or(Error::InvalidArgument)?;
         // SAFETY: the probe is single-threaded and calls one operation at a
         // time, so nothing else accesses the storage meanwhile.
-        let crypto = &mut *core::ptr::addr_of_mut!(BACKEND);
-        *crypto = SoftCrypto::new();
+        let slots = &mut *core::ptr::addr_of_mut!(SLOTS);
+        *slots = KeySlots::new();
+        let mut crypto = SoftCrypto::new(slots);
         let cdi = crypto.import_cdi(cdi_bytes)?;
         let message: &[u8] = b"nat20 stack probe";
         let context: [&[u8]; 1] = [b"stack probe"];

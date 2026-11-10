@@ -47,7 +47,7 @@ use core::ffi::c_void;
 use core::mem::{align_of, size_of};
 use core::slice;
 
-use nat20::crypto::soft::{SoftCrypto, SoftKey};
+use nat20::crypto::soft::{KeySlots, SoftCrypto, SoftKey};
 use nat20::{Crypto, CryptoError, Digest, Error, KeyKind, MIN_KEY_SLOTS};
 
 use crate::crypto::{N20rCrypto, N20rKey, N20rSlice};
@@ -63,17 +63,18 @@ const MAGIC: u64 = 0x6e32_3072_736f_6674; // "n20rsoft"
 #[repr(C)]
 struct Storage {
     magic: u64,
-    crypto: SoftCrypto<MIN_KEY_SLOTS>,
+    slots: KeySlots<MIN_KEY_SLOTS>,
 }
 
 const _: () = assert!(size_of::<Storage>() <= N20R_SOFT_CRYPTO_SIZE);
 
-/// The backend in initialised storage.
+/// The key slots in initialised storage. They stay where the caller put
+/// them, so the keys are never moved.
 ///
 /// # Safety
 /// `storage` must be null (rejected) or point to `N20R_SOFT_CRYPTO_SIZE`
 /// bytes that nothing else accesses for `'a`.
-unsafe fn backend<'a>(storage: *mut c_void) -> Result<&'a mut SoftCrypto, Error> {
+unsafe fn slots<'a>(storage: *mut c_void) -> Result<&'a mut KeySlots, Error> {
     let storage = storage.cast::<Storage>();
     if storage.is_null() || !(storage as usize).is_multiple_of(align_of::<Storage>()) {
         return Err(Error::InvalidArgument);
@@ -85,14 +86,22 @@ unsafe fn backend<'a>(storage: *mut c_void) -> Result<&'a mut SoftCrypto, Error>
     }
     // SAFETY: the stamp is only written by n20r_soft_crypto_init, after a
     // valid backend; nothing else accesses the storage for 'a.
-    Ok(&mut (*storage).crypto)
+    Ok(&mut (*storage).slots)
+}
+
+/// The backend on the key slots in initialised storage.
+///
+/// # Safety
+/// As for [`slots`].
+unsafe fn backend<'a>(storage: *mut c_void) -> Result<SoftCrypto<'a>, Error> {
+    slots(storage).map(SoftCrypto::new)
 }
 
 fn handle(key: SoftKey) -> N20rKey {
     (key.index() + 1) as N20rKey
 }
 
-fn soft_key(key: N20rKey) -> SoftKey {
+fn soft_key<'a>(key: N20rKey) -> SoftKey<'a> {
     SoftKey::from_index((key as usize).wrapping_sub(1))
 }
 
@@ -148,7 +157,7 @@ unsafe extern "C" fn soft_sha512(
     // SAFETY: the table contract: `ctx` is this backend's storage, `list`
     // a gather list and `digest` 64 writable bytes.
     rc((|| {
-        let c = backend(ctx).map_err(|_| CryptoError::InvalidInput)?;
+        let mut c = backend(ctx).map_err(|_| CryptoError::InvalidInput)?;
         let list = parts(list, count)?;
         let digest = digest
             .cast::<[u8; 64]>()
@@ -168,7 +177,7 @@ unsafe extern "C" fn soft_kdf(
 ) -> i32 {
     // SAFETY: the table contract, as in soft_sha512; `key_out` is writable.
     rc((|| {
-        let c = backend(ctx).map_err(|_| CryptoError::InvalidInput)?;
+        let mut c = backend(ctx).map_err(|_| CryptoError::InvalidInput)?;
         let kind = match kind {
             0 => KeyKind::Cdi,
             1 => KeyKind::Ed25519,
@@ -185,7 +194,7 @@ unsafe extern "C" fn soft_kdf(
 unsafe extern "C" fn soft_public_key(ctx: *mut c_void, key: N20rKey, public_key: *mut u8) -> i32 {
     // SAFETY: the table contract; `public_key` is 32 writable bytes.
     rc((|| {
-        let c = backend(ctx).map_err(|_| CryptoError::InvalidInput)?;
+        let mut c = backend(ctx).map_err(|_| CryptoError::InvalidInput)?;
         let out = public_key
             .cast::<[u8; 32]>()
             .as_mut()
@@ -204,7 +213,7 @@ unsafe extern "C" fn soft_sign(
     // SAFETY: the table contract; `message` is `message_size` readable
     // bytes and `signature` 64 writable ones.
     rc((|| {
-        let c = backend(ctx).map_err(|_| CryptoError::InvalidInput)?;
+        let mut c = backend(ctx).map_err(|_| CryptoError::InvalidInput)?;
         let message = bytes(&N20rSlice {
             data: message,
             size: message_size,
@@ -219,7 +228,7 @@ unsafe extern "C" fn soft_sign(
 
 unsafe extern "C" fn soft_key_free(ctx: *mut c_void, key: N20rKey) {
     // SAFETY: the table contract.
-    if let Ok(c) = backend(ctx) {
+    if let Ok(mut c) = backend(ctx) {
         c.key_free(soft_key(key));
     }
 }
@@ -251,7 +260,7 @@ pub unsafe extern "C" fn n20r_soft_crypto_init(
         // initialises without reading or dropping the old contents.
         s.write(Storage {
             magic: MAGIC,
-            crypto: SoftCrypto::new(),
+            slots: KeySlots::new(),
         });
         // SAFETY: non-null, and the caller guarantees it is writable.
         crypto_out.write(N20rCrypto {
@@ -280,7 +289,7 @@ pub unsafe extern "C" fn n20r_soft_crypto_import_cdi(
 ) -> N20rError {
     status((|| {
         // SAFETY: as documented above.
-        let c = backend(storage.cast())?;
+        let mut c = backend(storage.cast())?;
         let cdi = cdi
             .cast::<[u8; 32]>()
             .as_ref()
@@ -305,7 +314,7 @@ pub unsafe extern "C" fn n20r_soft_crypto_export_cdi(
 ) -> N20rError {
     status((|| {
         // SAFETY: as documented above.
-        let c = backend(storage.cast())?;
+        let mut c = backend(storage.cast())?;
         let out = cdi_out
             .cast::<[u8; 32]>()
             .as_mut()
@@ -323,8 +332,8 @@ pub unsafe extern "C" fn n20r_soft_crypto_export_cdi(
 pub unsafe extern "C" fn n20r_soft_crypto_cleanup(storage: *mut u8) -> N20rError {
     status((|| {
         // SAFETY: as documented above.
-        let c = backend(storage.cast())?;
-        *c = SoftCrypto::new();
+        // Dropping the old slots wipes them.
+        *slots(storage.cast())? = KeySlots::new();
         // SAFETY: `backend` checked the storage is initialised and aligned.
         core::ptr::addr_of_mut!((*storage.cast::<Storage>()).magic).write(0);
         Ok(())
@@ -338,5 +347,5 @@ pub unsafe extern "C" fn n20r_soft_crypto_cleanup(storage: *mut u8) -> N20rError
 #[cfg(test)]
 pub(crate) unsafe fn keys_in_use(storage: *mut u8) -> usize {
     // SAFETY: as documented above.
-    backend(storage.cast()).map_or(0, |c| c.keys_in_use())
+    slots(storage.cast()).map_or(0, |s| s.keys_in_use())
 }
