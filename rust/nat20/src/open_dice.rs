@@ -81,7 +81,10 @@ pub struct OpenDiceInput<'a> {
     /// Profile name claim; empty omits it. Should be UTF-8; written verbatim
     /// without validation (see [`crate::cbor::write_text_bytes`]).
     pub profile_name: &'a [u8],
-    /// Additional secret input to the CDI derivation (never certified).
+    /// Additional input to the CDI derivation that is never certified, as
+    /// in C libnat20 (device state). It is not treated as secret: it and
+    /// the input digest it feeds may be left in memory. A secret belongs in
+    /// the CDI, through the key derivation.
     pub hidden: &'a [u8],
 }
 
