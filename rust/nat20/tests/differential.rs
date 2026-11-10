@@ -49,7 +49,7 @@
 // backend, still builds and runs the other tests.
 #![cfg(feature = "soft-crypto")]
 
-use nat20::crypto::soft::SoftCrypto;
+use nat20::crypto::soft::{KeySlots, SoftCrypto};
 use nat20::{issue_next_stage_cwt, Error, Mode, OpenDiceInput};
 
 const C_GOLDEN_CERT_HEX: &str = concat!(
@@ -68,7 +68,8 @@ const C_GOLDEN_CERT_HEX: &str = concat!(
 
 #[test]
 fn next_stage_cwt_matches_c_libnat20_byte_for_byte() {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&[0x42; 32]).unwrap();
     let input = OpenDiceInput {
         code_hash: &[0x11; 64],

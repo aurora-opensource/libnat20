@@ -45,7 +45,7 @@
 
 use ciborium::value::Value;
 use ed25519_dalek::{Signature, VerifyingKey};
-use nat20::crypto::soft::SoftCrypto;
+use nat20::crypto::soft::{KeySlots, SoftCrypto};
 use nat20::derive::{attest_public_key, cdi_id};
 use nat20::{issue_device_id_cwt, issue_next_stage_cwt, Crypto, Error, Mode, OpenDiceInput};
 
@@ -66,7 +66,8 @@ fn test_input() -> OpenDiceInput<'static> {
 }
 
 fn issue_device_id(profile: Option<&[u8]>) -> Vec<u8> {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let Err(Error::InsufficientBuffer { required }) =
         issue_device_id_cwt(&mut c, &cdi, profile, None)
@@ -86,7 +87,8 @@ fn issue_next_stage() -> ([u8; 32], Vec<u8>) {
 /// Issues the next-stage CWT; returns the next CDI's bytes and the
 /// certificate.
 fn issue_next_stage_with(input: &OpenDiceInput) -> ([u8; 32], Vec<u8>) {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let Err(Error::InsufficientBuffer { required }) =
         issue_next_stage_cwt(&mut c, &cdi, input, None)
@@ -186,7 +188,8 @@ fn cose_key_x(subject_public_key: &Value) -> Vec<u8> {
 }
 
 fn expected_device_id_hex() -> (String, [u8; 32]) {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let mut pk = [0u8; 32];
     attest_public_key(&mut c, &cdi, &mut pk).unwrap();
@@ -297,7 +300,8 @@ fn next_stage_cwt_carries_measurements_and_verifies_against_device_id() {
     // CDI_ID.
     let subject_pk = cose_key_x(claim(&pairs, -4670552).unwrap());
     assert_ne!(subject_pk, device_pk);
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let expected_subject_id = cdi_id(&mut c, subject_pk.as_slice().try_into().unwrap()).unwrap();
     assert_eq!(subject_hex, &hex::encode(expected_subject_id));
 
@@ -347,7 +351,8 @@ fn next_stage_derivation_is_deterministic_and_input_sensitive() {
 
 #[test]
 fn too_small_buffer_reports_exact_size() {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let Err(Error::InsufficientBuffer { required }) = issue_device_id_cwt(&mut c, &cdi, None, None)
     else {
@@ -370,7 +375,8 @@ fn too_small_buffer_reports_exact_size() {
 /// back.
 #[test]
 fn three_key_slots_are_enough_and_no_key_leaks() {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let mut buf = vec![0u8; 1024];
     issue_device_id_cwt(&mut c, &cdi, None, Some(&mut buf)).unwrap();
@@ -393,7 +399,8 @@ fn three_key_slots_are_enough_and_no_key_leaks() {
 /// failure leaks nothing either.
 #[test]
 fn two_key_slots_are_not_enough() {
-    let mut c = SoftCrypto::<2>::new();
+    let mut slots = KeySlots::<2>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let mut buf = vec![0u8; 1024];
     assert!(matches!(

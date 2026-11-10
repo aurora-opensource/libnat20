@@ -120,7 +120,8 @@ pub enum KeyKind {
 /// SHA-512 over a gather list.
 pub trait Digest {
     /// Computes SHA-512 over the concatenation of `parts`, which are
-    /// public.
+    /// public: the library digests only certificates, public keys and the
+    /// open-DICE input, whose `hidden` is not secret either.
     fn sha512(
         &mut self,
         parts: &mut dyn Iterator<Item = &[u8]>,
