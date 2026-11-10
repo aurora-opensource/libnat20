@@ -43,7 +43,7 @@
 #![cfg(feature = "soft-crypto")]
 
 use ed25519_dalek::SigningKey;
-use nat20::crypto::soft::SoftCrypto;
+use nat20::crypto::soft::{KeySlots, SoftCrypto};
 use nat20::crypto::{hkdf_expand_sha512, hkdf_sha512, with_key};
 use nat20::derive::{attest_key, cdi_id, compress_input, next_cdi_attest};
 use nat20::{Crypto, Mode, OpenDiceInput};
@@ -98,7 +98,8 @@ fn test_input() -> OpenDiceInput<'static> {
 
 #[test]
 fn compress_input_matches_vector() {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let digest = compress_input(&mut c, &test_input()).unwrap();
     assert_eq!(digest, VEC_INPUT_DIGEST);
 }
@@ -106,7 +107,8 @@ fn compress_input_matches_vector() {
 #[test]
 fn compress_input_prefers_configuration_hash() {
     // With a configuration hash present, the descriptor must be ignored.
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let mut with_hash = test_input();
     with_hash.configuration_hash = &[0xc1; 64];
     with_hash.configuration_descriptor = &[0xde; 64];
@@ -121,7 +123,8 @@ fn compress_input_prefers_configuration_hash() {
 
 #[test]
 fn next_cdi_matches_vector() {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&VEC_CDI).unwrap();
     let next = next_cdi_attest(&mut c, &cdi, &VEC_INPUT_DIGEST).unwrap();
     let mut bytes = [0u8; 32];
@@ -133,7 +136,8 @@ fn next_cdi_matches_vector() {
 fn attest_key_matches_vector() {
     // The seed stays in the backend, so compare what it determines: the
     // public key.
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&VEC_CDI).unwrap();
     let key = attest_key(&mut c, &cdi).unwrap();
     let mut public_key = [0u8; 32];
@@ -144,7 +148,8 @@ fn attest_key_matches_vector() {
 
 #[test]
 fn cdi_id_matches_vector_and_masks_high_bit() {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let id = cdi_id(&mut c, &VEC_PUBKEY).unwrap();
     assert_eq!(id, VEC_CDI_ID);
     assert!(id[0] & 0x80 == 0);
@@ -152,7 +157,8 @@ fn cdi_id_matches_vector_and_masks_high_bit() {
 
 #[test]
 fn hkdf_expand_multi_block() {
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let mut okm = [0u8; 100];
     hkdf_expand_sha512(&mut c, &VEC_CDI, &[b"multi-block-test"], &mut okm).unwrap();
     assert_eq!(okm, VEC_LONG_OKM);
@@ -161,7 +167,8 @@ fn hkdf_expand_multi_block() {
 #[test]
 fn hkdf_rfc5869_shape() {
     // Cross-check full HKDF against expand-of-extract computed separately.
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let mut direct = [0u8; 20];
     hkdf_sha512(
         &mut c,
@@ -179,7 +186,8 @@ fn hkdf_rfc5869_shape() {
 #[test]
 fn info_gather_list_is_concatenation() {
     // Splitting the info across gather parts must not change the result.
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let mut a = [0u8; 32];
     let mut b = [0u8; 32];
     hkdf_expand_sha512(&mut c, &VEC_CDI, &[b"multi-", b"block-test"], &mut a).unwrap();
@@ -193,7 +201,8 @@ fn info_gather_list_has_no_part_limit() {
     // allowed, and spanning several output blocks.
     let info = b"multi-block-test";
     let parts: Vec<&[u8]> = info.chunks(1).collect();
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let mut a = [0u8; 200];
     let mut b = [0u8; 200];
     hkdf_expand_sha512(&mut c, &VEC_CDI, &parts, &mut a).unwrap();
