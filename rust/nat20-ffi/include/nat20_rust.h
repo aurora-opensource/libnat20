@@ -398,8 +398,8 @@ n20r_error_t n20r_encode_cbor_map(n20r_cbor_map_entry_t const *entries,
                                   size_t *size);
 
 /**
- * Writes the 32-byte device-identity Ed25519 public key for the root CDI cdi,
- * a key of crypto (e.g. for provisioning or out-of-band trust
+ * Writes the 32-byte device-identity Ed25519 public key for the root CDI `cdi`,
+ * a key of crypto backend `crypto` (e.g. for provisioning or out-of-band trust
  * establishment).
  */
 n20r_error_t n20r_device_id_public_key(n20r_crypto_t const *crypto,
