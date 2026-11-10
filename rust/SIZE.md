@@ -20,8 +20,8 @@ Budget: **40 KB .text**.
 | build                                        | .text   |
 |----------------------------------------------|---------|
 | library only                                 |  8260 B |
-| with the built-in backend (`soft-crypto`)    | 29698 B |
-| `soft-crypto`, `verify-after-sign`           | 32962 B |
+| with the built-in backend (`soft-crypto`)    | 29742 B |
+| `soft-crypto`, `verify-after-sign`           | 33006 B |
 
 ## No reachable panic
 
