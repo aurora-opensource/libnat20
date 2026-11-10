@@ -35,7 +35,16 @@
 
 [workspace]
 resolver = "2"
-members = ["nat20"]
+members = ["nat20", "nat20-ffi"]
+# nat20-ffi is a bare-metal artifact; build it for a bare-metal target
+# such as armv7a-none-eabi (it provides no host panic handler).
+default-members = ["nat20"]
+
+# nat20-ffi is no_std even on the host, so dev builds must not require
+# unwinding. (Cargo ignores this for test/bench profiles.)
+[profile.dev]
+panic = "abort"
+
 [profile.release]
 opt-level = "z"
 lto = "fat"
