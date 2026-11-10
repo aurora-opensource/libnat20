@@ -1,0 +1,74 @@
+# Code size
+
+Measured on `size-probe`, which links the full FFI surface
+(`n20r_issue_device_id_key`, `n20r_issue_next_stage_cwt`,
+`n20r_device_id_public_key`, the context setters, `n20r_handover_validate`
+and `n20r_encode_cbor_map`), built with the pinned toolchain for
+`armv7a-none-eabi`, release profile (`opt-level = "z"`, fat LTO,
+`panic = "abort"`). Without features it hands the library a crypto table
+that computes nothing, so the size is the library's own; the firmware adds
+its crypto backend. `soft-crypto` adds the built-in backend instead:
+
+```
+cargo build --release --target armv7a-none-eabi -p size-probe
+cargo build --release --target armv7a-none-eabi -p size-probe --features soft-crypto
+llvm-size target/armv7a-none-eabi/release/size-probe
+```
+
+Budget: **40 KB .text**.
+
+| build                                        | .text   |
+|----------------------------------------------|---------|
+| library only                                 |  8260 B |
+| with the built-in backend (`soft-crypto`)    | 29742 B |
+| `soft-crypto`, `verify-after-sign`           | 33006 B |
+
+What the numbers rest on:
+
+- **Thumb-2** (`.cargo/config.toml`): about 15–20% smaller than ARM mode.
+  The constant-time spot-check was done on the Thumb disassembly: the
+  curve and scalar secret paths are branch-free, and all `it` blocks sit in
+  public-data encoder and FFI code.
+- **Compact SHA-512**: the `sha2` feature `force-soft-compact` selects the
+  loop-based compression function, about 15 KB smaller than the default
+  unrolled one on 32-bit Arm.
+- **The crypto backend**: most of the built-in backend's size is
+  curve25519-dalek and sha2, unrolled for speed. A backend written for
+  size is much smaller: one over Monocypher measured about 8 KB less.
+
+Experiments that did **not** pay off (don't re-try without new evidence):
+`#[inline(never)]` on the CBOR writers (±0 — they were already outlined);
+a data-driven `CborType` enum + interpreter for the CWT/COSE maps (+364 B —
+building the description array costs more than the direct call sequence);
+`+hwdiv,+hwdiv-arm` for Cortex-A7 (+2 KB — unknown-to-rustc features block
+inlining against prebuilt core, and the library has no runtime division).
+
+## Per-crate attribution
+
+From `llvm-nm --print-size` on an unstripped build
+(`--config 'profile.release.strip="none"'`), .text symbols grouped by crate
+namespace. Caveat: fat LTO attributes inlined callee code to the caller, so
+e.g. "nat20 (lib)" includes hmac/sha2 code inlined into the backend's
+bodies; treat the split as approximate.
+
+| bytes | share | crate |
+|-------|-------|-------|
+| 12066 | 46.3% | curve25519-dalek (serial u32 backend) |
+|  5030 | 19.3% | nat20 (lib) |
+|  2740 | 10.5% | compiler-builtins (memcpy/memmove/udiv...; prebuilt, stays ARM-mode) |
+|  2152 |  8.3% | ed25519-dalek |
+|   970 |  3.7% | sha2 (compact compress) |
+|   966 |  3.7% | core (slice indexing, prebuilt) |
+|   946 |  3.6% | hmac/digest/block-buffer |
+|   942 |  3.6% | nat20-ffi |
+|   148 |  0.6% | size-probe harness |
+|    78 |  0.3% | zeroize + subtle |
+| 26044 |  100% | attributed; remainder of the 28924 B .text is padding/literal pools |
+
+(Measured on the soft backend's Thumb-2 build of an earlier revision,
+28 924 B; the proportions are indicative, re-measure before relying on the
+exact figures.)
+
+Further squeezes if ever needed: nightly `-Zbuild-std=core` with
+`-Zbuild-std-features=panic_immediate_abort` (drops residual `core::fmt`
+panic machinery), `opt_size`-style trimming of the probe itself.
