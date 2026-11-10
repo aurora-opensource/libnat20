@@ -246,6 +246,7 @@ n20r_error_t n20r_soft_crypto_cleanup(uint8_t *storage);
  *    length). It is written verbatim as a CBOR text string and not
  *    validated, as in C libnat20.
  *  - hidden feeds the CDI derivation but never appears in the certificate.
+ *    It is not treated as secret and may be left in memory.
  */
 #define N20R_DICE_CTX_SIZE 256
 

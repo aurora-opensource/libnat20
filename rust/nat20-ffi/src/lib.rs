@@ -254,8 +254,8 @@ buffer_setter!(
     n20r_set_profile_name => profile_name
 );
 buffer_setter!(
-    /// Sets the hidden input: a secret mixed into the next-stage CDI
-    /// derivation without appearing in the certificate.
+    /// Sets the hidden input: mixed into the next-stage CDI derivation
+    /// without appearing in the certificate, but not treated as secret.
     n20r_set_hidden => hidden
 );
 

@@ -39,7 +39,7 @@
 
 use super::*;
 use core::ptr;
-use nat20::crypto::soft::SoftCrypto;
+use nat20::crypto::soft::{KeySlots, SoftCrypto};
 
 pub(crate) const CDI: [u8; 32] = [0x11; 32];
 
@@ -145,7 +145,8 @@ pub(crate) fn expected_handover(entries: &[&[u8]]) -> Vec<u8> {
 /// The device-identity COSE_Key, issued by the library directly.
 pub(crate) fn device_id_key() -> Vec<u8> {
     let mut buf = vec![0u8; 1024];
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let n = issue_device_id_key(&mut c, &cdi, Some(&mut buf)).unwrap();
     buf[buf.len() - n..].to_vec()
@@ -222,7 +223,9 @@ fn device_id_public_key_matches_the_library() {
     );
     assert_eq!(b.keys_in_use(), 1);
 
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let mut expected = [0u8; 32];
     attest_public_key(&mut c, &cdi, &mut expected).unwrap();
