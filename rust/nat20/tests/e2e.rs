@@ -45,10 +45,9 @@
 
 use ciborium::value::Value;
 use ed25519_dalek::{Signature, VerifyingKey};
-use nat20::crypto::soft::SoftCrypto;
-use nat20::crypto::Seed32;
-use nat20::derive::{attest_key_seed, cdi_id, CdiSecret};
-use nat20::{issue_device_id_cwt, issue_next_stage_cwt, Ed25519Signer, Error, Mode, OpenDiceInput};
+use nat20::crypto::soft::{KeySlots, SoftCrypto};
+use nat20::derive::{attest_public_key, cdi_id};
+use nat20::{issue_device_id_cwt, issue_next_stage_cwt, Crypto, Error, Mode, OpenDiceInput};
 
 const CDI: [u8; 32] = [0x42; 32];
 
@@ -67,8 +66,9 @@ fn test_input() -> OpenDiceInput<'static> {
 }
 
 fn issue_device_id(profile: Option<&[u8]>) -> Vec<u8> {
-    let mut c = SoftCrypto;
-    let cdi = CdiSecret::from_bytes(CDI);
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
+    let cdi = c.import_cdi(&CDI).unwrap();
     let Err(Error::InsufficientBuffer { required }) =
         issue_device_id_cwt(&mut c, &cdi, profile, None)
     else {
@@ -80,23 +80,27 @@ fn issue_device_id(profile: Option<&[u8]>) -> Vec<u8> {
     buf[buf.len() - n..].to_vec()
 }
 
-fn issue_next_stage() -> (CdiSecret, Vec<u8>) {
+fn issue_next_stage() -> ([u8; 32], Vec<u8>) {
     issue_next_stage_with(&test_input())
 }
 
-fn issue_next_stage_with(input: &OpenDiceInput) -> (CdiSecret, Vec<u8>) {
-    let mut c = SoftCrypto;
-    let cdi = CdiSecret::from_bytes(CDI);
+/// Issues the next-stage CWT; returns the next CDI's bytes and the
+/// certificate.
+fn issue_next_stage_with(input: &OpenDiceInput) -> ([u8; 32], Vec<u8>) {
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
+    let cdi = c.import_cdi(&CDI).unwrap();
     let Err(Error::InsufficientBuffer { required }) =
-        issue_next_stage_cwt(&mut c, &cdi, input, &mut CdiSecret::default(), None)
+        issue_next_stage_cwt(&mut c, &cdi, input, None)
     else {
         panic!("size query must return InsufficientBuffer");
     };
     let mut buf = vec![0u8; required];
-    let mut next_cdi = CdiSecret::default();
-    let n = issue_next_stage_cwt(&mut c, &cdi, input, &mut next_cdi, Some(&mut buf)).unwrap();
+    let (n, next_cdi) = issue_next_stage_cwt(&mut c, &cdi, input, Some(&mut buf)).unwrap();
     assert_eq!(n, required, "size query must be exact");
-    (next_cdi, buf[buf.len() - n..].to_vec())
+    let mut next = [0u8; 32];
+    c.export_cdi(&next_cdi, &mut next).unwrap();
+    (next, buf[buf.len() - n..].to_vec())
 }
 
 /// Decodes a COSE_Sign1, returning (protected bytes, payload bytes,
@@ -184,12 +188,11 @@ fn cose_key_x(subject_public_key: &Value) -> Vec<u8> {
 }
 
 fn expected_device_id_hex() -> (String, [u8; 32]) {
-    let mut c = SoftCrypto;
-    let cdi = CdiSecret::from_bytes(CDI);
-    let mut seed = Seed32::default();
-    attest_key_seed(&mut c, &cdi, &mut seed).unwrap();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
+    let cdi = c.import_cdi(&CDI).unwrap();
     let mut pk = [0u8; 32];
-    c.public_key(&seed, &mut pk).unwrap();
+    attest_public_key(&mut c, &cdi, &mut pk).unwrap();
     let id = cdi_id(&mut c, &pk).unwrap();
     (hex::encode(id), pk)
 }
@@ -297,7 +300,8 @@ fn next_stage_cwt_carries_measurements_and_verifies_against_device_id() {
     // CDI_ID.
     let subject_pk = cose_key_x(claim(&pairs, -4670552).unwrap());
     assert_ne!(subject_pk, device_pk);
-    let mut c = SoftCrypto;
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let expected_subject_id = cdi_id(&mut c, subject_pk.as_slice().try_into().unwrap()).unwrap();
     assert_eq!(subject_hex, &hex::encode(expected_subject_id));
 
@@ -334,24 +338,22 @@ fn a_large_certificate_is_signed() {
 fn next_stage_derivation_is_deterministic_and_input_sensitive() {
     let (next_a, cert_a) = issue_next_stage();
     let (next_b, cert_b) = issue_next_stage();
-    assert_eq!(next_a.as_bytes(), next_b.as_bytes());
+    assert_eq!(next_a, next_b);
     assert_eq!(cert_a, cert_b);
 
     // A different measurement changes the derived CDI and the cert.
-    let mut c = SoftCrypto;
-    let cdi = CdiSecret::from_bytes(CDI);
     let mut input = test_input();
     input.code_hash = &[0x12; 64];
-    let mut buf = vec![0u8; 1024];
-    let mut next_c = CdiSecret::default();
-    issue_next_stage_cwt(&mut c, &cdi, &input, &mut next_c, Some(&mut buf)).unwrap();
-    assert_ne!(next_a.as_bytes(), next_c.as_bytes());
+    let (next_c, cert_c) = issue_next_stage_with(&input);
+    assert_ne!(next_a, next_c);
+    assert_ne!(cert_a, cert_c);
 }
 
 #[test]
 fn too_small_buffer_reports_exact_size() {
-    let mut c = SoftCrypto;
-    let cdi = CdiSecret::from_bytes(CDI);
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
+    let cdi = c.import_cdi(&CDI).unwrap();
     let Err(Error::InsufficientBuffer { required }) = issue_device_id_cwt(&mut c, &cdi, None, None)
     else {
         panic!()
@@ -367,20 +369,45 @@ fn too_small_buffer_reports_exact_size() {
     }
 }
 
+/// The library holds at most three keys, the caller's root CDI included,
+/// so three key slots are enough for the whole flow, and every key it
+/// derives is freed, on success and on error, except the next CDI it hands
+/// back.
 #[test]
-fn failed_next_stage_leaves_next_cdi_zeroed() {
-    let mut c = SoftCrypto;
-    let cdi = CdiSecret::from_bytes(CDI);
-    let input = test_input();
-    // Too small for the certificate, which is only found out after the next
-    // CDI has been derived into `next_cdi`.
+fn three_key_slots_are_enough_and_no_key_leaks() {
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
+    let cdi = c.import_cdi(&CDI).unwrap();
+    let mut buf = vec![0u8; 1024];
+    issue_device_id_cwt(&mut c, &cdi, None, Some(&mut buf)).unwrap();
+    assert_eq!(c.keys_in_use(), 1);
+    let (_, next_cdi) = issue_next_stage_cwt(&mut c, &cdi, &test_input(), Some(&mut buf)).unwrap();
+    assert_eq!(c.keys_in_use(), 2);
+    c.key_free(next_cdi);
+
+    // Too small for the certificate, which is only found out after the
+    // next CDI has been derived: the next CDI is freed too.
     let mut small = vec![0u8; 16];
-    let mut next_cdi = CdiSecret::from_bytes([0xaa; 32]);
     assert!(matches!(
-        issue_next_stage_cwt(&mut c, &cdi, &input, &mut next_cdi, Some(&mut small)),
+        issue_next_stage_cwt(&mut c, &cdi, &test_input(), Some(&mut small)),
         Err(Error::InsufficientBuffer { .. })
     ));
-    assert_eq!(next_cdi.as_bytes(), &[0; 32]);
+    assert_eq!(c.keys_in_use(), 1);
+}
+
+/// With two slots the next-stage certificate cannot be issued, and the
+/// failure leaks nothing either.
+#[test]
+fn two_key_slots_are_not_enough() {
+    let mut slots = KeySlots::<2>::new();
+    let mut c = SoftCrypto::new(&mut slots);
+    let cdi = c.import_cdi(&CDI).unwrap();
+    let mut buf = vec![0u8; 1024];
+    assert!(matches!(
+        issue_next_stage_cwt(&mut c, &cdi, &test_input(), Some(&mut buf)),
+        Err(Error::Crypto(nat20::CryptoError::NoKeySlot))
+    ));
+    assert_eq!(c.keys_in_use(), 1);
 }
 
 #[test]

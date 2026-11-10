@@ -49,8 +49,7 @@
 // backend, still builds and runs the other tests.
 #![cfg(feature = "soft-crypto")]
 
-use nat20::crypto::soft::SoftCrypto;
-use nat20::derive::CdiSecret;
+use nat20::crypto::soft::{KeySlots, SoftCrypto};
 use nat20::{issue_next_stage_cwt, Error, Mode, OpenDiceInput};
 
 const C_GOLDEN_CERT_HEX: &str = concat!(
@@ -69,8 +68,9 @@ const C_GOLDEN_CERT_HEX: &str = concat!(
 
 #[test]
 fn next_stage_cwt_matches_c_libnat20_byte_for_byte() {
-    let mut c = SoftCrypto;
-    let cdi = CdiSecret::from_bytes([0x42; 32]);
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
+    let cdi = c.import_cdi(&[0x42; 32]).unwrap();
     let input = OpenDiceInput {
         code_hash: &[0x11; 64],
         code_descriptor: b"next stage v1.0",
@@ -84,13 +84,12 @@ fn next_stage_cwt_matches_c_libnat20_byte_for_byte() {
     };
 
     let Err(Error::InsufficientBuffer { required }) =
-        issue_next_stage_cwt(&mut c, &cdi, &input, &mut CdiSecret::default(), None)
+        issue_next_stage_cwt(&mut c, &cdi, &input, None)
     else {
         panic!("size query must return InsufficientBuffer");
     };
     let mut buf = vec![0u8; required];
-    let mut next_cdi = CdiSecret::default();
-    let n = issue_next_stage_cwt(&mut c, &cdi, &input, &mut next_cdi, Some(&mut buf)).unwrap();
+    let (n, _next_cdi) = issue_next_stage_cwt(&mut c, &cdi, &input, Some(&mut buf)).unwrap();
 
     let golden = hex::decode(C_GOLDEN_CERT_HEX).unwrap();
     assert_eq!(n, golden.len());
