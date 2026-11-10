@@ -61,7 +61,7 @@
  * n20r_crypto_t (see "The crypto table" below). Keys are opaque handles of
  * that backend, so the library never handles a secret: the root CDI comes
  * in as a handle and the next CDI goes out as one. The library has no
- * panic that could stop a call half way.
+ * panic that could stop a call half way (checked at link time).
  *
  * Stack: besides what the crypto backend uses, the deepest call reaches
  * about 1 KiB below the caller's frame.
