@@ -47,7 +47,7 @@ use ciborium::value::Value;
 use ed25519_dalek::{Signature, VerifyingKey};
 use nat20::crypto::soft::{KeySlots, SoftCrypto};
 use nat20::derive::{attest_public_key, cdi_id};
-use nat20::{issue_device_id_cwt, issue_next_stage_cwt, Crypto, Error, Mode, OpenDiceInput};
+use nat20::{issue_device_id_key, issue_next_stage_cwt, Crypto, Error, Mode, OpenDiceInput};
 
 const CDI: [u8; 32] = [0x42; 32];
 
@@ -65,17 +65,16 @@ fn test_input() -> OpenDiceInput<'static> {
     }
 }
 
-fn issue_device_id(profile: Option<&[u8]>) -> Vec<u8> {
+fn issue_device_id() -> Vec<u8> {
     let mut slots = KeySlots::<3>::new();
     let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
-    let Err(Error::InsufficientBuffer { required }) =
-        issue_device_id_cwt(&mut c, &cdi, profile, None)
+    let Err(Error::InsufficientBuffer { required }) = issue_device_id_key(&mut c, &cdi, None)
     else {
         panic!("size query must return InsufficientBuffer");
     };
     let mut buf = vec![0u8; required];
-    let n = issue_device_id_cwt(&mut c, &cdi, profile, Some(&mut buf)).unwrap();
+    let n = issue_device_id_key(&mut c, &cdi, Some(&mut buf)).unwrap();
     assert_eq!(n, required, "size query must be exact");
     buf[buf.len() - n..].to_vec()
 }
@@ -198,55 +197,16 @@ fn expected_device_id_hex() -> (String, [u8; 32]) {
 }
 
 #[test]
-fn device_id_cwt_is_self_signed_and_well_formed() {
-    let cert = issue_device_id(Some(b"test.profile"));
-    let (protected, payload, signature) = split_sign1(&cert);
-
-    let pairs = claims(&payload);
-    let (id_hex, pk) = expected_device_id_hex();
-
-    // Issuer == subject == hex CDI_ID of the embedded key.
-    assert_eq!(claim(&pairs, 1), Some(&Value::Text(id_hex.clone())));
-    assert_eq!(claim(&pairs, 2), Some(&Value::Text(id_hex)));
-    // Mode claim present: 1-byte bstr "not configured".
-    assert_eq!(claim(&pairs, -4670551), Some(&Value::Bytes(vec![0])));
-    // Key usage: keyCertSign.
-    assert_eq!(claim(&pairs, -4670553), Some(&Value::Bytes(vec![0x20])));
-    // Profile claim.
-    assert_eq!(
-        claim(&pairs, -4670554),
-        Some(&Value::Text("test.profile".into()))
-    );
-    // No measurement claims on a self-signed device-identity cert.
-    for label in [
-        -4670545i64,
-        -4670546,
-        -4670547,
-        -4670548,
-        -4670549,
-        -4670550,
-    ] {
-        assert!(claim(&pairs, label).is_none(), "unexpected claim {label}");
-    }
-    // Embedded key is the device-identity key...
-    let x = cose_key_x(claim(&pairs, -4670552).unwrap());
-    assert_eq!(x, pk);
-
-    // ...and the certificate verifies against it (self-signed).
-    let vk = VerifyingKey::from_bytes(&pk).unwrap();
-    let sig = Signature::from_slice(&signature).unwrap();
-    vk.verify_strict(&sig_structure(&protected, &payload), &sig)
-        .expect("self-signed signature must verify");
-}
-
-#[test]
-fn device_id_cwt_without_profile_omits_claim() {
-    let cert = issue_device_id(None);
-    let (_, payload, _) = split_sign1(&cert);
-    let pairs = claims(&payload);
-    assert!(claim(&pairs, -4670554).is_none());
-    // issuer, subject, mode, subject_public_key, key_usage.
-    assert_eq!(pairs.len(), 5);
+fn device_id_key_is_the_cose_key_of_the_device_identity() {
+    let key = issue_device_id();
+    let (_, pk) = expected_device_id_hex();
+    // {1: OKP, 3: EdDSA, 4: [verify], -1: Ed25519, -2: x}
+    let mut expected = vec![
+        0xa5, 0x01, 0x01, 0x03, 0x27, 0x04, 0x81, 0x02, 0x20, 0x06, 0x21, 0x58, 0x20,
+    ];
+    expected.extend_from_slice(&pk);
+    assert_eq!(key, expected);
+    assert_eq!(cose_key_x(&Value::Bytes(key)), pk);
 }
 
 #[test]
@@ -354,7 +314,8 @@ fn too_small_buffer_reports_exact_size() {
     let mut slots = KeySlots::<3>::new();
     let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
-    let Err(Error::InsufficientBuffer { required }) = issue_device_id_cwt(&mut c, &cdi, None, None)
+    let Err(Error::InsufficientBuffer { required }) =
+        issue_next_stage_cwt(&mut c, &cdi, &test_input(), None)
     else {
         panic!()
     };
@@ -362,7 +323,7 @@ fn too_small_buffer_reports_exact_size() {
     // by more, it does not. Both report the certificate size.
     for short in [1, 64, required] {
         let mut small = vec![0u8; required - short];
-        match issue_device_id_cwt(&mut c, &cdi, None, Some(&mut small)) {
+        match issue_next_stage_cwt(&mut c, &cdi, &test_input(), Some(&mut small)) {
             Err(Error::InsufficientBuffer { required: r }) => assert_eq!(r, required),
             other => panic!("expected InsufficientBuffer, got {other:?}"),
         }
@@ -379,7 +340,7 @@ fn three_key_slots_are_enough_and_no_key_leaks() {
     let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let mut buf = vec![0u8; 1024];
-    issue_device_id_cwt(&mut c, &cdi, None, Some(&mut buf)).unwrap();
+    issue_device_id_key(&mut c, &cdi, Some(&mut buf)).unwrap();
     assert_eq!(c.keys_in_use(), 1);
     let (_, next_cdi) = issue_next_stage_cwt(&mut c, &cdi, &test_input(), Some(&mut buf)).unwrap();
     assert_eq!(c.keys_in_use(), 2);
@@ -413,7 +374,7 @@ fn two_key_slots_are_not_enough() {
 #[test]
 fn protected_header_is_canonical_bytes() {
     // The protected header must be exactly bstr(3){a1 01 27}.
-    let cert = issue_device_id(None);
+    let (_, cert) = issue_next_stage();
     let pos = cert
         .windows(4)
         .position(|w| w == [0x43, 0xa1, 0x01, 0x27])

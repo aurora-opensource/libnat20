@@ -223,47 +223,42 @@ fn render_and_sign<C: Crypto + ?Sized>(
 /// the hex rendering is fixed-width so any value yields the exact size).
 const SIZE_QUERY_ID: CdiId = [0x7f; 20];
 
-/// Issues the self-signed device-identity CWT from the root CDI.
+/// Issues the device identity that starts the chain: the attestation
+/// public key of the root CDI as an Ed25519 COSE_Key (RFC 9052), untagged.
+/// The handover tags it with [`TAG_DEVICE_ID_COSE_KEY`](crate::handover::TAG_DEVICE_ID_COSE_KEY).
 ///
-/// Derives the device-identity key ([`attest_key`]), uses its CDI_ID as
-/// both issuer and subject, and signs the certificate with the key it
-/// certifies. This extends the C library, which does not currently support
-/// COSE for self-signed certificates.
+/// This replaces a self-signed device-identity CWT: the key is the
+/// identity, and a signature over it by itself would prove nothing more.
+/// The CDI_ID of the key, which the next-stage CWT names as its issuer,
+/// is derived from the key by whoever needs it.
 ///
 /// With `buf = None` this is an exact-size query: no crypto runs and the
 /// result is `Err(Error::InsufficientBuffer { required })`. On success the
-/// encoded certificate occupies `buf[buf.len() - n ..]` where `n` is the
-/// returned byte count.
-pub fn issue_device_id_cwt<C: Crypto + ?Sized>(
+/// encoded key occupies `buf[buf.len() - n ..]` where `n` is the returned
+/// byte count.
+pub fn issue_device_id_key<C: Crypto + ?Sized>(
     c: &mut C,
     cdi: &C::Key,
-    profile_name: Option<&[u8]>,
     buf: Option<&mut [u8]>,
 ) -> Result<usize, Error> {
     let Some(buf) = buf else {
-        return Err(size_query(&CwtParams {
-            issuer_id: &SIZE_QUERY_ID,
-            subject_id: &SIZE_QUERY_ID,
-            input: None,
-            subject_public_key: &[0; 32],
-            profile_name,
-        }));
+        let mut s = WStream::counting();
+        cose::write_cose_key_ed25519(&mut s, &[0; 32]);
+        return Err(Error::InsufficientBuffer {
+            required: s.written(),
+        });
     };
 
     let mut public_key = [0u8; 32];
     attest_public_key(c, cdi, &mut public_key)?;
-    let id = cdi_id(c, &public_key)?;
-
-    let params = CwtParams {
-        issuer_id: &id,
-        subject_id: &id,
-        input: None,
-        subject_public_key: &public_key,
-        profile_name,
-    };
-    // The key is derived a second time to sign: it then exists only around
-    // the signature, not while the certificate is rendered.
-    render_and_sign(c, |c, m, sig| attest_sign(c, cdi, m, sig), &params, buf)
+    let mut s = WStream::new(buf);
+    cose::write_cose_key_ed25519(&mut s, &public_key);
+    if s.overflowed() {
+        return Err(Error::InsufficientBuffer {
+            required: s.written(),
+        });
+    }
+    Ok(s.written())
 }
 
 /// Derives the next-stage CDI from `cdi` and the open-DICE `input`, and
@@ -293,7 +288,7 @@ pub fn issue_next_stage_cwt<C: Crypto + ?Sized>(
         return Err(size_query(&CwtParams {
             issuer_id: &SIZE_QUERY_ID,
             subject_id: &SIZE_QUERY_ID,
-            input: Some(input),
+            input,
             subject_public_key: &[0; 32],
             profile_name,
         }));
@@ -330,10 +325,11 @@ fn issue_next_stage_with<C: Crypto + ?Sized>(
     let params = CwtParams {
         issuer_id: &issuer_id,
         subject_id: &subject_id,
-        input: Some(input),
+        input,
         subject_public_key: &subject_public_key,
         profile_name,
     };
-    // As in `issue_device_id_cwt`, the issuer key exists only to sign.
+    // The issuer key is derived a second time to sign: it then exists only
+    // around the signature, not while the certificate is rendered.
     render_and_sign(c, |c, m, sig| attest_sign(c, cdi, m, sig), &params, buf)
 }

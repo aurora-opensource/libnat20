@@ -36,8 +36,11 @@
 """Independently decodes and verifies a nat20 CWT (COSE_Sign1, Ed25519).
 
 Usage:
-  decode_cwt.py CERT.bin                 # self-signed: verify with embedded key
-  decode_cwt.py CERT.bin ISSUER_CERT.bin # verify with issuer cert's key
+  decode_cwt.py CERT.bin                 # verify with the embedded key
+  decode_cwt.py CERT.bin ISSUER.bin      # verify with the issuer's key
+
+ISSUER.bin is either the issuer's certificate or, for the first certificate
+of a chain, the device-identity COSE_Key (untagged).
 
 Uses a minimal built-in CBOR decoder (definite-length subset) and the
 `cryptography` package for Ed25519 verification. Exits non-zero on any
@@ -135,7 +138,13 @@ def load(path: str):
 
 
 def public_key_of(claims) -> bytes:
-    cose_key, _ = decode(claims[-4670552])
+    return cose_key_x(claims[-4670552])
+
+
+def cose_key_x(encoded: bytes) -> bytes:
+    cose_key, end = decode(encoded)
+    if end != len(encoded):
+        raise ValueError("trailing bytes after COSE_Key")
     if cose_key[1] != 1 or cose_key[-1] != 6 or cose_key[3] != -8:
         raise ValueError(f"not an Ed25519 OKP verify key: {cose_key!r}")
     return cose_key[-2]
@@ -148,12 +157,18 @@ def main() -> int:
 
     protected, payload, signature, claims = load(sys.argv[1])
     if len(sys.argv) == 3:
-        _, _, _, issuer_claims = load(sys.argv[2])
-        verify_key = public_key_of(issuer_claims)
-        against = "issuer certificate key"
+        with open(sys.argv[2], "rb") as f:
+            issuer = f.read()
+        if isinstance(decode(issuer)[0], dict):
+            verify_key = cose_key_x(issuer)
+            against = "device-identity COSE_Key"
+        else:
+            _, _, _, issuer_claims = load(sys.argv[2])
+            verify_key = public_key_of(issuer_claims)
+            against = "issuer certificate key"
     else:
         verify_key = public_key_of(claims)
-        against = "embedded key (self-signed)"
+        against = "embedded key"
 
     print("claims:")
     for label, value in claims.items():
