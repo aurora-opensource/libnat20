@@ -44,7 +44,7 @@ use crate::tests::{
 use core::ffi::c_void;
 use core::ptr;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use nat20::crypto::soft::SoftCrypto;
+use nat20::crypto::soft::{KeySlots, SoftCrypto};
 use nat20::open_dice::Mode;
 
 #[repr(C, align(8))]
@@ -87,7 +87,8 @@ fn issue_via_ffi(ctx: *mut u8) -> ([u8; 32], Vec<u8>) {
 /// The handover `issue_via_ffi` must produce, from the library directly.
 fn issue_via_library(input: &OpenDiceInput) -> ([u8; 32], Vec<u8>) {
     let mut cert = vec![0u8; 1024];
-    let mut c = SoftCrypto::<3>::new();
+    let mut slots = KeySlots::<3>::new();
+    let mut c = SoftCrypto::new(&mut slots);
     let cdi = c.import_cdi(&CDI).unwrap();
     let (n, next_cdi) = issue_next_stage_cwt(&mut c, &cdi, input, Some(&mut cert)).unwrap();
     let mut next = [0u8; 32];
