@@ -94,9 +94,11 @@
 use core::mem::{align_of, size_of};
 use core::slice;
 
+use nat20::cbor::{write_bytes, write_header, write_map_header, write_text_bytes, Major};
 use nat20::derive::{attest_public_key, issue_device_id_key, issue_next_stage_cwt};
 use nat20::handover::{HandoverHeader, HandoverStruct, TAG_COSE_SIGN1, TAG_DEVICE_ID_COSE_KEY};
 use nat20::open_dice::OpenDiceInput;
+use nat20::stream::WStream;
 use nat20::{Crypto as _, Error};
 
 mod cbuf;
@@ -270,6 +272,21 @@ buffer_setter!(
 pub unsafe extern "C" fn n20r_set_mode(ctx: *mut u8, mode: u8) -> N20rError {
     // SAFETY: inherits this function's documented contract.
     status(DiceCtx::from_raw(ctx).and_then(|ctx| ctx.set_mode(mode)))
+}
+
+/// Interprets a (pointer, size) pair as a slice. A null pointer is an empty
+/// slice whatever the size, as it is for the context setters.
+///
+/// # Safety
+/// A non-null `ptr` must point to `size` readable bytes for `'a`.
+unsafe fn slice_arg<'a>(ptr: *const u8, size: usize) -> &'a [u8] {
+    if ptr.is_null() {
+        &[]
+    } else {
+        // SAFETY: non-null, and the caller guarantees `size` readable bytes
+        // for `'a`.
+        slice::from_raw_parts(ptr, size)
+    }
 }
 
 /// Rejects a handover region that is null, too small for the header, or
@@ -533,10 +550,126 @@ unsafe fn handover_ref_arg<'b>(
     nat20::handover::HandoverRef::new(header, content)
 }
 
+/// `N20R_CBOR_UINT`: the entry's value is `uint_value`.
+pub const N20R_CBOR_UINT: u32 = 0;
+/// `N20R_CBOR_BYTES`: the entry's value is the byte string `data`/`size`.
+pub const N20R_CBOR_BYTES: u32 = 2;
+/// `N20R_CBOR_TEXT`: the entry's value is the UTF-8 text string `data`/`size`.
+pub const N20R_CBOR_TEXT: u32 = 3;
+
+/// One key-value pair of a map encoded by [`n20r_encode_cbor_map`], laid out
+/// as `n20r_cbor_map_entry_t` in `nat20_rust.h`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct N20rCborMapEntry {
+    /// The unsigned integer key.
+    pub key: u64,
+    /// The value when `kind` is `N20R_CBOR_UINT`.
+    pub uint_value: u64,
+    /// The value when `kind` is `N20R_CBOR_BYTES` or `N20R_CBOR_TEXT`.
+    pub data: *const u8,
+    /// Length of `data` in bytes.
+    pub size: usize,
+    /// One of the `N20R_CBOR_*` constants: the CBOR major type of the value.
+    pub kind: u32,
+}
+
+/// Writes `entries` as a CBOR map, last pair first because the stream writes
+/// backward.
+///
+/// # Safety
+/// Every entry must have a valid `kind`, and the `data` of each bytes or text
+/// entry must be null or point to `size` readable bytes.
+unsafe fn encode_cbor_map(s: &mut WStream, entries: &[N20rCborMapEntry]) {
+    for e in entries.iter().rev() {
+        let bytes = if e.kind == N20R_CBOR_UINT {
+            &[][..]
+        } else {
+            // SAFETY: guaranteed by our caller.
+            slice_arg(e.data, e.size)
+        };
+        match e.kind {
+            N20R_CBOR_UINT => write_header(s, Major::Uint, e.uint_value),
+            N20R_CBOR_BYTES => write_bytes(s, bytes),
+            // Text is written verbatim, not validated (see write_text_bytes).
+            _ => write_text_bytes(s, bytes),
+        }
+        write_header(s, Major::Uint, e.key);
+    }
+    write_map_header(s, entries.len() as u64);
+}
+
+/// Encodes a CBOR map with unsigned integer keys, such as an open-DICE code
+/// or configuration descriptor, into `out`.
+///
+/// The keys must be strictly ascending, which makes the encoding
+/// deterministic (RFC 8949 section 4.2.1). On input `*size` is the capacity
+/// of `out`; on success it is the encoded length, and the map starts at
+/// `out[0]`. If `out` is null or too small, `*size` is set to the exact
+/// length needed and `InsufficientBuffer` is returned with nothing written.
+/// Unordered keys or an unknown `kind` return `InvalidArgument` with `*size`
+/// unchanged. A null `data` is an empty string, whatever its `size`.
+///
+/// # Safety
+/// `size` must point to a readable and writable `usize`. `entries` must point
+/// to `count` readable entries, or may be null when `count` is 0. The `data`
+/// of each bytes or text entry must be null or point to `size` readable
+/// bytes (text should be UTF-8; it is written verbatim). `out` must be null
+/// or point to `*size` writable bytes that do not overlap any entry's data.
+#[no_mangle]
+pub unsafe extern "C" fn n20r_encode_cbor_map(
+    entries: *const N20rCborMapEntry,
+    count: usize,
+    out: *mut u8,
+    size: *mut usize,
+) -> N20rError {
+    status((|| -> Result<(), Error> {
+        if size.is_null() || (entries.is_null() && count != 0) {
+            return Err(Error::InvalidArgument);
+        }
+        let entries = if count == 0 {
+            &[]
+        } else {
+            // SAFETY: non-null, and the caller guarantees `count` readable
+            // entries.
+            slice::from_raw_parts(entries, count)
+        };
+        let mut prev_key = None;
+        for e in entries {
+            let valid_kind = matches!(e.kind, N20R_CBOR_UINT | N20R_CBOR_BYTES | N20R_CBOR_TEXT);
+            if !valid_kind || prev_key.is_some_and(|prev| e.key <= prev) {
+                return Err(Error::InvalidArgument);
+            }
+            prev_key = Some(e.key);
+        }
+
+        let mut counter = WStream::counting();
+        // SAFETY: the entries were validated above, and the caller
+        // guarantees their data.
+        encode_cbor_map(&mut counter, entries);
+        let required = counter.written();
+        // SAFETY: non-null, and the caller guarantees it is readable and
+        // writable.
+        let capacity = *size;
+        *size = required;
+        if out.is_null() || capacity < required {
+            return Err(Error::InsufficientBuffer { required });
+        }
+        // SAFETY: non-null, and the caller guarantees `capacity` >= `required`
+        // writable bytes that overlap no input. Writing into exactly
+        // `required` bytes puts the backward-written map at offset 0.
+        let out = slice::from_raw_parts_mut(out, required);
+        encode_cbor_map(&mut WStream::new(out), entries);
+        Ok(())
+    })())
+}
+
 // Compile-time locks on the C-visible ABI (checked on every build, including
 // cross builds, so they guard the actual target layout).
 const _: () = {
     assert!(core::mem::size_of::<N20rError>() == 4);
+    // n20r_cbor_map_entry_t in nat20_rust.h.
+    assert!(size_of::<N20rCborMapEntry>() == if size_of::<usize>() == 4 { 32 } else { 40 });
     // `N20R_DICE_CTX_SIZE` in nat20_rust.h must cover the real structure.
     assert!(DiceCtx::required_size() <= N20R_DICE_CTX_SIZE);
     // n20r_slice_t and n20r_crypto_t in nat20_rust.h: pointers and sizes.
@@ -553,6 +686,8 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
+#[cfg(test)]
+mod cbor_map_tests;
 #[cfg(test)]
 mod ctx_tests;
 #[cfg(test)]
