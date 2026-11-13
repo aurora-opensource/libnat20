@@ -57,6 +57,7 @@ jobs:
       - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 #v2.87.32
         with:
           tool: cargo-llvm-cov@0.9.1
+          fallback: none
       - name: Install lcov
         run: |
           sudo apt update
